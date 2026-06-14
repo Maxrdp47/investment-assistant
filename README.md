@@ -9,6 +9,7 @@ Die App handelt nicht automatisch, hat keine Broker-Anbindung und gibt keine Fin
 - Asset-Name oder Yahoo-Finance-Ticker eingeben
 - automatische Yahoo-Finance-Suche mit auswählbaren Treffern für Firmennamen, ETFs und Kryptowährungen
 - Speicherung der zuletzt erfolgreichen Suchanfragen in `search_history.json`
+- Schnellwahl der letzten erfolgreichen Suchen in der Sidebar
 - Währungsmanagement: Anzeige standardmäßig in EUR plus Originalwährung
 - automatische Asset-Typ-Erkennung: Aktie, ETF, Krypto oder unbekannt
 - manuelle Asset-Typ-Auswahl, falls die automatische Erkennung unsicher ist

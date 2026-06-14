@@ -3091,8 +3091,17 @@ def main() -> None:
                 st.info("Ähnliche bekannte Treffer: " + ", ".join(format_candidate(item) for item in suggestions))
 
         history = load_search_history()
+        selected_history_data = None
         if history:
             with st.expander("Zuletzt erfolgreiche Suchen", expanded=False):
+                history_labels = [
+                    f"{item.get('name', item.get('symbol'))} | {item.get('symbol')} | {item.get('exchange', 'Daten nicht verfügbar')}"
+                    for item in history[:8]
+                ]
+                selected_history_label = st.selectbox("Schnellwahl aus Historie", [""] + history_labels)
+                if selected_history_label:
+                    selected_history_data = history[history_labels.index(selected_history_label)]
+                    st.caption(f"Aus Historie übernommen: {selected_history_data.get('symbol', '')}")
                 for item in history[:5]:
                     st.write(f"{item.get('name', item.get('symbol'))} | {item.get('symbol')} | {item.get('exchange', 'Daten nicht verfügbar')}")
         manual_symbol = st.text_input(
@@ -3110,6 +3119,16 @@ def main() -> None:
     if manual_symbol.strip():
         symbol = manual_symbol.strip().upper()
         selected_candidate_data = ticker_candidate(symbol, source="Manuelle Eingabe")
+    elif selected_history_data:
+        symbol = str(selected_history_data.get("symbol", "")).upper()
+        selected_candidate_data = {
+            "symbol": symbol,
+            "name": selected_history_data.get("name", symbol),
+            "exchange": selected_history_data.get("exchange", "Daten nicht verfügbar"),
+            "currency": selected_history_data.get("currency", ""),
+            "quote_type": selected_history_data.get("quote_type", ""),
+            "source": "Suchhistorie",
+        }
     else:
         symbol = str(selected_candidate_data.get("symbol", "")).upper() if selected_candidate_data else ""
     if not query.strip():

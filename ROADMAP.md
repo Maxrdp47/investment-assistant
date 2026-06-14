@@ -95,8 +95,8 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Sichtbare Empfehlung klar trennen in Asset-Qualität, Kaufsignal, Research-Handlungsempfehlung und Depot-Effekt. Status: umgesetzt am 2026-06-15.
 - Fehlerbehandlung bei Yahoo-Finance-Ausfällen verbessern. Status: umgesetzt am 2026-06-15.
 - Datenqualitäts-Check kompakter und sichtbarer machen. Status: umgesetzt am 2026-06-15.
-- Suchhistorie in der Sidebar als auswählbare Schnellwahl nutzbar machen.
-- Umlaute und sichtbare deutsche Texte prüfen.
+- Suchhistorie in der Sidebar als auswählbare Schnellwahl nutzbar machen. Status: umgesetzt am 2026-06-15.
+- Umlaute und sichtbare deutsche Texte prüfen. Status: umgesetzt am 2026-06-15.
 - App-Start und Analysefluss regelmäßig testen.
 
 ### Priorität 2: Score-Qualität
@@ -383,20 +383,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Umlaute und sichtbare deutsche Texte prüfen.
+1. App-Start und Analysefluss regelmäßig testen.
 
 Warum diese Aufgabe zuerst:
 
-- In früheren Änderungen gab es sichtbare Encoding-Probleme wie `Ã¼` statt `ü`.
-- Lesbare deutsche Texte sind PRIO A, weil unlesbare Empfehlungen die Analyse praktisch unbrauchbar machen.
-- Die App soll für Anfänger verständlich bleiben und keine kaputten Umlaute anzeigen.
+- Nach mehreren UI- und Analyseänderungen ist ein wiederholbarer Start- und Analysefluss-Test die wichtigste Stabilitätsaufgabe.
+- Diese Aufgabe ist PRIO A, weil sie sicherstellt, dass die App nicht nur syntaktisch korrekt ist, sondern auch im Alltag startet und analysiert.
+- Ein stabiler Smoke-Test erleichtert spätere Forward-Testing-, Scanner- und Research-Module.
 
 Nächste konkrete Umsetzung:
 
-1. Sichtbare UI-Texte in `app.py`, `README.md` und `ROADMAP.md` auf Mojibake prüfen, z. B. `Ã`, `Â`, `â`.
-2. Gefundene Stellen korrigieren, ohne Logik unnötig zu ändern.
-3. Syntax und Analysepfade testen.
-4. ROADMAP aktualisieren.
+1. Wiederholbaren Smoke-Test für Streamlit-Start definieren.
+2. Analysefluss mit `BTC-EUR`, `NVDA` und Xiaomi-Fallback testen.
+3. Falls Browser-Test wegen Sandbox nicht möglich ist, HTTP-/Funktions-Tests dokumentieren.
+4. README/ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
 
@@ -768,7 +768,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Warnungsfunktion mit simulierten Ausfällen und Normalfall erfolgreich; Live-Analysepfade mit `BTC-EUR`, `NVDA` und `1810.HK` erfolgreich.
 - Datenqualitäts-Check kompakter und sichtbarer gemacht: Dashboard zeigt jetzt eine Datenqualitäts-Ampel mit Score, kurzer Statuszeile, wichtigsten Datenhinweisen und Details im Expander.
 - Anfänger-Modus um einfache Datenqualitäts-Erklärung ergänzt.
-- Nächste tatsächliche Priorität gesetzt: Umlaute und sichtbare deutsche Texte prüfen, da Lesbarkeit und Verständlichkeit PRIO A sind.
+- Umlaute und sichtbare deutsche Texte geprüft: `app.py` und `README.md` enthalten keine Mojibake-Treffer; ROADMAP-Treffer sind nur absichtlich dokumentierte Beispiele.
+- Suchhistorie in der Sidebar als auswählbare Schnellwahl umgesetzt.
+- Nächste tatsächliche Priorität gesetzt: App-Start und Analysefluss regelmäßig testen, da Stabilität PRIO A ist.
 
 ### 2026-06-14
 

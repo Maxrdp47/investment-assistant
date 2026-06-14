@@ -101,7 +101,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 
 ### Priorität 2: Score-Qualität
 
-- Gewichtungen der Scores transparent dokumentieren.
+- Gewichtungen der Scores transparent dokumentieren. Status: umgesetzt am 2026-06-15.
 - Score-Logik kalibrieren.
 - Asset-Qualität je Asset-Typ verbessern.
 - Kaufsignal weiter von Asset-Qualität abgrenzen.
@@ -383,19 +383,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Gewichtungen der Scores transparent dokumentieren.
+1. Score-Logik kalibrieren.
 
 Warum diese Aufgabe zuerst:
 
-- Score-Transparenz ist die nächste höchste Aufgabe, weil Nutzer verstehen müssen, warum eine Empfehlung entsteht.
-- Diese Aufgabe verbessert Analysequalität und Vertrauen stärker als Komfortfunktionen.
-- Sie bereitet spätere Kalibrierung, Forward-Testing und Lernmodule vor.
+- Nach der Transparenz ist Kalibrierung die nächste höchste Aufgabe, weil Scores nachvollziehbar und langfristig überprüfbar werden müssen.
+- Diese Aufgabe darf keine Gewichtungen automatisch verändern, sondern soll Schwachstellen und Messpunkte vorbereiten.
+- Sie ist Grundlage für Forward-Testing, Prognose-Tracking und Lernmodul.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Score-Komponenten und Gewichtungen in `app.py` identifizieren.
-2. Score-Transparenz im Dashboard und README verständlicher machen.
-3. Keine Gewichtungen heimlich ändern.
+1. Aktuelle Score-Logik auf offensichtliche harte Sprünge, Doppelzählungen und unklare Neutralwerte prüfen.
+2. Messpunkte definieren, die später im Forward-/Prognose-Tracking kalibriert werden können.
+3. Keine Gewichtungen automatisch ändern.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -772,7 +772,8 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Suchhistorie in der Sidebar als auswählbare Schnellwahl umgesetzt.
 - Wiederholbaren Smoke-Test ergänzt: `scripts/smoke_test.py` kompiliert `app.py`, startet Streamlit kurz auf einem freien Port und prüft den Analysefluss mit `BTC-EUR`, `NVDA` und `1810.HK`.
 - Smoke-Test erfolgreich ausgeführt: py_compile OK, Streamlit-Start OK, Live-Analysepfade OK.
-- Nächste tatsächliche Priorität gesetzt: Score-Gewichtungen transparent dokumentieren, da Score-Verständlichkeit und spätere Kalibrierung hohe Analysewirkung haben.
+- Score-Gewichtungen transparent gemacht: Analyse-Details zeigen jetzt Gewichtungen nach Asset-Typ und die separate Kaufsignal-Gewichtung; README dokumentiert die Gewichtungen.
+- Nächste tatsächliche Priorität gesetzt: Score-Logik kalibrieren, aber ohne automatische Gewichtungsänderung.
 
 ### 2026-06-14
 

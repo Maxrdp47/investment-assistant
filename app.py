@@ -1264,6 +1264,24 @@ def data_quality_status(data_quality: ResearchModule, external_warnings: list[st
     return label, summary, highlights[:3]
 
 
+def score_weight_rows(profile: AssetProfile) -> list[dict[str, str]]:
+    descriptions = {
+        "Technik": "Trend, Momentum, RSI, MACD, Volumen, Unterstützungen und Widerstände.",
+        "Fundamentaldaten": "Langfristige Qualität des Assets; bei Krypto Netzwerk-/Adoptionsnähe statt klassischer Unternehmensdaten.",
+        "Makro": "Zinsen, Nasdaq, Dollar und weitere Makro-Proxies.",
+        "News": "Aktuelle Yahoo-Finance-News und einfaches Sentiment.",
+        "CRV": "Chance-Risiko-Verhältnis aus nächster Unterstützung und nächstem Widerstand.",
+    }
+    return [
+        {
+            "Baustein": name,
+            "Gewichtung": f"{weight * 100:.0f}%",
+            "Bedeutung": descriptions.get(name, "Bewertungsbaustein."),
+        }
+        for name, weight in profile.weights.items()
+    ]
+
+
 def weighted_total_score(
     technical: ModuleScore,
     fundamentals: ModuleScore,
@@ -3414,6 +3432,17 @@ def main() -> None:
                 use_container_width=True,
                 hide_index=True,
             )
+
+            st.markdown("**Gewichtungen nach Asset-Typ**")
+            st.caption("Diese Gewichtungen erklären den Research-/Gesamtkontext. Das finale Kaufsignal bleibt separat und bewertet den aktuellen Einstiegszeitpunkt.")
+            st.dataframe(
+                pd.DataFrame(score_weight_rows(asset_profile)),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            st.markdown("**Kaufsignal-Gewichtung**")
+            st.write("Das Kaufsignal nutzt den Technik-Score mit 70 %, den CRV-Score mit 20 % und danach begrenzte Zu- oder Abschläge für Marktphase, RSI und hohe Volatilität.")
 
             st.markdown("**Technik-Score erklärt**")
             for name, points, text in score_result.breakdown:

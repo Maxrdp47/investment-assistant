@@ -174,6 +174,17 @@ Einflussfaktoren:
 
 Portfolio-Daten verändern das Kaufsignal nicht.
 
+### Gewichtungen
+
+Die App zeigt die Gewichtungen im Bereich **Analyse-Details anzeigen**. Je nach Asset-Typ werden die Research-Bausteine unterschiedlich gewichtet:
+
+- Aktie: Technik 30 %, Fundamentaldaten 30 %, Makro 20 %, News 10 %, CRV 10 %
+- ETF: Technik 25 %, Fundamentaldaten 25 %, Makro 25 %, News 10 %, CRV 15 %
+- Krypto: Technik 40 %, Fundamentaldaten/Krypto-Adoption 5 %, Makro 25 %, News 15 %, CRV 15 %
+- Unbekannt: Technik 45 %, Fundamentaldaten 5 %, Makro 25 %, News 10 %, CRV 15 %
+
+Das **Kaufsignal** bleibt separat: Es nutzt vor allem den Technik-Score, das CRV und begrenzte Zu- oder Abschläge für Marktphase, RSI und Volatilität.
+
 ### Depot-Effekt
 
 Wird nur berechnet, wenn **Portfolio in Bewertung einbeziehen** aktiv ist.

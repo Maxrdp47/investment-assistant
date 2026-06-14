@@ -1115,7 +1115,7 @@ def load_news_items(symbol: str) -> list[dict]:
 def score_news(symbol: str) -> ModuleScore:
     news = load_news_items(symbol)
     if not news:
-        return ModuleScore(5.0, "Keine aktuellen Nachrichten über Yahoo Finance gefunden. News wird neutral bewertet.", ["Keine News verfügbar."])
+        return ModuleScore(5.0, "News-Daten nicht verfügbar oder keine aktuellen Nachrichten über Yahoo Finance gefunden. News wird neutral behandelt.", ["Keine News verfügbar."])
 
     sentiment_values: list[int] = []
     details: list[str] = []
@@ -1223,6 +1223,26 @@ def score_macro() -> ModuleScore:
     else:
         summary = "Makroumfeld ist gemischt."
     return ModuleScore(final_score, summary, details)
+
+
+def build_data_source_warnings(
+    ticker_info: dict,
+    original_currency: str,
+    fx_rate: float | None,
+    fx_ticker: str,
+    news: ModuleScore,
+    macro: ModuleScore,
+) -> list[str]:
+    warnings: list[str] = []
+    if not ticker_info:
+        warnings.append("Yahoo-Finance-Stammdaten sind nicht verfügbar; Asset-Name, Börse, Fundamentaldaten und institutionelle Daten können eingeschränkt sein.")
+    if original_currency != "EUR" and fx_rate is None:
+        warnings.append(f"EUR-Umrechnung für {original_currency} ist nicht verfügbar ({fx_ticker}); Anzeige erfolgt teilweise in Originalwährung.")
+    if any("Keine News verfügbar" in detail or "Keine aktuellen Nachrichten" in detail for detail in [news.summary, *news.details]):
+        warnings.append("Yahoo-Finance-News sind nicht verfügbar oder leer; News-Score wird neutral behandelt.")
+    if any("Keine Makrodaten verfügbar" in detail or "Makrodaten konnten nicht geladen" in detail for detail in [macro.summary, *macro.details]):
+        warnings.append("Makro-Proxies konnten nicht geladen werden; Makro-Score wird neutral behandelt.")
+    return warnings
 
 
 def weighted_total_score(
@@ -3132,6 +3152,14 @@ def main() -> None:
             currency_mode,
         )
         portfolio_result = evaluate_portfolio(symbol, portfolio_enabled, buy_signal.score, asset_profile)
+        data_source_warnings = build_data_source_warnings(
+            ticker_info,
+            original_currency,
+            fx_rate,
+            fx_ticker,
+            news,
+            macro,
+        )
         action_title, action_html = final_recommendation_v2(
             asset_quality,
             buy_signal,
@@ -3161,6 +3189,11 @@ def main() -> None:
             st.warning(research_pack.data_quality.summary)
         else:
             st.success(research_pack.data_quality.summary)
+        if data_source_warnings:
+            st.warning("Externe Datenquellen eingeschränkt: " + " ".join(data_source_warnings[:3]))
+            with st.expander("Details zu eingeschränkten Datenquellen", expanded=False):
+                for warning in data_source_warnings:
+                    st.write(f"- {warning}")
         st.markdown(action_html, unsafe_allow_html=True)
         if beginner_mode:
             buy_answer, buy_text = beginner_buy_answer(buy_signal.score, action_title)
@@ -3234,6 +3267,10 @@ def main() -> None:
             st.write(research_pack.data_quality.summary)
             for detail in research_pack.data_quality.details:
                 st.write(f"- {detail}")
+            if data_source_warnings:
+                st.markdown("**Eingeschränkte externe Datenquellen**")
+                for warning in data_source_warnings:
+                    st.write(f"- {warning}")
 
             st.markdown("**Modul-Scores**")
             st.dataframe(

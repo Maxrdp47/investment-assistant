@@ -93,7 +93,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 
 - Haupt-Dashboard und Research-Modul vereinheitlichen, damit Empfehlungen nicht doppelt oder widersprüchlich wirken. Status: umgesetzt am 2026-06-15.
 - Sichtbare Empfehlung klar trennen in Asset-Qualität, Kaufsignal, Research-Handlungsempfehlung und Depot-Effekt. Status: umgesetzt am 2026-06-15.
-- Fehlerbehandlung bei Yahoo-Finance-Ausfällen verbessern.
+- Fehlerbehandlung bei Yahoo-Finance-Ausfällen verbessern. Status: umgesetzt am 2026-06-15.
 - Datenqualitäts-Check kompakter und sichtbarer machen.
 - Suchhistorie in der Sidebar als auswählbare Schnellwahl nutzbar machen.
 - Umlaute und sichtbare deutsche Texte prüfen.
@@ -383,21 +383,21 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Fehlerbehandlung bei Yahoo-Finance-Ausfällen verbessern.
+1. Datenqualitäts-Check kompakter und sichtbarer machen.
 
 Warum diese Aufgabe zuerst:
 
-- Yahoo-Finance-Ausfälle können Analysequalität und Vertrauen sofort beschädigen.
-- Eine robuste Fehlerbehandlung ist PRIO A, weil sie Datenqualität, Stabilität und ehrliche Hinweise verbessert.
-- Die App darf bei fehlenden Kurs-, News-, Fundamental- oder Makrodaten keine stillen Fehlschlüsse erzeugen.
+- Der Datenqualitäts-Check ist bereits vorhanden, wirkt aber noch eher technisch und im Research-Block versteckt.
+- Eine kompakte sichtbare Qualitätsampel ist PRIO A, weil Nutzer sofort verstehen müssen, wie belastbar die Analyse ist.
+- Das verbessert Analysequalität und Anfänger-Verständlichkeit stärker als Komfortfunktionen.
 
 Nächste konkrete Umsetzung:
 
-1. Alle Yahoo-Finance-Ladepunkte identifizieren: Kursdaten, Ticker-Info, News, Analysten-/Earnings-/Institutional-Daten und Makro-Proxies.
-2. Einheitliche Fehlerobjekte oder klare Rückgabewerte einführen, ohne fehlende Daten zu erfinden.
-3. Nutzerhinweise so bündeln, dass `Daten nicht verfügbar` und `Datenqualität eingeschränkt` sichtbar, aber nicht überladen wirken.
-4. Analysepfade mit `BTC-EUR`, `NVDA` und Xiaomi-Fallback testen.
-5. README und ROADMAP aktualisieren.
+1. Datenqualitäts-Score als kompakte Ampel oder Statuszeile oberhalb der Charts darstellen.
+2. Wichtigste Datenlücken priorisieren: Kursdaten, Volumen, 200 Tage, SMA 50/200, Stammdaten, FX, News, Makro.
+3. Details weiterhin im Research-Modul lassen, aber oben nur die wichtigsten 2-3 Hinweise zeigen.
+4. Anfänger-Erklärung für Datenqualität ergänzen.
+5. Analysepfade mit `BTC-EUR`, `NVDA` und Xiaomi-Fallback testen.
 
 ## Akzeptanzkriterien
 
@@ -765,7 +765,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Separate obere `Research-Handlungsempfehlung` entfernt, damit keine zweite Empfehlung neben der zentralen Entscheidung konkurriert.
 - Analyse-Details verbessert: `Konkreter Plan` zeigt jetzt den Research-Plan statt nur den Empfehlungstitel.
 - Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Analysepfade mit `BTC-EUR`, `NVDA` und `1810.HK` erfolgreich; Streamlit-Start gab einen lokalen URL-Hinweis, Browser-/HTTP-Sichtprüfung war durch die Sandbox blockiert.
-- Nächste tatsächliche Priorität gesetzt: Yahoo-Finance-Fehlerbehandlung verbessern, da Datenqualität und Stabilität PRIO A sind.
+- Yahoo-Finance-Fehlerbehandlung verbessert: eingeschränkte Stammdaten, FX-Umrechnung, News und Makro-Proxies werden oben im Dashboard und im Research-Modul als externe Datenquellen-Warnungen gebündelt.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Warnungsfunktion mit simulierten Ausfällen und Normalfall erfolgreich; Live-Analysepfade mit `BTC-EUR`, `NVDA` und `1810.HK` erfolgreich.
+- Nächste tatsächliche Priorität gesetzt: Datenqualitäts-Check kompakter und sichtbarer machen, da sichtbare Datenqualität PRIO A ist.
 
 ### 2026-06-14
 

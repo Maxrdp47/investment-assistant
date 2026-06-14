@@ -14,6 +14,7 @@ Die App handelt nicht automatisch, hat keine Broker-Anbindung und gibt keine Fin
 - manuelle Asset-Typ-Auswahl, falls die automatische Erkennung unsicher ist
 - getrennte Bewertung von Asset-Qualität, Kaufsignal und Depot-Effekt
 - zentrale Empfehlungsbox mit Kaufsignal, Research-Einordnung, Asset-Qualität, Depot-Effekt und Vertrauensscore
+- klare Warnungen bei eingeschränkten Yahoo-Finance-Datenquellen wie Stammdaten, Wechselkursen, News oder Makro-Proxies
 - technische Analyse mit RSI, MACD, Trend, Volumen, Volatilität, Unterstützungen, Widerständen und CRV
 - professionelles Research-Modul mit Datenqualitäts-Check, Modul-Scores, Szenarien, Nachkaufzonen und Fazit
 - Marktphase und Szenario-Wahrscheinlichkeiten

@@ -31,6 +31,20 @@ cd C:\investment-assistent
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
+## Smoke-Test
+
+Für eine schnelle technische Prüfung:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\smoke_test.py
+```
+
+Der Test kompiliert `app.py`, startet Streamlit kurz auf einem freien lokalen Port und prüft den Analysefluss mit `BTC-EUR`, `NVDA` und `1810.HK`. Ohne Live-Daten:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\smoke_test.py --skip-live-data
+```
+
 ## Asset-Suche
 
 Du kannst entweder einen Namen oder direkt einen Yahoo-Finance-Ticker eingeben.

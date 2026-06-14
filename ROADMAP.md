@@ -41,8 +41,10 @@ Vorhandene Dateien:
 - `app.py`: Hauptanwendung mit Streamlit-Oberfläche, Kursdaten, Analyse, Research-Modul, Portfolio-Modus und Charts.
 - `README.md`: Startanleitung und Erklärung der wichtigsten Funktionen.
 - `requirements.txt`: Python-Abhängigkeiten.
-- `portfolio.json`: Beispiel- und Nutzportfolio für den optionalen Portfolio-Modus.
-- `search_history.json`: lokal gespeicherte erfolgreiche Suchanfragen.
+- `portfolio.example.json`: anonymisierte Beispiel-Datei für den optionalen Portfolio-Modus.
+- `search_history.example.json`: anonymisierte Beispiel-Datei für den Suchverlauf.
+- `portfolio.json`: lokale private Nutzdatei, nicht versionieren.
+- `search_history.json`: lokale private Suchhistorie, nicht versionieren.
 - `start_investment_assistent.bat`: lokales Startskript für die Desktop-Verknüpfung.
 - `.streamlit/`: Streamlit-Konfiguration.
 - `.yfinance-cache/`: lokaler yfinance-Cache.
@@ -304,6 +306,7 @@ Wenn `git push` fehlschlägt:
 Vor dem Commit prüfen:
 
 - Keine geheimen Schlüssel oder Zugangsdaten committen.
+- Keine echten Depot-, Cash-, Portfolio- oder Suchhistorien-Daten committen.
 - Keine bewusst kaputten Zwischenstände committen.
 - Keine automatisch generierten Dateien committen, wenn sie nicht sinnvoll zum Projekt gehören.
 
@@ -377,6 +380,7 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-06-14
 
+- Repository für GitHub-Datenschutz vorbereitet: private `portfolio.json` und `search_history.json` werden ignoriert, anonymisierte Beispiel-Dateien ergänzt, README aktualisiert.
 - Master-ROADMAP erstellt und aktuellen Projektstand analysiert.
 - Projektziel, aktuelle Funktionen, offene Aufgaben, Prioritäten, Akzeptanzkriterien und Arbeitsmodus dokumentiert.
 - Regel ergänzt: Bei `Arbeite weiter` wird ROADMAP gelesen, die höchste offene Priorität bearbeitet, getestet und ROADMAP aktualisiert.

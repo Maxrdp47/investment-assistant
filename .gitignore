@@ -1,0 +1,16 @@
+# Local Python environment
+.venv/
+
+# Runtime caches and generated files
+.yfinance-cache/
+__pycache__/
+*.py[cod]
+
+# Private user data
+portfolio.json
+search_history.json
+
+# Secrets and local environment
+.streamlit/secrets.toml
+.env
+

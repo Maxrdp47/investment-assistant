@@ -1,0 +1,30 @@
+{
+  "cash": 10000,
+  "target_cash_pct": 0.10,
+  "max_single_position_pct": 0.25,
+  "planned_buy_amount": 500,
+  "positions": [
+    {
+      "symbol": "BTC-EUR",
+      "name": "Bitcoin",
+      "asset_type": "Krypto",
+      "quantity": 0.01,
+      "average_buy_price": 50000
+    },
+    {
+      "symbol": "NVDA",
+      "name": "Nvidia",
+      "asset_type": "Aktie",
+      "quantity": 2,
+      "average_buy_price": 120
+    },
+    {
+      "symbol": "EUNL.DE",
+      "name": "MSCI World ETF",
+      "asset_type": "ETF",
+      "quantity": 5,
+      "average_buy_price": 100
+    }
+  ]
+}
+

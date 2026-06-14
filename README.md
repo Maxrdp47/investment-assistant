@@ -150,6 +150,14 @@ Wenn der Schalter an ist:
 
 ## portfolio.json
 
+Deine echte `portfolio.json` enthält private Depot-, Positions- und Cash-Daten. Sie gehört nicht auf GitHub und wird deshalb über `.gitignore` ausgeschlossen.
+
+Zum Einrichten:
+
+1. `portfolio.example.json` kopieren.
+2. Die Kopie in `portfolio.json` umbenennen.
+3. Eigene Positionen und Cash-Wert eintragen.
+
 Beispiel:
 
 ```json
@@ -184,6 +192,25 @@ Du kannst pro Position entweder `market_value` direkt eintragen oder `quantity` 
 - `positions`: deine aktuellen Positionen
 
 Wichtig: `planned_buy_amount` löst keinen Kauf aus. Die App handelt niemals automatisch.
+
+## Datenschutz und GitHub
+
+Diese Dateien sind lokal/private Daten und werden nicht versioniert:
+
+- `portfolio.json`
+- `search_history.json`
+- `.streamlit/secrets.toml`
+- `.env`
+- `.venv/`
+- `.yfinance-cache/`
+- `__pycache__/`
+
+Für GitHub gibt es anonymisierte Beispiele:
+
+- `portfolio.example.json`
+- `search_history.example.json`
+
+Wenn `portfolio.json` fehlt, stürzt die App nicht ab. Im Portfolio-Modus zeigt sie dann den Hinweis: **Keine Portfolio-Datei gefunden.**
 
 ## Beispiele für Ticker
 

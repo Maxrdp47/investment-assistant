@@ -1,0 +1,16 @@
+[
+  {
+    "query": "Nvidia",
+    "symbol": "NVDA",
+    "name": "NVIDIA Corporation",
+    "exchange": "NASDAQ",
+    "currency": "USD"
+  },
+  {
+    "query": "Bitcoin",
+    "symbol": "BTC-EUR",
+    "name": "Bitcoin EUR",
+    "exchange": "CCC",
+    "currency": "EUR"
+  }
+]

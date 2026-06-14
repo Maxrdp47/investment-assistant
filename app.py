@@ -1245,6 +1245,25 @@ def build_data_source_warnings(
     return warnings
 
 
+def data_quality_status(data_quality: ResearchModule, external_warnings: list[str]) -> tuple[str, str, list[str]]:
+    score = data_quality.score if data_quality.score is not None else 0.0
+    if score >= 8 and not external_warnings:
+        label = "Grün"
+        summary = "Datenqualität gut. Die Analyse ist aus Datensicht solide nutzbar."
+    elif score >= 6:
+        label = "Gelb"
+        summary = "Datenqualität eingeschränkt. Die Analyse ist nutzbar, aber einzelne Datenlücken sollten beachtet werden."
+    else:
+        label = "Rot"
+        summary = "Datenqualität schwach. Die Analyse ist nur vorsichtig nutzbar."
+
+    issues = [detail for detail in data_quality.details if "nicht" in detail.lower() or "fehlt" in detail.lower() or "weniger" in detail.lower()]
+    highlights = [*issues[:2], *external_warnings[:2]]
+    if not highlights:
+        highlights = ["Keine wesentlichen Datenlücken erkannt."]
+    return label, summary, highlights[:3]
+
+
 def weighted_total_score(
     technical: ModuleScore,
     fundamentals: ModuleScore,
@@ -2269,6 +2288,9 @@ def beginner_explanations(
     portfolio_result: PortfolioResult,
     asset_quality: ModuleScore,
     buy_signal: ModuleScore,
+    data_quality: ResearchModule,
+    quality_label: str,
+    quality_highlights: list[str],
     original_currency: str = "EUR",
     fx_rate: float | None = 1.0,
     currency_mode: str = "EUR + Originalwährung",
@@ -2284,6 +2306,8 @@ def beginner_explanations(
     items: list[tuple[str, str, str]] = []
 
     items.append(("Asset-Typ", "Der Asset-Typ entscheidet, welche Kennzahlen sinnvoll sind.", f"Aktuell erkannt: {asset_profile.asset_type}. Praktisch heißt das: Die App nutzt dafür passende Gewichtungen und schreibt bei fehlenden Spezialdaten ehrlich 'Daten nicht verfügbar'."))
+    data_score = "n/a" if data_quality.score is None else f"{data_quality.score:.1f}/10"
+    items.append(("Datenqualität", "Die Datenqualität zeigt, wie belastbar die Analysegrundlage ist.", f"Aktuell steht die Ampel auf {quality_label} ({data_score}). Wichtigste Hinweise: {' | '.join(quality_highlights)}. Praktisch heißt das: Je schlechter die Datenqualität, desto vorsichtiger solltest du Score und Empfehlung verwenden."))
     items.append(("Asset-Qualität", "Asset-Qualität bewertet, ob das Asset langfristig interessant und solide wirkt.", f"Aktuell liegt die Asset-Qualität bei {asset_quality.score}/10. Praktisch heißt das: Ein gutes Asset kann langfristig interessant sein, auch wenn der Einstieg heute noch nicht ideal ist."))
     items.append(("Kaufsignal", "Das Kaufsignal bewertet nur, ob jetzt ein guter Einstiegsmoment sein könnte.", f"Aktuell liegt das Kaufsignal bei {buy_signal.score}/10. Praktisch heißt das: Dieser Wert steuert die Kaufempfehlung, nicht dein Depot und nicht die langfristige Qualität allein."))
 
@@ -3173,6 +3197,7 @@ def main() -> None:
         display_df = converted_price_frame(df, fx_rate)
         display_supports = converted_levels(supports, fx_rate)
         display_resistances = converted_levels(resistances, fx_rate)
+        quality_label, quality_summary, quality_highlights = data_quality_status(research_pack.data_quality, data_source_warnings)
 
         st.subheader(f"{asset_identity['name']} · technische Analyse")
         st.caption(f"Ticker: {asset_identity['symbol']} | Börse: {asset_identity['exchange']}")
@@ -3185,13 +3210,21 @@ def main() -> None:
         st.caption("Portfolio-Modus: AN" if portfolio_result.enabled else "Portfolio-Modus: AUS")
         if portfolio_result.enabled and not portfolio_result.available:
             st.warning(portfolio_result.summary)
-        if research_pack.data_quality.score is not None and research_pack.data_quality.score < 8:
-            st.warning(research_pack.data_quality.summary)
+        quality_score_text = "n/a" if research_pack.data_quality.score is None else f"{research_pack.data_quality.score:.1f}/10"
+        quality_message = f"Datenqualität {quality_label} ({quality_score_text}): {quality_summary}"
+        if quality_label == "Grün":
+            st.success(quality_message)
+        elif quality_label == "Gelb":
+            st.warning(quality_message)
         else:
-            st.success(research_pack.data_quality.summary)
-        if data_source_warnings:
-            st.warning("Externe Datenquellen eingeschränkt: " + " ".join(data_source_warnings[:3]))
-            with st.expander("Details zu eingeschränkten Datenquellen", expanded=False):
+            st.error(quality_message)
+        st.caption("Wichtigste Datenhinweise: " + " | ".join(quality_highlights))
+        with st.expander("Details zu Datenqualität und externen Quellen", expanded=False):
+            st.markdown("**Datenqualitäts-Check**")
+            for detail in research_pack.data_quality.details:
+                st.write(f"- {detail}")
+            if data_source_warnings:
+                st.markdown("**Externe Datenquellen**")
                 for warning in data_source_warnings:
                     st.write(f"- {warning}")
         st.markdown(action_html, unsafe_allow_html=True)
@@ -3211,17 +3244,18 @@ def main() -> None:
         st.caption(f"Asset-Typ: {asset_profile.asset_type} ({asset_profile.quote_type}). {asset_profile.summary}")
         st.info(f"Marktphase: {market_phase.phase}. {market_phase.summary}")
 
-        metric_cols = st.columns(6 if portfolio_result.enabled else 5)
+        metric_cols = st.columns(7 if portfolio_result.enabled else 6)
         metric_cols[0].metric("Aktueller Kurs", format_display_money(float(latest["Close"]), original_currency, fx_rate, currency_mode))
-        metric_cols[1].metric("Asset-Qualität", f"{asset_quality.score}/10")
-        metric_cols[2].metric("Kaufsignal", f"{buy_signal.score}/10")
+        metric_cols[1].metric("Datenqualität", f"{quality_label} {quality_score_text}")
+        metric_cols[2].metric("Asset-Qualität", f"{asset_quality.score}/10")
+        metric_cols[3].metric("Kaufsignal", f"{buy_signal.score}/10")
         if portfolio_result.enabled:
-            metric_cols[3].metric("Depot-Effekt", "n/a" if portfolio_result.score is None else f"{portfolio_result.score}/10")
+            metric_cols[4].metric("Depot-Effekt", "n/a" if portfolio_result.score is None else f"{portfolio_result.score}/10")
+            metric_cols[5].metric("CRV", "n/a" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}")
+            metric_cols[6].metric("RSI 14", "n/a" if pd.isna(latest["RSI_14"]) else f"{latest['RSI_14']:.1f}")
+        else:
             metric_cols[4].metric("CRV", "n/a" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}")
             metric_cols[5].metric("RSI 14", "n/a" if pd.isna(latest["RSI_14"]) else f"{latest['RSI_14']:.1f}")
-        else:
-            metric_cols[3].metric("CRV", "n/a" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}")
-            metric_cols[4].metric("RSI 14", "n/a" if pd.isna(latest["RSI_14"]) else f"{latest['RSI_14']:.1f}")
 
         level_cols = st.columns(2)
         level_cols[0].metric("Wichtigste Unterstützung", "n/a" if not supports else format_display_money(supports[0], original_currency, fx_rate, currency_mode))
@@ -3253,6 +3287,9 @@ def main() -> None:
                     portfolio_result,
                     asset_quality,
                     buy_signal,
+                    research_pack.data_quality,
+                    quality_label,
+                    quality_highlights,
                     original_currency,
                     fx_rate,
                     currency_mode,

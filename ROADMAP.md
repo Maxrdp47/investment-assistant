@@ -94,7 +94,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Haupt-Dashboard und Research-Modul vereinheitlichen, damit Empfehlungen nicht doppelt oder widersprüchlich wirken. Status: umgesetzt am 2026-06-15.
 - Sichtbare Empfehlung klar trennen in Asset-Qualität, Kaufsignal, Research-Handlungsempfehlung und Depot-Effekt. Status: umgesetzt am 2026-06-15.
 - Fehlerbehandlung bei Yahoo-Finance-Ausfällen verbessern. Status: umgesetzt am 2026-06-15.
-- Datenqualitäts-Check kompakter und sichtbarer machen.
+- Datenqualitäts-Check kompakter und sichtbarer machen. Status: umgesetzt am 2026-06-15.
 - Suchhistorie in der Sidebar als auswählbare Schnellwahl nutzbar machen.
 - Umlaute und sichtbare deutsche Texte prüfen.
 - App-Start und Analysefluss regelmäßig testen.
@@ -383,21 +383,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Datenqualitäts-Check kompakter und sichtbarer machen.
+1. Umlaute und sichtbare deutsche Texte prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Der Datenqualitäts-Check ist bereits vorhanden, wirkt aber noch eher technisch und im Research-Block versteckt.
-- Eine kompakte sichtbare Qualitätsampel ist PRIO A, weil Nutzer sofort verstehen müssen, wie belastbar die Analyse ist.
-- Das verbessert Analysequalität und Anfänger-Verständlichkeit stärker als Komfortfunktionen.
+- In früheren Änderungen gab es sichtbare Encoding-Probleme wie `Ã¼` statt `ü`.
+- Lesbare deutsche Texte sind PRIO A, weil unlesbare Empfehlungen die Analyse praktisch unbrauchbar machen.
+- Die App soll für Anfänger verständlich bleiben und keine kaputten Umlaute anzeigen.
 
 Nächste konkrete Umsetzung:
 
-1. Datenqualitäts-Score als kompakte Ampel oder Statuszeile oberhalb der Charts darstellen.
-2. Wichtigste Datenlücken priorisieren: Kursdaten, Volumen, 200 Tage, SMA 50/200, Stammdaten, FX, News, Makro.
-3. Details weiterhin im Research-Modul lassen, aber oben nur die wichtigsten 2-3 Hinweise zeigen.
-4. Anfänger-Erklärung für Datenqualität ergänzen.
-5. Analysepfade mit `BTC-EUR`, `NVDA` und Xiaomi-Fallback testen.
+1. Sichtbare UI-Texte in `app.py`, `README.md` und `ROADMAP.md` auf Mojibake prüfen, z. B. `Ã`, `Â`, `â`.
+2. Gefundene Stellen korrigieren, ohne Logik unnötig zu ändern.
+3. Syntax und Analysepfade testen.
+4. ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
 
@@ -767,7 +766,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Analysepfade mit `BTC-EUR`, `NVDA` und `1810.HK` erfolgreich; Streamlit-Start gab einen lokalen URL-Hinweis, Browser-/HTTP-Sichtprüfung war durch die Sandbox blockiert.
 - Yahoo-Finance-Fehlerbehandlung verbessert: eingeschränkte Stammdaten, FX-Umrechnung, News und Makro-Proxies werden oben im Dashboard und im Research-Modul als externe Datenquellen-Warnungen gebündelt.
 - Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Warnungsfunktion mit simulierten Ausfällen und Normalfall erfolgreich; Live-Analysepfade mit `BTC-EUR`, `NVDA` und `1810.HK` erfolgreich.
-- Nächste tatsächliche Priorität gesetzt: Datenqualitäts-Check kompakter und sichtbarer machen, da sichtbare Datenqualität PRIO A ist.
+- Datenqualitäts-Check kompakter und sichtbarer gemacht: Dashboard zeigt jetzt eine Datenqualitäts-Ampel mit Score, kurzer Statuszeile, wichtigsten Datenhinweisen und Details im Expander.
+- Anfänger-Modus um einfache Datenqualitäts-Erklärung ergänzt.
+- Nächste tatsächliche Priorität gesetzt: Umlaute und sichtbare deutsche Texte prüfen, da Lesbarkeit und Verständlichkeit PRIO A sind.
 
 ### 2026-06-14
 

@@ -16,7 +16,7 @@ Die App handelt nicht automatisch, hat keine Broker-Anbindung und gibt keine Fin
 - zentrale Empfehlungsbox mit Kaufsignal, Research-Einordnung, Asset-Qualität, Depot-Effekt und Vertrauensscore
 - klare Warnungen bei eingeschränkten Yahoo-Finance-Datenquellen wie Stammdaten, Wechselkursen, News oder Makro-Proxies
 - technische Analyse mit RSI, MACD, Trend, Volumen, Volatilität, Unterstützungen, Widerständen und CRV
-- professionelles Research-Modul mit Datenqualitäts-Check, Modul-Scores, Szenarien, Nachkaufzonen und Fazit
+- professionelle Research-Ansicht mit Datenqualitäts-Ampel, Modul-Scores, Szenarien, Nachkaufzonen und Fazit
 - Marktphase und Szenario-Wahrscheinlichkeiten
 - Anfänger-Modus mit einfachen Erklärungen
 - optionaler Portfolio-Modus mit `portfolio.json`

@@ -91,8 +91,8 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 
 ### Priorität 1: Klarheit und Stabilität
 
-- Haupt-Dashboard und Research-Modul vereinheitlichen, damit Empfehlungen nicht doppelt oder widersprüchlich wirken.
-- Sichtbare Empfehlung klar trennen in Asset-Qualität, Kaufsignal, Research-Handlungsempfehlung und Depot-Effekt.
+- Haupt-Dashboard und Research-Modul vereinheitlichen, damit Empfehlungen nicht doppelt oder widersprüchlich wirken. Status: umgesetzt am 2026-06-15.
+- Sichtbare Empfehlung klar trennen in Asset-Qualität, Kaufsignal, Research-Handlungsempfehlung und Depot-Effekt. Status: umgesetzt am 2026-06-15.
 - Fehlerbehandlung bei Yahoo-Finance-Ausfällen verbessern.
 - Datenqualitäts-Check kompakter und sichtbarer machen.
 - Suchhistorie in der Sidebar als auswählbare Schnellwahl nutzbar machen.
@@ -145,30 +145,259 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Trefferquote je Asset und Modul ausweisen.
 - Grundlage für ein späteres Lernsystem vorbereiten.
 
+### PRIO B: Forward-Testing-Modul
+
+- Jede neue Analyse optional als Forward-Test speichern.
+- Startzeitpunkt, Asset, Ticker, Asset-Typ, Marktphase, Kaufsignal, Asset-Qualität, Depot-Effekt, Vertrauensscore und relevante Modul-Scores erfassen.
+- Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken speichern.
+- Nach festgelegten Zeiträumen prüfen: 1 Woche, 1 Monat, 3 Monate, 6 Monate und 12 Monate.
+- Tatsächliche Kursentwicklung, maximalen Drawdown, maximale positive Bewegung und Treffer der Szenarien auswerten.
+- Keine Performance-Werte erfinden, wenn Kursdaten fehlen.
+- Ergebnisse getrennt nach Asset-Typ, Marktphase und Signalart ausweisen.
+
+### PRIO B: Decision-Tracking-Modul
+
+- Nutzerentscheidungen optional protokollieren: gekauft, nicht gekauft, gehalten, verkauft, beobachtet.
+- Zeitpunkt, Entscheidungsgrund, angezeigte Empfehlung und relevante Scores speichern.
+- Optionalen Nutzerkommentar ermöglichen.
+- Später vergleichen, ob die Entscheidung gegen oder mit der App-Einschätzung getroffen wurde.
+- Keine Broker-Anbindung und keine automatische Ausführung.
+- Daten lokal und transparent speichern.
+
+### PRIO B: Prognose-Tracking-Modul
+
+- Prognosen aus Bull/Base/Bear-Szenarien dauerhaft speichern.
+- Kursziele, Wahrscheinlichkeiten, Zeithorizont und entscheidende Widerlegungsmarken erfassen.
+- Später prüfen, welches Szenario am besten getroffen hat.
+- Trefferquote je Modul, Signalart, Asset-Typ und Marktphase berechnen.
+- Fehlprognosen sichtbar machen und Ursachen kategorisieren.
+- Nur echte nachträgliche Kursdaten verwenden; fehlende Daten als `Daten nicht verfügbar` kennzeichnen.
+
+### PRIO B: Kalibrierungs- und Lernmodul
+
+- Aus Forward-Testing, Decision-Tracking und Prognose-Tracking lernen, welche Signale zuverlässig sind.
+- Score-Gewichtungen nicht automatisch ändern, sondern Anpassungsvorschläge erzeugen.
+- Häufige Fehlerquellen erkennen, z. B. schwache Marktphasen-Erkennung, schlechte Krypto-Bewertung, unbrauchbare News-Signale oder übergewichtete technische Signale.
+- Kalibrierungsbericht anzeigen: Was funktioniert gut? Was funktioniert schlecht? Welche Module brauchen Verbesserung?
+- Lernlogik transparent machen und keine Blackbox-Entscheidungen treffen.
+- Änderungen an Bewertungslogik erst nach Dokumentation und Tests übernehmen.
+
+### PRIO B: Opportunity Scanner
+
+Ziel: Die App soll langfristig nicht nur einzelne Assets analysieren, sondern regelmäßig verfügbare Aktien, ETFs und Kryptowährungen durchsuchen und die attraktivsten Chancen identifizieren.
+
+Der Scanner bewertet:
+
+- Trend
+- Momentum
+- Marktphase
+- Risiko
+- Volatilität
+- News
+- Makro
+- Liquidität
+- Bewertung
+- institutionelle Faktoren, falls verfügbar
+
+Ausgabe:
+
+- Top Long Chancen
+- Top Short Chancen
+
+Für jedes Asset anzeigen:
+
+- Asset
+- Richtung: Long oder Short
+- Opportunity Score
+- Vertrauensscore
+- Zeithorizont
+- wichtigste Begründungen
+
+Regeln:
+
+- Der Scanner macht nur Vorschläge.
+- Keine automatische Kauf- oder Verkaufsfunktion.
+- Keine Broker-Anbindung.
+- Fehlende Daten werden als `Daten nicht verfügbar` gekennzeichnet.
+
+### PRIO B: Trading-Modus
+
+Der Trading-Modus analysiert ausschließlich Kandidaten, die vom Opportunity Scanner ausgewählt wurden. Er soll keine beliebigen Assets handeln oder automatisch ausführen.
+
+Für jedes Setup erzeugen:
+
+- Long oder Short
+- Chance in %
+- Confidence Score
+- Zielzone
+- Stop-Zone
+- Zeithorizont
+- CRV
+- wichtigste Risiken
+- wichtigste Chancen
+
+Beispielausgabe:
+
+- Asset: Bitcoin
+- Richtung: Long
+- Chance: 72 %
+- Confidence: 8/10
+- Zeithorizont: 2-6 Wochen
+- CRV: 3,1
+
+### PRIO B: Trade Journal
+
+Jeder vorgeschlagene Trade wird automatisch dokumentiert, aber niemals automatisch ausgeführt.
+
+Datei:
+
+- `trade_history.json`
+
+Speichern:
+
+- Datum
+- Asset
+- Richtung
+- Einstiegskurs
+- Ziel
+- Stop
+- Chance
+- Confidence
+- Asset-Typ
+- Marktphase
+- verwendete Scores
+- Begründung
+
+### PRIO B: Performance Tracking
+
+Für jeden vorgeschlagenen Trade prüfen:
+
+- nach 1 Woche
+- nach 1 Monat
+- nach 3 Monaten
+
+Optional später:
+
+- nach 6 Monaten
+- nach 12 Monaten
+
+Bewerten:
+
+- Treffer oder Fehlschlag
+- maximale positive Entwicklung
+- maximale negative Entwicklung
+- Ziel erreicht?
+- Stop erreicht?
+- beste Alternative?
+
+### PRIO B: Erweitertes Decision Tracking
+
+Nicht nur prüfen: `Hatte der Bot recht?`
+
+Sondern zusätzlich prüfen: `War dies die beste Entscheidung?`
+
+Vergleichen:
+
+- Long
+- Short
+- Halten
+- Beobachten
+
+Berechnen:
+
+- Rendite der Empfehlung
+- Rendite der besten Alternative
+- Opportunitätskosten
+
+### PRIO B: Confidence-System
+
+Zusätzlich zur Chance immer einen Confidence Score anzeigen.
+
+Beispiel:
+
+- Chance: 72 %
+- Confidence: 9/10
+- Ähnliche Setups: 183
+- Historische Trefferquote: 71 %
+
+Der Confidence Score soll berücksichtigen:
+
+- Datenqualität
+- Anzahl ähnlicher historischer Fälle
+- Trefferquote ähnlicher Setups
+- Stabilität der Signale
+- Klarheit der Marktphase
+- Liquidität und Volatilität
+
+### PRIO B: Signalanalyse
+
+Auswerten, welche Signale historisch nützlich waren:
+
+- RSI
+- MACD
+- Marktphase
+- Volatilität
+- Trend
+- News
+- Makro
+- Asset-Typ
+- CRV
+- Opportunity Score
+- Confidence Score
+
+### PRIO B: Kalibrierungsvorschläge
+
+Der Bot darf Vorschläge machen, aber Gewichtungen in Version 1 nicht automatisch ändern.
+
+Beispiele:
+
+- RSI bei Krypto stärker gewichten
+- Marktphase stärker gewichten
+- News schwächer gewichten
+
+Für jeden Vorschlag anzeigen:
+
+- Datenbasis
+- Anzahl Fälle
+- Trefferquote
+- Begründung
+
+Mindestdatenmenge:
+
+- Unter 20 Fällen: `Datenbasis zu klein`
+- 20-50 Fälle: vorsichtige Hinweise
+- Über 50 Fälle: Kalibrierungsvorschläge erlaubt
+
+Langfristig soll der Bot erkennen:
+
+- welche Signale funktionieren
+- welche Signale nicht funktionieren
+- bei welchen Asset-Typen er besonders gut ist
+- bei welchen Asset-Typen er schwächer ist
+- wann er zu optimistisch ist
+- wann er zu vorsichtig ist
+
+Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares System, das seine eigene historische Leistung misst und daraus begründete Verbesserungen ableitet.
+
 ## Prioritäten
 
 Aktuelle höchste offene Priorität:
 
-1. Dashboard und Research-Empfehlung vereinheitlichen.
+1. Fehlerbehandlung bei Yahoo-Finance-Ausfällen verbessern.
 
 Warum diese Aufgabe zuerst:
 
-- Die App hat bereits viele Analysebausteine.
-- Der größte Nutzwert entsteht jetzt durch eine klarere, weniger widersprüchliche Darstellung.
-- Anfänger sollen sofort verstehen, was langfristige Qualität, aktuelles Kaufsignal und Depot-Effekt bedeuten.
+- Yahoo-Finance-Ausfälle können Analysequalität und Vertrauen sofort beschädigen.
+- Eine robuste Fehlerbehandlung ist PRIO A, weil sie Datenqualität, Stabilität und ehrliche Hinweise verbessert.
+- Die App darf bei fehlenden Kurs-, News-, Fundamental- oder Makrodaten keine stillen Fehlschlüsse erzeugen.
 
 Nächste konkrete Umsetzung:
 
-1. `app.py` lesen und alle sichtbaren Empfehlungsbereiche identifizieren.
-2. Prüfen, ob `final_recommendation_v2`, `research_pack.action`, `buy_signal` und `portfolio_result` doppelte oder widersprüchliche Aussagen erzeugen.
-3. Eine zentrale Anzeige bauen:
-   - Primäre Entscheidung: Kaufsignal / Research-Handlungsempfehlung.
-   - Langfristiger Kontext: Asset-Qualität.
-   - Separater Kontext: Depot-Effekt nur bei aktivem Portfolio-Modus.
-4. Anfänger-Erklärung entsprechend anpassen.
-5. README aktualisieren, wenn sich die Bedienung ändert.
-6. App testen.
-7. ROADMAP aktualisieren.
+1. Alle Yahoo-Finance-Ladepunkte identifizieren: Kursdaten, Ticker-Info, News, Analysten-/Earnings-/Institutional-Daten und Makro-Proxies.
+2. Einheitliche Fehlerobjekte oder klare Rückgabewerte einführen, ohne fehlende Daten zu erfinden.
+3. Nutzerhinweise so bündeln, dass `Daten nicht verfügbar` und `Datenqualität eingeschränkt` sichtbar, aber nicht überladen wirken.
+4. Analysepfade mit `BTC-EUR`, `NVDA` und Xiaomi-Fallback testen.
+5. README und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
 
@@ -212,6 +441,49 @@ Akzeptanzkriterien für Portfolio-Modus:
 - Portfolio-Modus AN: Depot-Effekt wird zusätzlich angezeigt.
 - Depot-Effekt verändert Asset-Qualität und Kaufsignal nicht.
 
+Akzeptanzkriterien für Forward-Testing, Decision-Tracking und Prognose-Tracking:
+
+- Tracking ist optional und transparent.
+- Keine Broker-Anbindung und keine automatische Kauf- oder Verkaufsfunktion.
+- Gespeichert werden nur Analysezeitpunkt, Scores, Szenarien, Wahrscheinlichkeiten, Marken, Nutzerentscheidung und spätere echte Ergebnisdaten.
+- Trefferquoten werden nur aus vorhandenen echten Daten berechnet.
+- Fehlende Ergebnisdaten werden als `Daten nicht verfügbar` angezeigt.
+- Ergebnisse sind nach Asset-Typ, Marktphase, Signalart und Modul auswertbar.
+
+Akzeptanzkriterien für Kalibrierungs- und Lernmodul:
+
+- Das Modul zeigt Verbesserungsvorschläge, ändert Score-Gewichtungen aber nicht heimlich automatisch.
+- Jede vorgeschlagene Gewichtungs- oder Logikänderung nennt Auslöser, Datenbasis und erwartete Wirkung.
+- Häufige Fehlprognosen erhöhen nachvollziehbar die Priorität des betroffenen Moduls.
+- Prioritätsänderungen werden mit ursprünglicher Priorität, neuer Priorität und Begründung im Änderungsprotokoll dokumentiert.
+
+Akzeptanzkriterien für Opportunity Scanner und Trading-Modus:
+
+- Der Scanner durchsucht nur definierte, nachvollziehbare Asset-Universen.
+- Top Long und Top Short Chancen zeigen Opportunity Score, Vertrauensscore, Zeithorizont und Begründungen.
+- Trading-Setups entstehen nur aus Scanner-Kandidaten.
+- Jedes Setup zeigt Richtung, Chance, Confidence, Zielzone, Stop-Zone, Zeithorizont, CRV, Risiken und Chancen.
+- Kein Setup löst automatisch Kauf, Verkauf, Short oder Order aus.
+- Bei fehlenden News-, Makro-, Bewertungs- oder institutionellen Daten wird `Daten nicht verfügbar` angezeigt.
+
+Akzeptanzkriterien für Trade Journal und Performance Tracking:
+
+- Vorgeschlagene Trades werden in `trade_history.json` gespeichert.
+- Gespeichert werden nur Analyse- und Setupdaten, keine Broker-Zugangsdaten.
+- Performance wird nach 1 Woche, 1 Monat und 3 Monaten geprüft, später optional nach 6 und 12 Monaten.
+- Treffer, Fehlschlag, Ziel erreicht, Stop erreicht, maximale positive und negative Entwicklung werden aus echten Kursdaten berechnet.
+- Fehlende Kursdaten erzeugen keinen geschätzten Treffer, sondern einen klaren Datenhinweis.
+
+Akzeptanzkriterien für Confidence-System, Signalanalyse und Lernsystem:
+
+- Jede Chance wird zusammen mit einem Confidence Score angezeigt.
+- Wenn historische Daten vorhanden sind, zeigt die App Anzahl ähnlicher Setups und Trefferquote ähnlicher Setups.
+- Unter 20 Fällen erscheint `Datenbasis zu klein`.
+- Zwischen 20 und 50 Fällen werden nur vorsichtige Hinweise angezeigt.
+- Über 50 Fällen sind Kalibrierungsvorschläge erlaubt.
+- Kalibrierungsvorschläge nennen Datenbasis, Anzahl Fälle, Trefferquote und Begründung.
+- Das Lernsystem analysiert, ändert aber in Version 1 keine Gewichtungen automatisch.
+
 ## Arbeitsmodus
 
 Wenn der Nutzer später schreibt:
@@ -224,18 +496,21 @@ Wenn der Nutzer später schreibt:
 dann soll automatisch folgender Arbeitsmodus gelten:
 
 1. `ROADMAP.md` lesen.
-2. Die höchste offene Priorität auswählen.
-3. Die ausgewählte Aufgabe implementieren.
-4. Die App testen.
-5. Fehler beheben.
-6. `README.md` aktualisieren, wenn sich Bedienung, Funktionen oder Struktur ändern.
-7. `ROADMAP.md` aktualisieren.
-8. `git status` prüfen und geänderte Dateien identifizieren.
-9. Einen Commit mit automatisch erzeugter, kurzer Commit-Nachricht erstellen.
-10. `git push` ausführen.
-11. Wenn Push fehlschlägt: Fehler dokumentieren, Nutzer informieren und Änderungen lokal behalten.
-12. Danach die nächste offene Aufgabe bearbeiten.
-13. Wiederholen, bis keine offene Aufgabe mehr sinnvoll bearbeitbar ist oder kein Arbeitsbudget mehr vorhanden ist.
+2. Alle offenen Aufgaben anhand der dynamischen Priorisierung bewerten.
+3. Nutzen für Analysequalität, Stabilität und Lernfähigkeit einschätzen.
+4. Die höchste tatsächliche Priorität auswählen, nicht automatisch die erste Aufgabe der Liste.
+5. Die ausgewählte Aufgabe implementieren.
+6. Die App testen.
+7. Fehler beheben.
+8. `README.md` aktualisieren, wenn sich Bedienung, Funktionen oder Struktur ändern.
+9. `ROADMAP.md` aktualisieren.
+10. Prioritätsänderungen im Änderungsprotokoll dokumentieren.
+11. `git status` prüfen und geänderte Dateien identifizieren.
+12. Einen Commit mit automatisch erzeugter, kurzer Commit-Nachricht erstellen.
+13. `git push` ausführen.
+14. Wenn Push fehlschlägt: Fehler dokumentieren, Nutzer informieren und Änderungen lokal behalten.
+15. Danach die nächste offene Aufgabe bearbeiten.
+16. Wiederholen, bis keine offene Aufgabe mehr sinnvoll bearbeitbar ist oder kein Arbeitsbudget mehr vorhanden ist.
 
 Während dieses Arbeitsmodus gilt:
 
@@ -257,18 +532,107 @@ Langzeit-Ziel des Arbeitsmodus:
 - Der Nutzer soll langfristig meist nur noch `Arbeite weiter` schreiben müssen.
 - Danach werden Planung, Umsetzung, Tests, Dokumentation, Commit und Push autonom ausgeführt, soweit technisch möglich.
 
-## Intelligente Priorisierung
+## Dynamische Priorisierung
 
-Wenn mehrere Aufgaben offen sind, gilt diese Priorität:
+Die bisherigen numerischen Prioritäten sind nur eine Ausgangsbasis. Der Arbeitsmodus soll nicht automatisch die erste Aufgabe der Liste wählen, sondern die tatsächliche Wirkung auf die Analysequalität, Stabilität und Lernfähigkeit bewerten.
 
-1. Fehler und Abstürze
-2. Datenqualität
-3. Analysequalität
-4. Stabilität
-5. Performance
-6. Komfortfunktionen
+### PRIO A: Grundfähigkeit der Analyse
 
-Komfortfunktionen dürfen nicht vor Analysequalität bearbeitet werden, außer sie sind notwendig, um Analysefehler sichtbar oder testbar zu machen.
+Immer höchste Priorität:
+
+- Datenqualität
+- Fehlerbehandlung
+- Stabilität
+- Asset-Erkennung
+- Bewertungslogik
+- Marktphasen-Erkennung
+- Wahrscheinlichkeiten
+- Vertrauensscore
+- Fundamentaldaten
+- Krypto-Analyse
+- Makro
+- News
+- Geopolitik
+- Risikoanalyse
+
+Diese Aufgaben dürfen immer vorgezogen werden, wenn sie die Analyse belastbarer, ehrlicher oder stabiler machen.
+
+### PRIO B: Messung der Analysequalität
+
+- Forward-Testing
+- Decision-Tracking
+- Prognose-Tracking
+- Opportunity Scanner
+- Trading-Modus
+- Trade Journal
+- Performance Tracking
+- Confidence-System
+- Signalanalyse
+- Trefferquote
+- Kalibrierung
+- Lernmodul
+
+Diese Aufgaben dürfen vorgezogen werden, wenn sie die Analysequalität messbar verbessern oder sichtbar machen, welche Module falsche Signale liefern. Wenn genügend historische Daten vorhanden sind, dürfen Lernsystem und Kalibrierung vor neuen Komfortfunktionen bearbeitet werden.
+
+### PRIO C: Architektur und Wartbarkeit
+
+- Refactoring
+- Modularisierung
+- Performance
+- Dokumentation
+- Testbarkeit
+
+Diese Aufgaben dürfen vorgezogen werden, wenn sie mehrere spätere Aufgaben erleichtern, Risiken senken oder Tests zuverlässiger machen.
+
+### PRIO D: Komfortfunktionen
+
+Niedrigste Priorität:
+
+- Suchkomfort
+- Favoriten
+- Watchlists
+- Exporte
+- UI-Verschönerungen
+- sonstige Komfortfunktionen
+
+Diese Aufgaben dürfen niemals vor Analysequalität bearbeitet werden.
+
+### Selbstständige Prioritätsentscheidung
+
+Wenn der Nutzer `Arbeite weiter`, `Weiter`, `Setze die Entwicklung fort` oder `Arbeite bis zum Limit` schreibt:
+
+1. `ROADMAP.md` lesen.
+2. Alle offenen Aufgaben analysieren.
+3. Geschätzten Nutzen für die Analysequalität bewerten.
+4. Geschätzten Nutzen für Stabilität bewerten.
+5. Geschätzten Nutzen für Lernfähigkeit bewerten.
+6. Daraus eine aktuelle Priorität ableiten.
+7. Die höchste tatsächliche Priorität bearbeiten.
+
+Nicht automatisch die erste Aufgabe der Liste wählen.
+
+### Lernmodul und Prioritäten
+
+Wenn Forward-Testing oder Prognose-Tracking zeigt, dass bestimmte Signalarten schlecht funktionieren, bestimmte Module wenig Nutzen liefern oder bestimmte Fehler häufig auftreten, dürfen passende Verbesserungen höher priorisiert werden.
+
+Beispiele:
+
+- Häufige Fehlprognosen durch schlechte Marktphasen-Erkennung -> Marktphasen-Modul priorisieren.
+- Häufige Fehlprognosen durch schlechte Krypto-Bewertung -> Krypto-Modul priorisieren.
+- Häufig falsche News-Impulse -> News-Modul und Sentiment-Qualität priorisieren.
+- Niedriger Vertrauensscore wegen Datenlücken -> Datenqualität und Fehlerbehandlung priorisieren.
+
+### Keine Blackbox
+
+Wenn Prioritäten angepasst werden, muss im Änderungsprotokoll dokumentiert werden:
+
+- ursprüngliche Priorität
+- neue Priorität
+- Begründung
+
+Damit jederzeit nachvollziehbar bleibt, warum eine Aufgabe vorgezogen wurde.
+
+Ziel ist nicht, möglichst viele Features zu bauen. Ziel ist, die tatsächliche Qualität der Investment-Analysen langfristig zu maximieren. Die Verbesserung der Grundfähigkeit des Bots hat immer Vorrang vor Komfortfunktionen.
 
 Wenn eine Aufgabe unklar ist:
 
@@ -356,6 +720,20 @@ Nicht erlaubt sind:
 - Broker-Anbindung,
 - erfundene Daten oder versteckte Annahmen.
 
+## Wachsende ROADMAP
+
+Wenn während der Entwicklung neue sinnvolle Aufgaben entdeckt werden, dürfen und sollen sie in die ROADMAP aufgenommen werden.
+
+Für jede neu entdeckte Aufgabe dokumentieren:
+
+- kurze Beschreibung
+- vermuteter Nutzen
+- Zuordnung zu PRIO A, PRIO B, PRIO C oder PRIO D
+- Begründung der Priorität
+- mögliche Abhängigkeiten zu bestehenden Aufgaben
+
+Neue Aufgaben dürfen die ROADMAP erweitern. Sie dürfen aber nicht automatisch Komfortfunktionen vor Analysequalität schieben. Wenn eine neu entdeckte Aufgabe wichtiger ist als die bisherige Reihenfolge, muss die Prioritätsänderung im Änderungsprotokoll begründet werden.
+
 ## Teststrategie
 
 Nach relevanten Änderungen mindestens:
@@ -380,13 +758,28 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ## Änderungsprotokoll
 
+### 2026-06-15
+
+- Prioritätsentscheidung nach dynamischer Logik: PRIO A vorgezogen, weil widersprüchliche Empfehlungen direkt Analysequalität und Verständlichkeit beeinträchtigen.
+- Haupt-Dashboard und Research-Modul vereinheitlicht: zentrale Empfehlungsbox zeigt Kaufsignal, Research-Einordnung, Asset-Qualität, Depot-Effekt, Vertrauensscore, Marktphase, CRV und Wahrscheinlichkeiten.
+- Separate obere `Research-Handlungsempfehlung` entfernt, damit keine zweite Empfehlung neben der zentralen Entscheidung konkurriert.
+- Analyse-Details verbessert: `Konkreter Plan` zeigt jetzt den Research-Plan statt nur den Empfehlungstitel.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Analysepfade mit `BTC-EUR`, `NVDA` und `1810.HK` erfolgreich; Streamlit-Start gab einen lokalen URL-Hinweis, Browser-/HTTP-Sichtprüfung war durch die Sandbox blockiert.
+- Nächste tatsächliche Priorität gesetzt: Yahoo-Finance-Fehlerbehandlung verbessern, da Datenqualität und Stabilität PRIO A sind.
+
 ### 2026-06-14
 
 - Repository für GitHub-Datenschutz vorbereitet: lokale Suchhistorie und Secrets werden ignoriert, Beispiel-Dateien ergänzt, README aktualisiert.
 - Portablen Depot-Modus vorbereitet: `portfolio.json` auf GitHub-kompatibles Minimalformat standardisiert, sensible Felder ausgeschlossen und App-Leselogik für `ticker`/`shares`/`buy_price` ergänzt.
+- ROADMAP um Forward-Testing, Decision-Tracking, Prognose-Tracking sowie Kalibrierungs- und Lernmodul erweitert.
+- Dynamische Priorisierung eingeführt: ursprüngliche numerische Prioritäten bleiben Ausgangsbasis, neue tatsächliche Priorität wird nach Nutzen für Analysequalität, Stabilität und Lernfähigkeit abgeleitet.
+- Prioritätslogik dokumentiert: PRIO A für Grundfähigkeit der Analyse, PRIO B für Messung der Analysequalität, PRIO C für Architektur und Wartbarkeit, PRIO D für Komfortfunktionen.
+- ROADMAP um Opportunity Scanner, Trading-Modus, Trade Journal, Performance Tracking, Confidence-System, Signalanalyse und erweiterte Kalibrierungsvorschläge ergänzt.
+- Priorisierung erweitert: Diese neuen Module gehören zu PRIO B und dürfen vor Komfortfunktionen bearbeitet werden, wenn sie Analysequalität messbar verbessern.
+- Regel `Wachsende ROADMAP` ergänzt: Neu entdeckte sinnvolle Aufgaben werden aufgenommen, priorisiert und mit Nutzen, Abhängigkeiten sowie Begründung dokumentiert.
 - Master-ROADMAP erstellt und aktuellen Projektstand analysiert.
 - Projektziel, aktuelle Funktionen, offene Aufgaben, Prioritäten, Akzeptanzkriterien und Arbeitsmodus dokumentiert.
-- Regel ergänzt: Bei `Arbeite weiter` wird ROADMAP gelesen, die höchste offene Priorität bearbeitet, getestet und ROADMAP aktualisiert.
+- Regel ergänzt: Bei `Arbeite weiter` wird ROADMAP gelesen, die höchste tatsächliche Priorität dynamisch bestimmt, bearbeitet, getestet und ROADMAP aktualisiert.
 - Sicherheitsregel festgehalten: keine automatische Kauf- oder Verkaufsfunktion.
 - Institutionelles Research-Modul umgesetzt: Analysten-Konsens, Earnings-Modul, Event-Risiko, institutionelle Daten, Vertrauensscore und Unsicherheitsfaktoren.
 - Arbeitsmodus erweitert: Wenn kein Implementierungs-Prompt vorhanden ist, wird selbstständig geplant, umgesetzt, getestet und dokumentiert.

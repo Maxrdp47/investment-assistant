@@ -13,6 +13,7 @@ Die App handelt nicht automatisch, hat keine Broker-Anbindung und gibt keine Fin
 - automatische Asset-Typ-Erkennung: Aktie, ETF, Krypto oder unbekannt
 - manuelle Asset-Typ-Auswahl, falls die automatische Erkennung unsicher ist
 - getrennte Bewertung von Asset-Qualität, Kaufsignal und Depot-Effekt
+- zentrale Empfehlungsbox mit Kaufsignal, Research-Einordnung, Asset-Qualität, Depot-Effekt und Vertrauensscore
 - technische Analyse mit RSI, MACD, Trend, Volumen, Volatilität, Unterstützungen, Widerständen und CRV
 - professionelles Research-Modul mit Datenqualitäts-Check, Modul-Scores, Szenarien, Nachkaufzonen und Fazit
 - Marktphase und Szenario-Wahrscheinlichkeiten
@@ -89,6 +90,43 @@ Enthalten sind:
 - Unsicherheitsfaktoren: Was könnte diese Analyse widerlegen?
 
 Wenn Daten fehlen, zeigt die App **Daten nicht verfügbar** oder **Datenqualität eingeschränkt**. Fehlende Kennzahlen werden nicht erfunden.
+
+## Geplante Qualitätsmessung
+
+Die ROADMAP sieht zusätzliche Module vor, die nicht nur neue Features liefern sollen, sondern die Analysequalität messbar machen:
+
+- Opportunity Scanner: Die App soll regelmäßig Aktien, ETFs und Kryptowährungen durchsuchen und die besten Long- und Short-Chancen mit Opportunity Score, Vertrauensscore und Begründung anzeigen.
+- Trading-Modus: Es werden nur Kandidaten aus dem Opportunity Scanner analysiert. Für jedes Setup werden Richtung, Chance, Confidence, Zielzone, Stop-Zone, Zeithorizont, CRV, Risiken und Chancen angezeigt.
+- Trade Journal: Vorgeschlagene Trades sollen in `trade_history.json` dokumentiert werden, ohne eine Order auszuführen.
+- Performance Tracking: Vorgeschlagene Trades sollen nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten überprüft werden.
+- Forward-Testing: Analysen werden optional gespeichert und später mit echten Kursdaten verglichen.
+- Decision-Tracking: Nutzerentscheidungen wie gekauft, gehalten, verkauft oder beobachtet können optional protokolliert werden.
+- Prognose-Tracking: Bull/Base/Bear-Szenarien, Kursziele und Wahrscheinlichkeiten werden später mit realen Ergebnissen verglichen.
+- Confidence-System: Chancen sollen zusätzlich mit ähnlichen historischen Fällen und Trefferquoten eingeordnet werden.
+- Kalibrierungs- und Lernmodul: Häufige Fehlprognosen sollen zeigen, welche Module verbessert werden müssen.
+
+Diese Module dürfen keine Käufe oder Verkäufe ausführen. Sie dienen nur dazu, Chancen zu finden, Vorschläge zu dokumentieren, Trefferquoten zu messen, Fehlerquellen zu erkennen und Verbesserungsbedarf transparent zu machen.
+
+Für das Lernsystem gilt:
+
+- Unter 20 Fällen wird die Datenbasis als zu klein angezeigt.
+- Zwischen 20 und 50 Fällen sind nur vorsichtige Hinweise erlaubt.
+- Ab über 50 Fällen dürfen Kalibrierungsvorschläge angezeigt werden.
+- Gewichtungen werden in Version 1 nicht automatisch geändert.
+- Jeder Vorschlag muss Datenbasis, Anzahl Fälle, Trefferquote und Begründung nennen.
+
+## Dynamische Entwicklungsprioritäten
+
+Wenn später `Arbeite weiter` geschrieben wird, soll nicht starr die erste Aufgabe aus der ROADMAP bearbeitet werden. Stattdessen wird bewertet, welche offene Aufgabe den größten Nutzen für Analysequalität, Stabilität und Lernfähigkeit hat.
+
+Priorität haben:
+
+- PRIO A: Grundfähigkeit der Analyse, z. B. Datenqualität, Fehlerbehandlung, Bewertungslogik, Marktphasen, Wahrscheinlichkeiten, Fundamentaldaten, Krypto, Makro, News und Risikoanalyse
+- PRIO B: Messung der Analysequalität, z. B. Opportunity Scanner, Trading-Modus, Trade Journal, Performance Tracking, Forward-Testing, Decision-Tracking, Prognose-Tracking, Confidence-System, Trefferquote, Kalibrierung und Lernmodul
+- PRIO C: Architektur und Wartbarkeit, z. B. Refactoring, Modularisierung, Performance, Dokumentation und Testbarkeit
+- PRIO D: Komfortfunktionen, z. B. Favoriten, Watchlists, Exporte oder reine UI-Verschönerungen
+
+Komfortfunktionen dürfen nicht vor Analysequalität bearbeitet werden. Wenn Prioritäten geändert werden, muss die Begründung in `ROADMAP.md` dokumentiert werden.
 
 ## Die drei Scores
 

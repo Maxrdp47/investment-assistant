@@ -1953,7 +1953,7 @@ def research_action(buy_signal: ModuleScore, risk_reward: RiskReward, supports: 
     if near_support and risk_reward.score >= 6:
         return "Nachkaufzone erreicht"
     if buy_signal.score >= 8:
-        return "kleine Tranche möglich"
+        return "Kleine Tranche möglich"
     return "Nachkauf nur bei Bestätigung"
 
 
@@ -2140,10 +2140,12 @@ def final_recommendation_v2(
     portfolio_result: PortfolioResult,
     market_phase: MarketPhase,
     risk_reward: RiskReward,
+    research_action_text: str,
+    confidence: ResearchModule,
 ) -> tuple[str, str]:
     score = buy_signal.score
     if score >= 8:
-        title = "kleine Tranche möglich"
+        title = "Kleine Tranche möglich"
     elif score >= 6.5:
         title = "Nachkauf nur bei Bestätigung"
     elif score >= 5:
@@ -2161,6 +2163,14 @@ def final_recommendation_v2(
     else:
         context += " Qualität und Timing widersprechen sich nicht stark."
 
+    if research_action_text == title:
+        research_text = "Research-Modul und Kaufsignal zeigen dieselbe Handlungseinschätzung."
+    else:
+        research_text = (
+            f"Research-Modul ergänzt: {research_action_text}. "
+            "Wenn diese Einschätzung vom Kaufsignal abweicht, ist das kein zweites Signal, sondern ein Hinweis auf Timing, Datenqualität oder CRV."
+        )
+
     depot_text = "Portfolio-Modus ist aus; der Depot-Effekt wird nicht berücksichtigt."
     if portfolio_result.enabled:
         if portfolio_result.available and portfolio_result.score is not None:
@@ -2170,12 +2180,19 @@ def final_recommendation_v2(
         else:
             depot_text = portfolio_result.summary
 
+    confidence_text = "Daten nicht verfügbar."
+    if confidence.score is not None:
+        confidence_text = f"{confidence.score:.1f}/10. {confidence.summary}"
+
     html = f"""
     <div class="decision-box">
+        <div class="recommendation-label">Zentrale Einschätzung</div>
         <div class="decision-title">{title}</div>
         <div class="decision-section"><strong>Primär nach Kaufsignal:</strong> {buy_signal.summary}</div>
+        <div class="decision-section"><strong>Research-Einordnung:</strong> {research_text}</div>
         <div class="decision-section"><strong>Langfristiger Kontext:</strong> {context}</div>
         <div class="decision-section"><strong>Depot-Effekt:</strong> {depot_text}</div>
+        <div class="decision-section"><strong>Vertrauen:</strong> {confidence_text}</div>
         <div class="decision-section"><strong>Marktphase / CRV:</strong> {market_phase.phase}. {risk_reward.summary}</div>
         <div class="decision-section"><strong>Wahrscheinlichkeiten:</strong> {format_probabilities(market_phase.probabilities)}</div>
     </div>
@@ -3115,7 +3132,15 @@ def main() -> None:
             currency_mode,
         )
         portfolio_result = evaluate_portfolio(symbol, portfolio_enabled, buy_signal.score, asset_profile)
-        action_title, action_html = final_recommendation_v2(asset_quality, buy_signal, portfolio_result, market_phase, risk_reward)
+        action_title, action_html = final_recommendation_v2(
+            asset_quality,
+            buy_signal,
+            portfolio_result,
+            market_phase,
+            risk_reward,
+            research_pack.action,
+            research_pack.confidence,
+        )
         score_result.recommendation = action_title
         display_df = converted_price_frame(df, fx_rate)
         display_supports = converted_levels(supports, fx_rate)
@@ -3136,7 +3161,6 @@ def main() -> None:
             st.warning(research_pack.data_quality.summary)
         else:
             st.success(research_pack.data_quality.summary)
-        st.info(f"Research-Handlungsempfehlung: {research_pack.action}")
         st.markdown(action_html, unsafe_allow_html=True)
         if beginner_mode:
             buy_answer, buy_text = beginner_buy_answer(buy_signal.score, action_title)
@@ -3395,7 +3419,11 @@ def main() -> None:
             with analysis_cols[1]:
                 render_analysis_card("MACD", macd_status, macd_text)
                 render_analysis_card("Volatilität", volatility_status, volatility_text)
-                render_analysis_card("Konkreter Plan", action_title, action_title)
+                render_analysis_card(
+                    "Konkreter Plan",
+                    action_title,
+                    str(research_pack.conclusion.get("Was wäre mein konkreter Plan?", action_title)),
+                )
 
         with st.expander("Weitere Charts anzeigen", expanded=False):
             chart_cols = st.columns(2)

@@ -81,6 +81,12 @@ Enthalten sind:
 - Bull-/Base-/Bear-Szenarien mit Wahrscheinlichkeiten, die zusammen 100 % ergeben
 - Nachkaufzonen: aggressiv, fair, sicher und ungültig bei Bruch der Unterstützung
 - Research-Fazit: was für Kauf spricht, was dagegen spricht, was die Analyse verbessern würde, welche Marke entscheidend ist und ein konkreter Plan
+- Analysten-Konsens, sofern Yahoo-Finance-Daten verfügbar sind
+- Earnings-Modul für Aktien, sofern Quartalsdaten verfügbar sind
+- Event-Risiko-Modul für bekannte oder verfügbare Ereignisdaten
+- Institutionelle Daten wie Beteiligungen und Short Interest, sofern verfügbar
+- Vertrauensscore zur Einschätzung, wie belastbar die Analyse aktuell ist
+- Unsicherheitsfaktoren: Was könnte diese Analyse widerlegen?
 
 Wenn Daten fehlen, zeigt die App **Daten nicht verfügbar** oder **Datenqualität eingeschränkt**. Fehlende Kennzahlen werden nicht erfunden.
 

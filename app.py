@@ -132,6 +132,9 @@ class ResearchModule:
 class ResearchPack:
     data_quality: ResearchModule
     modules: list[ResearchModule]
+    institutional_modules: list[ResearchModule]
+    confidence: ResearchModule
+    uncertainty_factors: list[str]
     scenarios: list[dict]
     buy_zones: list[dict]
     action: str
@@ -1457,6 +1460,368 @@ def module_from_existing(name: str, module: ModuleScore, beginner: str) -> Resea
     return ResearchModule(name, module.score, module.summary, module.details, beginner)
 
 
+def format_optional_number(value: float | None, suffix: str = "") -> str:
+    if value is None:
+        return "Daten nicht verfügbar"
+    return f"{value:,.2f}{suffix}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def format_optional_date(value: object) -> str:
+    if value is None or value == "":
+        return "Daten nicht verfügbar"
+    try:
+        timestamp = pd.to_datetime(value, unit="s", utc=True)
+        if pd.isna(timestamp):
+            timestamp = pd.to_datetime(value)
+    except Exception:
+        try:
+            timestamp = pd.to_datetime(value)
+        except Exception:
+            return str(value)
+    if pd.isna(timestamp):
+        return "Daten nicht verfügbar"
+    return timestamp.strftime("%d.%m.%Y")
+
+
+def safe_dataframe_from_yfinance(value: object) -> pd.DataFrame:
+    if isinstance(value, pd.DataFrame):
+        return value
+    return pd.DataFrame()
+
+
+def research_analyst_consensus(info: dict, profile: AssetProfile, original_currency: str, fx_rate: float | None, currency_mode: str) -> ResearchModule:
+    if profile.asset_type not in {"Aktie", "ETF"}:
+        return ResearchModule(
+            "Analysten-Konsens",
+            None,
+            "Daten nicht verfügbar. Analysten-Konsens ist für diesen Asset-Typ über Yahoo Finance nicht belastbar verfügbar.",
+            ["Durchschnittliches Kursziel: Daten nicht verfügbar.", "Buy/Hold/Sell-Ratings: Daten nicht verfügbar."],
+            "Analysten-Konsens zeigt, ob professionelle Analysten eher positiv, neutral oder negativ sind. Für dieses Asset liegen keine belastbaren Daten vor.",
+        )
+
+    target_mean = value_or_none(info.get("targetMeanPrice"))
+    target_high = value_or_none(info.get("targetHighPrice"))
+    target_low = value_or_none(info.get("targetLowPrice"))
+    analyst_count = value_or_none(info.get("numberOfAnalystOpinions"))
+    recommendation_mean = value_or_none(info.get("recommendationMean"))
+    recommendation_key = str(info.get("recommendationKey", "") or "").replace("_", " ").strip()
+
+    details = [
+        f"Durchschnittliches Analystenkursziel: {format_display_money(target_mean, original_currency, fx_rate, currency_mode) if target_mean is not None else 'Daten nicht verfügbar'}.",
+        f"Höchstes Kursziel: {format_display_money(target_high, original_currency, fx_rate, currency_mode) if target_high is not None else 'Daten nicht verfügbar'}.",
+        f"Niedrigstes Kursziel: {format_display_money(target_low, original_currency, fx_rate, currency_mode) if target_low is not None else 'Daten nicht verfügbar'}.",
+        "Anzahl Buy-Ratings: Daten nicht verfügbar.",
+        "Anzahl Hold-Ratings: Daten nicht verfügbar.",
+        "Anzahl Sell-Ratings: Daten nicht verfügbar.",
+    ]
+    if analyst_count is not None:
+        details.append(f"Anzahl Analystenmeinungen: {analyst_count:.0f}.")
+    else:
+        details.append("Anzahl Analystenmeinungen: Daten nicht verfügbar.")
+    if recommendation_key:
+        details.append(f"Yahoo-Empfehlung: {recommendation_key}.")
+    else:
+        details.append("Yahoo-Empfehlung: Daten nicht verfügbar.")
+
+    points: list[float] = []
+    if recommendation_mean is not None:
+        score = clamp(10 - (recommendation_mean - 1) * 2.5)
+        points.append(score)
+        details.append(f"Recommendation-Mean: {recommendation_mean:.2f} -> {score:.1f}/10.")
+    if target_mean is not None:
+        current_price = value_or_none(info.get("currentPrice")) or value_or_none(info.get("regularMarketPrice")) or value_or_none(info.get("previousClose"))
+        if current_price is not None and current_price > 0:
+            upside = (target_mean - current_price) / current_price
+            upside_score = 8.0 if upside >= 0.25 else 6.5 if upside >= 0.10 else 5.0 if upside >= -0.05 else 3.5
+            points.append(upside_score)
+            details.append(f"Impliziertes Potenzial zum Durchschnittskursziel: {upside * 100:+.1f}% -> {upside_score:.1f}/10.")
+
+    if not points:
+        return ResearchModule(
+            "Analysten-Konsens",
+            None,
+            "Daten nicht verfügbar. Analystenkursziele und Rating-Verteilung konnten nicht belastbar geladen werden.",
+            details + ["Werden Kursziele angehoben oder gesenkt: Daten nicht verfügbar."],
+            "Ohne Analystendaten lässt sich nicht sagen, ob Analysten das Investment aktuell unterstützen.",
+        )
+
+    final_score = score_from_optional(points)
+    support_text = "Analysten unterstützen das Investment eher." if final_score >= 6.5 else "Analysten sind neutral bis vorsichtig." if final_score >= 4.5 else "Analystenbild wirkt eher belastend."
+    summary = f"Analysten-Score {final_score}/10. {support_text} Kurszieländerungen: Daten nicht verfügbar."
+    beginner = "Der Analysten-Score fasst Kursziele und Yahoo-Empfehlung zusammen. Hoch heißt: Analystenbild und Kurszielpotenzial sprechen eher für das Investment."
+    return ResearchModule("Analysten-Konsens", final_score, summary, details + ["Werden Kursziele angehoben oder gesenkt: Daten nicht verfügbar."], beginner)
+
+
+def load_earnings_dates(symbol: str) -> pd.DataFrame:
+    try:
+        return safe_dataframe_from_yfinance(yf.Ticker(symbol).get_earnings_dates(limit=8))
+    except Exception:
+        return pd.DataFrame()
+
+
+def research_earnings_module(symbol: str, info: dict, profile: AssetProfile) -> ResearchModule:
+    if profile.asset_type != "Aktie":
+        return ResearchModule(
+            "Earnings-Modul",
+            None,
+            "Daten nicht verfügbar. Earnings-Modul ist nur für Aktien sinnvoll.",
+            ["Nächster Quartalsbericht: Daten nicht verfügbar.", "Letzter Quartalsbericht: Daten nicht verfügbar."],
+            "Earnings sind Quartalszahlen. Für ETFs und viele Kryptos gibt es keine klassischen Unternehmensgewinne.",
+        )
+
+    earnings_dates = load_earnings_dates(symbol)
+    details: list[str] = []
+    next_report = format_optional_date(info.get("earningsTimestamp") or info.get("earningsTimestampStart"))
+    details.append(f"Nächster Quartalsbericht: {next_report}.")
+    details.append(f"Letzter Quartalsbericht: {format_optional_date(info.get('mostRecentQuarter'))}.")
+
+    points: list[float] = []
+    surprise_text = "Daten nicht verfügbar"
+    if not earnings_dates.empty:
+        normalized = earnings_dates.copy()
+        normalized.index = pd.to_datetime(normalized.index, errors="coerce")
+        past = normalized[normalized.index <= pd.Timestamp.utcnow().tz_localize(None)] if normalized.index.tz is None else normalized[normalized.index <= pd.Timestamp.utcnow()]
+        if not past.empty:
+            last = past.sort_index().iloc[-1]
+            eps_estimate = value_or_none(last.get("EPS Estimate"))
+            reported_eps = value_or_none(last.get("Reported EPS"))
+            surprise_pct = value_or_none(last.get("Surprise(%)"))
+            details.append(f"Gewinnschätzung letzter Bericht: {format_optional_number(eps_estimate)}.")
+            details.append(f"Tatsächlicher Gewinn letzter Bericht: {format_optional_number(reported_eps)}.")
+            if surprise_pct is not None:
+                surprise_text = f"{surprise_pct:.1f}%"
+                score = 8.0 if surprise_pct >= 10 else 6.5 if surprise_pct > 0 else 5.0 if surprise_pct == 0 else 3.5
+                points.append(score)
+                details.append(f"Earnings-Surprise: {surprise_text} -> {score:.1f}/10.")
+            else:
+                details.append("Earnings-Surprise: Daten nicht verfügbar.")
+        else:
+            details.extend(["Gewinnschätzung: Daten nicht verfügbar.", "Tatsächliche Ergebnisse: Daten nicht verfügbar.", "Earnings-Surprise: Daten nicht verfügbar."])
+    else:
+        details.extend(["Umsatzschätzung: Daten nicht verfügbar.", "Gewinnschätzung: Daten nicht verfügbar.", "Tatsächliche Ergebnisse: Daten nicht verfügbar.", "Earnings-Surprise: Daten nicht verfügbar."])
+
+    revenue_estimate = value_or_none(info.get("revenueEstimate"))
+    earnings_estimate = value_or_none(info.get("earningsEstimate"))
+    details.append(f"Umsatzschätzung: {format_optional_number(revenue_estimate)}.")
+    details.append(f"Gewinnschätzung: {format_optional_number(earnings_estimate)}.")
+
+    if next_report != "Daten nicht verfügbar":
+        risk_score = 5.0
+        details.append("Earnings-Termin vorhanden: Ereignisrisiko ist erhöht.")
+        points.append(risk_score)
+
+    if not points:
+        return ResearchModule("Earnings-Modul", None, "Daten nicht verfügbar. Earnings-Schätzungen und tatsächliche Ergebnisse konnten nicht belastbar geladen werden.", details, "Earnings zeigen, ob ein Unternehmen Erwartungen schlägt oder verfehlt. Ohne Daten bleibt das Risiko schwer einschätzbar.")
+
+    final_score = score_from_optional(points)
+    tone = "positiv" if final_score >= 6.5 else "neutral" if final_score >= 4.5 else "negativ"
+    summary = f"Earnings-Risiko-Score {final_score}/10. Earnings-Surprise: {surprise_text}. Einordnung: {tone}."
+    beginner = "Der Earnings-Score bewertet, ob Quartalszahlen Erwartungen übertroffen haben und ob ein naher Bericht zusätzliches Risiko bringt."
+    return ResearchModule("Earnings-Modul", final_score, summary, details, beginner)
+
+
+def research_event_risk_module(info: dict, profile: AssetProfile, macro: ModuleScore) -> ResearchModule:
+    details = [
+        "Fed-Sitzungen: Daten nicht verfügbar.",
+        "EZB-Sitzungen: Daten nicht verfügbar.",
+        "CPI/Inflationsdaten: Daten nicht verfügbar.",
+        "Arbeitsmarktdaten: Daten nicht verfügbar.",
+        "IPOs: Daten nicht verfügbar.",
+        "ETF-Entscheidungen: Daten nicht verfügbar.",
+        "Wichtige Unternehmensereignisse: Daten nicht verfügbar.",
+    ]
+    next_event = "Daten nicht verfügbar"
+    event_date = "Daten nicht verfügbar"
+    impact = "Daten nicht verfügbar"
+    points: list[float] = []
+
+    earnings_date = format_optional_date(info.get("earningsTimestamp") or info.get("earningsTimestampStart"))
+    if profile.asset_type == "Aktie" and earnings_date != "Daten nicht verfügbar":
+        next_event = "Quartalsbericht"
+        event_date = earnings_date
+        impact = "Kann Volatilität stark erhöhen, besonders wenn Erwartungen verfehlt oder angehoben werden."
+        points.append(4.5)
+        details.append(f"Earnings-Termin: {earnings_date}.")
+
+    if macro.score <= 4.0:
+        points.append(4.0)
+        details.append("Makro-Score ist schwach; makroökonomische Events können stärkere Kursreaktionen auslösen.")
+    elif macro.score >= 6.5:
+        points.append(6.5)
+        details.append("Makro-Score ist unterstützend; Event-Risiko wirkt aktuell weniger belastend.")
+
+    if not points:
+        return ResearchModule(
+            "Event-Risiko-Modul",
+            None,
+            "Daten nicht verfügbar. Konkrete Makro- und Unternehmensereignisse konnten nicht zuverlässig geladen werden.",
+            [f"Nächstes relevantes Event: {next_event}.", f"Datum: {event_date}.", f"Potenzielle Auswirkung: {impact}."] + details,
+            "Event-Risiko meint Termine, die Kurse plötzlich bewegen können. Ohne Kalenderdaten bleibt diese Einschätzung eingeschränkt.",
+        )
+
+    final_score = score_from_optional(points)
+    summary = f"Event-Risiko-Score {final_score}/10. Nächstes relevantes Event: {next_event}. Datum: {event_date}. Potenzielle Auswirkung: {impact}."
+    beginner = "Je niedriger der Event-Risiko-Score, desto mehr können Termine wie Earnings, Inflationsdaten oder Zentralbanken die Analyse kurzfristig widerlegen."
+    return ResearchModule("Event-Risiko-Modul", final_score, summary, [f"Nächstes relevantes Event: {next_event}.", f"Datum: {event_date}.", f"Potenzielle Auswirkung: {impact}."] + details, beginner)
+
+
+def research_institutional_data(info: dict, profile: AssetProfile) -> ResearchModule:
+    held_institutions = value_or_none(info.get("heldPercentInstitutions"))
+    held_insiders = value_or_none(info.get("heldPercentInsiders"))
+    shares_short = value_or_none(info.get("sharesShort"))
+    short_ratio = value_or_none(info.get("shortRatio"))
+    short_percent_float = value_or_none(info.get("shortPercentOfFloat"))
+    details = [
+        f"Institutionelle Beteiligungen: {held_institutions * 100:.1f}%." if held_institutions is not None else "Institutionelle Beteiligungen: Daten nicht verfügbar.",
+        f"Insider-Beteiligungen: {held_insiders * 100:.1f}%." if held_insiders is not None else "Insider-Beteiligungen: Daten nicht verfügbar.",
+        f"Short Interest Aktien: {format_optional_number(shares_short)}." if shares_short is not None else "Short Interest: Daten nicht verfügbar.",
+        f"Short Ratio: {short_ratio:.2f}." if short_ratio is not None else "Short Ratio: Daten nicht verfügbar.",
+        f"Short Interest vom Float: {short_percent_float * 100:.1f}%." if short_percent_float is not None else "Short Interest vom Float: Daten nicht verfügbar.",
+        "Insiderkäufe: Daten nicht verfügbar.",
+        "Insiderverkäufe: Daten nicht verfügbar.",
+        "ETF-Flows: Daten nicht verfügbar.",
+    ]
+
+    points: list[float] = []
+    if held_institutions is not None:
+        score = 7.5 if held_institutions >= 0.45 else 6.0 if held_institutions >= 0.20 else 4.5
+        points.append(score)
+    if short_percent_float is not None:
+        score = 8.0 if short_percent_float <= 0.03 else 6.0 if short_percent_float <= 0.10 else 3.5
+        points.append(score)
+    elif short_ratio is not None:
+        score = 7.0 if short_ratio <= 3 else 5.5 if short_ratio <= 7 else 3.5
+        points.append(score)
+
+    if not points:
+        return ResearchModule(
+            "Institutionelle Daten",
+            None,
+            "Daten nicht verfügbar. Institutionelle Käufe/Verkäufe, Short Interest oder ETF-Flows konnten nicht belastbar geladen werden.",
+            details,
+            "Institutionelle Daten zeigen, ob große Marktteilnehmer eher aufbauen oder reduzieren. Ohne Daten bleibt diese Ebene offen.",
+        )
+
+    final_score = score_from_optional(points)
+    direction = "Institutionelle Daten wirken eher unterstützend." if final_score >= 6.5 else "Institutionelle Daten sind gemischt." if final_score >= 4.5 else "Institutionelle Daten wirken eher belastend."
+    summary = f"Institutioneller Score {final_score}/10. {direction} Ob Institutionen aktuell zukaufen oder abbauen: Daten nicht verfügbar."
+    beginner = "Der institutionelle Score bewertet verfügbare Hinweise wie institutionelle Beteiligung und Short Interest. Hoch heißt: große Marktteilnehmer wirken weniger belastend."
+    return ResearchModule("Institutionelle Daten", final_score, summary, details, beginner)
+
+
+def market_phase_clarity_score(market_phase: MarketPhase) -> float:
+    values = list(market_phase.probabilities.values())
+    if not values:
+        return 5.0
+    top = max(values)
+    second = sorted(values, reverse=True)[1] if len(values) > 1 else 0
+    spread = top - second
+    return 8.0 if spread >= 25 else 6.5 if spread >= 15 else 5.0 if spread >= 8 else 3.5
+
+
+def signal_stability_score(df: pd.DataFrame) -> float:
+    recent = df.dropna(subset=["Close"]).tail(30)
+    if len(recent) < 20:
+        return 4.0
+    close = recent["Close"]
+    sma_50 = recent["SMA_50"] if "SMA_50" in recent else pd.Series(dtype=float)
+    macd = recent["MACD"] if "MACD" in recent else pd.Series(dtype=float)
+    signal = recent["MACD_Signal"] if "MACD_Signal" in recent else pd.Series(dtype=float)
+    points: list[float] = []
+    if not sma_50.dropna().empty:
+        above_share = float((close.loc[sma_50.dropna().index] > sma_50.dropna()).mean())
+        points.append(8.0 if above_share >= 0.75 or above_share <= 0.25 else 5.0)
+    if not macd.dropna().empty and not signal.dropna().empty:
+        common = macd.dropna().index.intersection(signal.dropna().index)
+        if len(common) >= 10:
+            positive_share = float((macd.loc[common] > signal.loc[common]).mean())
+            points.append(8.0 if positive_share >= 0.75 or positive_share <= 0.25 else 5.0)
+    returns = close.pct_change().dropna()
+    if not returns.empty:
+        vol = float(returns.std())
+        points.append(7.5 if vol <= 0.025 else 5.5 if vol <= 0.05 else 3.5)
+    return score_from_optional(points)
+
+
+def available_data_source_count(modules: list[ResearchModule], institutional_modules: list[ResearchModule]) -> int:
+    count = 0
+    for module in modules + institutional_modules:
+        joined = " ".join(module.details)
+        if module.score is not None and "Daten nicht verfügbar" not in joined:
+            count += 1
+        elif module.score is not None:
+            count += 1
+    return count
+
+
+def research_confidence_score(
+    data_quality: ResearchModule,
+    liquidity: ResearchModule,
+    market_phase: MarketPhase,
+    df: pd.DataFrame,
+    modules: list[ResearchModule],
+    institutional_modules: list[ResearchModule],
+) -> ResearchModule:
+    data_sources = available_data_source_count(modules, institutional_modules)
+    source_score = 8.0 if data_sources >= 8 else 6.5 if data_sources >= 5 else 4.5 if data_sources >= 3 else 3.0
+    phase_score = market_phase_clarity_score(market_phase)
+    stability_score = signal_stability_score(df)
+    liquidity_score = liquidity.score if liquidity.score is not None else 4.0
+    data_quality_score = data_quality.score if data_quality.score is not None else 4.0
+    final_score = score_from_optional([data_quality_score, liquidity_score, source_score, phase_score, stability_score])
+    details = [
+        f"Datenqualität: {data_quality_score:.1f}/10.",
+        f"Liquidität: {liquidity_score:.1f}/10.",
+        f"Verfügbare Datenquellen: {data_sources} -> {source_score:.1f}/10.",
+        f"Klarheit der Marktphase: {phase_score:.1f}/10.",
+        f"Stabilität der Signale: {stability_score:.1f}/10.",
+    ]
+    if final_score >= 7:
+        summary = f"Vertrauen in Analyse: {final_score}/10. Die Analyse ist aktuell relativ belastbar, weil Datenqualität, Liquidität oder Signalstabilität ausreichend sind."
+    elif final_score >= 5:
+        summary = f"Vertrauen in Analyse: {final_score}/10. Die Analyse ist brauchbar, aber mehrere Punkte bleiben unsicher."
+    else:
+        summary = f"Vertrauen in Analyse: {final_score}/10. Die Analyse ist unsicher, weil Datenlage, Liquidität oder Signale nicht stabil genug sind."
+    beginner = "Der Vertrauensscore sagt nicht, ob du kaufen sollst. Er sagt, wie belastbar die Analyse selbst gerade ist."
+    return ResearchModule("Vertrauen in Analyse", final_score, summary, details, beginner)
+
+
+def build_uncertainty_factors(
+    data_quality: ResearchModule,
+    event_risk: ResearchModule,
+    earnings: ResearchModule,
+    news: ModuleScore,
+    macro: ModuleScore,
+    latest: pd.Series,
+    market_phase: MarketPhase,
+    supports: list[float],
+) -> list[str]:
+    factors: list[str] = []
+    volatility = value_or_none(latest.get("Volatility"))
+    if event_risk.score is None or event_risk.score <= 5:
+        factors.append("Bevorstehende oder nicht zuverlässig geladene Makro-/Unternehmensereignisse können die Analyse widerlegen.")
+    if earnings.score is None:
+        factors.append("Earnings-Daten sind nicht verfügbar; Quartalszahlen könnten eine andere Richtung erzwingen.")
+    elif earnings.score <= 5:
+        factors.append("Earnings-Risiko ist erhöht; ein Bericht kann die aktuelle Einschätzung schnell verändern.")
+    if data_quality.score is not None and data_quality.score < 8:
+        factors.append("Datenqualität ist eingeschränkt; fehlende Daten reduzieren die Belastbarkeit.")
+    if volatility is not None and volatility > 0.45:
+        factors.append("Hohe Volatilität kann Unterstützungen und Kaufsignale schneller entwerten.")
+    if macro.score <= 4.5:
+        factors.append("Schwaches Makro-Umfeld kann positive Asset-Signale überlagern.")
+    if news.score <= 4.5:
+        factors.append("Negativer Nachrichtenfluss kann die technische Analyse kurzfristig widerlegen.")
+    if not supports:
+        factors.append("Keine klare Unterstützung erkannt; dadurch fehlt eine belastbare Risikomarke.")
+    if market_phase_clarity_score(market_phase) < 5:
+        factors.append("Marktphase ist nicht klar; Signale können häufiger kippen.")
+    factors.append("Geopolitische Risiken sind nicht vollständig modelliert.")
+    while len(factors) < 3:
+        factors.append("Neue externe Daten können die Einschätzung verändern.")
+    return factors[:5]
+
+
 def scenario_probabilities(buy_signal: ModuleScore, asset_quality: ModuleScore, risk_reward: RiskReward, market_phase: MarketPhase) -> tuple[int, int, int]:
     bull = 25 + int((buy_signal.score - 5) * 4) + int((asset_quality.score - 5) * 2)
     bear = 25 + int((5 - buy_signal.score) * 4)
@@ -1637,12 +2002,19 @@ def build_research_pack(
     news_module = module_from_existing("News-Score", news, "Der News-Score bewertet die Nachrichtenstimmung. Hoch heißt: Nachrichten geben eher Rückenwind.")
     risk = research_risk_score(df, risk_reward)
     liquidity = research_liquidity_score(df, info, asset_profile)
+    analyst = research_analyst_consensus(info, asset_profile, original_currency, fx_rate, currency_mode)
+    earnings = research_earnings_module(symbol, info, asset_profile)
+    event_risk = research_event_risk_module(info, asset_profile, macro)
+    institutional = research_institutional_data(info, asset_profile)
     modules = [chart, momentum, valuation, fundamentals, macro_module, news_module, risk, liquidity]
+    institutional_modules = [analyst, earnings, event_risk, institutional]
+    confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules)
+    uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)
     scenarios = build_scenarios(close, supports, resistances, buy_signal, asset_quality, risk_reward, market_phase, original_currency, fx_rate, currency_mode)
     buy_zones = build_buy_zones(close, supports, resistances, latest, original_currency, fx_rate, currency_mode)
     action = research_action(buy_signal, risk_reward, supports, close)
     conclusion = build_research_conclusion(action, modules, buy_signal, asset_quality, risk_reward, supports, resistances, latest, original_currency, fx_rate, currency_mode)
-    return ResearchPack(data_quality, modules, scenarios, buy_zones, action, conclusion)
+    return ResearchPack(data_quality, modules, institutional_modules, confidence, uncertainty_factors, scenarios, buy_zones, action, conclusion)
 
 
 def technical_module(score_result: ScoreResult, phase: MarketPhase) -> ModuleScore:
@@ -2832,6 +3204,41 @@ def main() -> None:
                 st.markdown("**Einfache Erklärung der Research-Scores**")
                 for module in research_pack.modules:
                     render_analysis_card(module.name, module.beginner, module.summary)
+
+            st.markdown("**Institutionelle Research-Module**")
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Modul": module.name,
+                            "Score": "n/a" if module.score is None else f"{module.score:.1f}/10",
+                            "Kurzfazit": module.summary,
+                        }
+                        for module in research_pack.institutional_modules
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            with st.expander("Details zu institutionellen Modulen", expanded=False):
+                for module in research_pack.institutional_modules:
+                    render_analysis_card(module.name, "n/a" if module.score is None else f"{module.score:.1f}/10", module.beginner)
+                    for detail in module.details:
+                        st.write(f"- {detail}")
+
+            st.markdown("**Vertrauen in Analyse**")
+            render_analysis_card(
+                research_pack.confidence.name,
+                "n/a" if research_pack.confidence.score is None else f"{research_pack.confidence.score:.1f}/10",
+                research_pack.confidence.summary,
+            )
+            for detail in research_pack.confidence.details:
+                st.write(f"- {detail}")
+
+            st.markdown("**Was könnte diese Analyse widerlegen?**")
+            for factor in research_pack.uncertainty_factors[:5]:
+                st.write(f"- {factor}")
 
             st.markdown("**Bull / Base / Bear-Szenarien**")
             st.dataframe(pd.DataFrame(research_pack.scenarios), use_container_width=True, hide_index=True)

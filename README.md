@@ -150,54 +150,63 @@ Wenn der Schalter an ist:
 
 ## portfolio.json
 
-Deine echte `portfolio.json` enthält private Depot-, Positions- und Cash-Daten. Sie gehört nicht auf GitHub und wird deshalb über `.gitignore` ausgeschlossen.
+Die `portfolio.json` ist bewusst GitHub-kompatibel gehalten, damit der Depot-Modus auch auf anderen Geräten funktioniert. Sie darf nur einfache Depot-Strukturdaten enthalten:
+
+- Cash-Bestand
+- Ticker
+- Asset-Typ
+- Positionsgröße
+- Kaufkurs
+
+Nicht erlaubt sind:
+
+- Name, Adresse oder persönliche Identifikationsdaten
+- Kontonummern, Depotnummern oder Broker-IDs
+- API-Keys, Passwörter oder Zugangsdaten
+- geheime Konfigurationswerte
 
 Zum Einrichten:
 
 1. `portfolio.example.json` kopieren.
 2. Die Kopie in `portfolio.json` umbenennen.
-3. Eigene Positionen und Cash-Wert eintragen.
+3. Nur die erlaubten Felder eintragen.
 
 Beispiel:
 
 ```json
 {
   "cash": 7000,
-  "target_cash_pct": 0.10,
-  "max_single_position_pct": 0.35,
-  "planned_buy_amount": 0,
   "positions": [
     {
-      "symbol": "BTC-EUR",
-      "name": "Bitcoin",
-      "asset_type": "Krypto",
-      "quantity": 0.024993
+      "ticker": "BTC-EUR",
+      "asset_type": "crypto",
+      "shares": 0.014829,
+      "buy_price": 100000
     },
     {
-      "symbol": "EUNL.DE",
-      "name": "MSCI World ETF",
-      "asset_type": "ETF",
-      "market_value": 2381.23
+      "ticker": "EUNL.DE",
+      "asset_type": "etf",
+      "shares": 19.389571,
+      "buy_price": 105.18
     }
   ]
 }
 ```
 
-Du kannst pro Position entweder `market_value` direkt eintragen oder `quantity` und `current_price` verwenden. Wenn nur `quantity` vorhanden ist, versucht die App den aktuellen Kurs über Yahoo Finance zu laden.
+Die App berechnet aktuelle Positionswerte im Depot-Modus über Yahoo Finance. Falls Kursdaten nicht verfügbar sind, wird das sauber angezeigt statt Werte zu erfinden.
 
 - `cash`: freies Geld im Depot
-- `target_cash_pct`: gewünschte Cash-Reserve, z. B. `0.10` für 10 %
-- `max_single_position_pct`: maximal gewünschter Anteil pro Einzelposition
-- `planned_buy_amount`: hypothetischer Nachkaufbetrag für die Risikoanalyse
-- `positions`: deine aktuellen Positionen
+- `ticker`: Yahoo-Finance-Ticker, z. B. `BTC-EUR`, `NVDA`, `EUNL.DE`
+- `asset_type`: `stock`, `etf`, `crypto` oder `unknown`
+- `shares`: Stückzahl oder Coin-Menge
+- `buy_price`: durchschnittlicher Kaufkurs
 
-Wichtig: `planned_buy_amount` löst keinen Kauf aus. Die App handelt niemals automatisch.
+Wichtig: Die Portfolio-Daten werden ausschließlich für den separaten Depot-Effekt verwendet. Sie verändern niemals Asset-Qualität oder Kaufsignal. Die App handelt niemals automatisch.
 
 ## Datenschutz und GitHub
 
 Diese Dateien sind lokal/private Daten und werden nicht versioniert:
 
-- `portfolio.json`
 - `search_history.json`
 - `.streamlit/secrets.toml`
 - `.env`
@@ -210,7 +219,7 @@ Für GitHub gibt es anonymisierte Beispiele:
 - `portfolio.example.json`
 - `search_history.example.json`
 
-Wenn `portfolio.json` fehlt, stürzt die App nicht ab. Im Portfolio-Modus zeigt sie dann den Hinweis: **Keine Portfolio-Datei gefunden.**
+`portfolio.json` darf versioniert werden, solange sie nur die erlaubten Felder enthält. Wenn `portfolio.json` fehlt, stürzt die App nicht ab. Im Portfolio-Modus zeigt sie dann den Hinweis: **Keine Portfolio-Datei gefunden.**
 
 ## Beispiele für Ticker
 

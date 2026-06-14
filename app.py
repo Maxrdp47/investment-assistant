@@ -408,25 +408,57 @@ def portfolio_positions(portfolio: dict) -> list[dict]:
     return [position for position in positions if isinstance(position, dict)]
 
 
+def portfolio_position_ticker(position: dict) -> str:
+    return str(position.get("ticker") or position.get("symbol") or "").strip()
+
+
+def portfolio_position_shares(position: dict) -> float | None:
+    return value_or_none(position.get("shares") or position.get("quantity"))
+
+
+def portfolio_position_buy_price(position: dict) -> float | None:
+    return value_or_none(position.get("buy_price") or position.get("average_buy_price"))
+
+
+def known_ticker_fallbacks(symbol: str) -> list[str]:
+    symbol_norm = normalize_symbol(symbol)
+    for candidates in KNOWN_TICKERS.values():
+        normalized_candidates = [normalize_symbol(candidate) for candidate in candidates]
+        if symbol_norm in normalized_candidates:
+            original_meta = KNOWN_TICKER_NAMES.get(symbol_norm, {})
+            original_currency = original_meta.get("currency")
+            alternatives = [candidate for candidate in candidates if normalize_symbol(candidate) != symbol_norm]
+            if original_currency:
+                alternatives.sort(
+                    key=lambda candidate: KNOWN_TICKER_NAMES.get(normalize_symbol(candidate), {}).get("currency") != original_currency
+                )
+            return alternatives
+    return []
+
+
 @st.cache_data(ttl=60)
 def latest_portfolio_price(symbol: str) -> float | None:
-    try:
-        data = load_price_data(symbol, "5d", "1d")
-        if data.empty:
-            return None
-        return float(data["Close"].dropna().iloc[-1])
-    except Exception:
-        return None
+    for candidate in [symbol, *known_ticker_fallbacks(symbol)]:
+        try:
+            data = load_price_data(candidate, "5d", "1d")
+            if data.empty:
+                continue
+            close = data["Close"].dropna()
+            if not close.empty:
+                return float(close.iloc[-1])
+        except Exception:
+            continue
+    return None
 
 
 def position_market_value(position: dict) -> float:
     value = value_or_none(position.get("market_value"))
     if value is not None:
         return value
-    quantity = value_or_none(position.get("quantity"))
+    quantity = portfolio_position_shares(position)
     price = value_or_none(position.get("current_price") or position.get("price"))
     if price is None and quantity is not None:
-        symbol = str(position.get("symbol", "")).strip()
+        symbol = portfolio_position_ticker(position)
         price = latest_portfolio_price(symbol) if symbol else None
     if quantity is not None and price is not None:
         return quantity * price
@@ -483,7 +515,7 @@ def evaluate_portfolio(
 
     symbol_norm = normalize_symbol(symbol)
     matching_positions = [
-        position for position in positions if normalize_symbol(str(position.get("symbol", ""))) == symbol_norm
+        position for position in positions if normalize_symbol(portfolio_position_ticker(position)) == symbol_norm
     ]
     position_value = sum(position_market_value(position) for position in matching_positions)
     asset_weight = position_value / total_value
@@ -498,7 +530,7 @@ def evaluate_portfolio(
     if matching_positions:
         details.append(f"Du hältst dieses Asset bereits: {format_currency(position_value)} ({asset_weight * 100:.1f}% des Portfolios).")
         for position in matching_positions:
-            avg_buy_price = value_or_none(position.get("average_buy_price"))
+            avg_buy_price = portfolio_position_buy_price(position)
             if avg_buy_price is not None:
                 details.append(f"Durchschnittlicher Einstandskurs laut portfolio.json: {format_currency(avg_buy_price)}.")
             lots = position.get("lots")
@@ -542,7 +574,6 @@ def evaluate_portfolio(
         details.append("Krypto-Anteil ist hoch; wegen hoher Schwankungen wird ein zusätzlicher Risikoabschlag berücksichtigt.")
 
     score = round(clamp(score), 1)
-    adjusted_score = round(asset_score * 0.75 + score * 0.25, 1)
     if score >= 7:
         summary = "Depot-Score positiv: Portfolio spricht nicht gegen die Asset-Empfehlung."
     elif score >= 5:
@@ -559,7 +590,6 @@ def evaluate_portfolio(
         asset_weight=asset_weight,
         cash_weight=cash_weight,
         position_value=position_value,
-        adjusted_score=adjusted_score,
     )
 
 
@@ -2082,12 +2112,9 @@ def final_recommendation(
             action += " Portfolio-Modus ist aktiv, aber die Portfolio-Datei fehlt oder ist ungültig; die Empfehlung basiert daher nur auf dem Asset."
         elif portfolio_result.score is not None:
             if portfolio_result.score < 5:
-                action += " Dein Portfolio spricht gegen einen Nachkauf, weil Klumpenrisiko oder Cash-Reserve kritisch sind."
-                if title in {"Aggressiver Nachkauf", "Kleiner Nachkauf"}:
-                    title = "Halten" if has_position else "Beobachten"
+                action += " Separater Depot-Effekt: Dein Portfolio spricht gegen einen Nachkauf, weil Klumpenrisiko oder Cash-Reserve kritisch sind. Das Kaufsignal bleibt unverändert."
             elif portfolio_result.score < 7 and title == "Aggressiver Nachkauf":
-                title = "Kleiner Nachkauf"
-                action += " Wegen moderater Depot-Risiken wird aus aggressivem Nachkauf nur ein kleiner Nachkauf."
+                action += " Separater Depot-Effekt: Moderate Depot-Risiken sprechen für kleinere Tranchen, verändern aber das Kaufsignal nicht."
 
     reason = (
         f"Gesamtscore {total_score}/10 aus Technik {technical.score}/10, Fundamentaldaten {fundamentals.score}/10, "

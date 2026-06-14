@@ -6,11 +6,9 @@
 __pycache__/
 *.py[cod]
 
-# Private user data
-portfolio.json
+# Local search history
 search_history.json
 
 # Secrets and local environment
 .streamlit/secrets.toml
 .env
-

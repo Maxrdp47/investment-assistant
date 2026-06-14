@@ -43,7 +43,7 @@ Vorhandene Dateien:
 - `requirements.txt`: Python-Abhängigkeiten.
 - `portfolio.example.json`: anonymisierte Beispiel-Datei für den optionalen Portfolio-Modus.
 - `search_history.example.json`: anonymisierte Beispiel-Datei für den Suchverlauf.
-- `portfolio.json`: lokale private Nutzdatei, nicht versionieren.
+- `portfolio.json`: portable Depot-Datei im GitHub-kompatiblen Minimalformat; nur Cash, Ticker, Asset-Typ, Positionsgröße und Kaufkurs.
 - `search_history.json`: lokale private Suchhistorie, nicht versionieren.
 - `start_investment_assistent.bat`: lokales Startskript für die Desktop-Verknüpfung.
 - `.streamlit/`: Streamlit-Konfiguration.
@@ -306,7 +306,9 @@ Wenn `git push` fehlschlägt:
 Vor dem Commit prüfen:
 
 - Keine geheimen Schlüssel oder Zugangsdaten committen.
-- Keine echten Depot-, Cash-, Portfolio- oder Suchhistorien-Daten committen.
+- `portfolio.json` darf nur im erlaubten Minimalformat committed werden: Cash, Ticker, Asset-Typ, Positionsgröße und Kaufkurs.
+- Keine Kontonummern, Depotnummern, Broker-Zugangsdaten, API-Keys, Passwörter, Namen, Adressen oder persönlichen Identifikationsdaten committen.
+- Keine Suchhistorien-Daten committen.
 - Keine bewusst kaputten Zwischenstände committen.
 - Keine automatisch generierten Dateien committen, wenn sie nicht sinnvoll zum Projekt gehören.
 
@@ -380,7 +382,8 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-06-14
 
-- Repository für GitHub-Datenschutz vorbereitet: private `portfolio.json` und `search_history.json` werden ignoriert, anonymisierte Beispiel-Dateien ergänzt, README aktualisiert.
+- Repository für GitHub-Datenschutz vorbereitet: lokale Suchhistorie und Secrets werden ignoriert, Beispiel-Dateien ergänzt, README aktualisiert.
+- Portablen Depot-Modus vorbereitet: `portfolio.json` auf GitHub-kompatibles Minimalformat standardisiert, sensible Felder ausgeschlossen und App-Leselogik für `ticker`/`shares`/`buy_price` ergänzt.
 - Master-ROADMAP erstellt und aktuellen Projektstand analysiert.
 - Projektziel, aktuelle Funktionen, offene Aufgaben, Prioritäten, Akzeptanzkriterien und Arbeitsmodus dokumentiert.
 - Regel ergänzt: Bei `Arbeite weiter` wird ROADMAP gelesen, die höchste offene Priorität bearbeitet, getestet und ROADMAP aktualisiert.

@@ -1,23 +1,23 @@
 {
-  "cash": 10000,
+  "cash": 7000,
   "positions": [
     {
       "ticker": "BTC-EUR",
       "asset_type": "crypto",
-      "shares": 0.01,
-      "buy_price": 50000
+      "shares": 0.024993,
+      "buy_price": 82452.33
     },
     {
-      "ticker": "NVDA",
+      "ticker": "3CP.DE",
       "asset_type": "stock",
-      "shares": 2,
-      "buy_price": 120
+      "shares": 252.821762,
+      "buy_price": 5.52
     },
     {
       "ticker": "EUNL.DE",
       "asset_type": "etf",
-      "shares": 5,
-      "buy_price": 100
+      "shares": 19.389571,
+      "buy_price": 101.96
     }
   ]
 }

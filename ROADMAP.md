@@ -471,20 +471,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Innovations-Modul beginnen: Innovationsführer, indirekte Profiteure und Hype-Aktien trennen.
+1. Rohstoff-Kontextmodul beginnen: Öl, Gas, Kupfer, Gold und Uran als Makro-/Rohstoff-Kontext erklären.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Marktregime, Makro-Wirkung und Blasenrisiko sind als PRIO-A-Bausteine umgesetzt.
-- Der nächste größte Nutzen liegt in einer Innovations-/Hype-Einordnung, weil starke Storys ohne belastbare Daten schnell fehlinterpretiert werden.
-- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil qualitative Marktstellung und Hype-Risiko die Analysequalität direkt beeinflussen.
+- Marktregime, Makro-Wirkung, Blasenrisiko und Innovation/Hype sind als PRIO-A-Bausteine umgesetzt.
+- Der nächste größte Nutzen liegt in einem Rohstoff-Kontext, weil Dollar, Realzinsen, Energie und Konjunktur wichtige Makro-Signale liefern können.
+- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil Rohstoff- und Makro-Kontext die Analysequalität direkt beeinflussen.
 
 Nächste konkrete Umsetzung:
 
-1. Vorhandene Wachstums-, Margen-, Bewertungs-, News- und Marktstellungsdaten verwenden.
-2. Fehlende Innovationsbelege als `Daten nicht verfügbar` kennzeichnen.
-3. Innovationsführer, indirekte Profiteure und Hype-Aktien getrennt erklären.
+1. Keine Rohstoffpreise erfinden; nur vorhandene oder klar verfügbare Proxies nutzen.
+2. Öl, Gas, Kupfer, Gold und Uran als Wirkungskategorien erklären.
+3. Datenlücken und Unsicherheit sichtbar halten.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -913,6 +913,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Blasenrisiko-Modul umgesetzt: nutzt vorhandene Bewertungsdaten, RSI, 3M-Kursanstieg, Volatilität und News-Sentiment; Medienaufmerksamkeit und Zuflüsse werden als `Daten nicht verfügbar` gekennzeichnet; hoher Score wird als Warnsignal interpretiert.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-A-Teilaufgabe ist das Innovations-Modul zur Trennung von Innovationsführern, indirekten Profiteuren und Hype-Aktien.
+- Innovations-/Hype-Modul umgesetzt: nutzt vorhandene Wachstums-, Margen-, Free-Cashflow-, Marktstellungs-, Beschreibungs- und News-Daten; Produktvorsprung, Patente, Entwickleraktivität und Marktanteile bleiben `Daten nicht verfügbar`, wenn sie nicht vorliegen.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-A-Teilaufgabe ist ein Rohstoff-Kontextmodul mit Öl, Gas, Kupfer, Gold und Uran als Makro-/Rohstoff-Wirkungskategorien.
 
 ### 2026-06-14
 

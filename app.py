@@ -1571,6 +1571,83 @@ def research_bubble_risk(info: dict, df: pd.DataFrame, valuation: ResearchModule
     return ResearchModule("Blasenrisiko", score, summary, details, beginner)
 
 
+def research_innovation_context(info: dict, profile: AssetProfile, asset_quality: ModuleScore, bubble_risk: ResearchModule, news: ModuleScore) -> ResearchModule:
+    details: list[str] = []
+    points: list[float] = []
+    labels: list[str] = []
+
+    revenue_growth = value_or_none(info.get("revenueGrowth"))
+    margin = value_or_none(info.get("profitMargins") or info.get("operatingMargins") or info.get("grossMargins"))
+    free_cashflow = value_or_none(info.get("freeCashflow"))
+    market_cap = value_or_none(info.get("marketCap"))
+    summary_text = str(info.get("longBusinessSummary") or info.get("category") or "").lower()
+
+    if profile.asset_type == "ETF":
+        details.append("ETF: Innovationsbezug hängt von Index, Region und Sektor ab; Einzeltitel-Innovationsdaten sind nicht verfügbar.")
+        labels.append("indirekter Profiteur möglich")
+    elif profile.asset_type == "Krypto":
+        details.append("Krypto: Netzwerk-, Entwickler- und On-Chain-Adoptionsdaten sind nicht verfügbar.")
+        labels.append("Datenlage eingeschränkt")
+
+    if revenue_growth is not None:
+        score = 8.0 if revenue_growth >= 0.25 else 6.5 if revenue_growth >= 0.10 else 4.5 if revenue_growth >= 0 else 2.5
+        points.append(score)
+        details.append(f"Wachstum: Umsatzwachstum {revenue_growth * 100:.1f}% -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("Umsatzwachstum für Innovationsprüfung"))
+
+    if margin is not None:
+        score = score_profitability_metric(margin)
+        points.append(score)
+        details.append(f"Margenqualität: {margin * 100:.1f}% -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("Margen für Innovationsprüfung"))
+
+    if free_cashflow is not None:
+        score = 7.5 if free_cashflow > 0 else 3.0
+        points.append(score)
+        details.append(f"Free Cashflow: {format_currency(free_cashflow)} -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("Free Cashflow für Innovationsprüfung"))
+
+    if market_cap is not None:
+        score = 7.5 if market_cap >= 10_000_000_000 else 5.5 if market_cap >= 1_000_000_000 else 4.0
+        points.append(score)
+        details.append(f"Marktstellung: Marktkapitalisierung {format_currency(market_cap)} -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("Marktstellung für Innovationsprüfung"))
+
+    theme_keywords = ["ai", "artificial intelligence", "semiconductor", "cloud", "software", "battery", "electric", "robot", "automation", "platform", "data center"]
+    if summary_text and any(keyword in summary_text for keyword in theme_keywords):
+        points.append(6.5)
+        labels.append("Innovations-/Technologiebezug aus Beschreibung")
+        details.append("Beschreibung: Innovations- oder Technologiethema erkannt -> 6.5/10.")
+    elif summary_text:
+        details.append("Beschreibung: kein klarer Innovationsbezug aus verfügbaren Textdaten erkannt.")
+    else:
+        details.append(data_missing("Beschreibung / Innovationsbelege"))
+
+    if bubble_risk.score is not None and bubble_risk.score >= 7 and asset_quality.score < 6:
+        labels.append("Hype-Risiko")
+        details.append("Hype-Prüfung: hohes Blasenrisiko bei schwächerer Asset-Qualität.")
+    elif asset_quality.score >= 7 and points:
+        labels.append("Innovationsführer möglich")
+    elif points:
+        labels.append("indirekter Profiteur oder gemischte Innovationslage")
+
+    details.append("Produktvorsprung, Patente, Entwickleraktivität und Marktanteilsdaten: Daten nicht verfügbar.")
+    details.append(f"News-Sentiment als Kontext: {news.score}/10. {news.summary}")
+
+    if not points:
+        return ResearchModule("Innovation / Hype", None, "Innovationsdaten nicht verfügbar.", details, "Dieses Modul trennt echte Hinweise auf Innovationsqualität von reiner Story. Ohne Daten wird nichts geschätzt.")
+
+    score = round(float(np.mean(points)), 1)
+    unique_labels = list(dict.fromkeys(labels)) or ["gemischte Innovationslage"]
+    summary = f"Innovation / Hype: {score}/10. Einordnung: {', '.join(unique_labels[:3])}."
+    beginner = "Dieses Modul fragt: Gibt es echte Hinweise auf Qualität und Wachstum, oder wirkt die Story stärker als die Daten? Hoher Score ist nur sinnvoll, wenn echte Daten dahinterstehen."
+    return ResearchModule("Innovation / Hype", score, summary, details, beginner)
+
+
 def build_data_source_warnings(
     ticker_info: dict,
     original_currency: str,
@@ -2520,6 +2597,7 @@ def build_research_pack(
     market_regime = research_market_regime(df, market_phase, macro)
     macro_impact = research_macro_impact(asset_profile, macro)
     bubble_risk = research_bubble_risk(info, df, valuation, momentum, news)
+    innovation = research_innovation_context(info, asset_profile, asset_quality, bubble_risk, news)
     macro_module = module_from_existing("Makro-Score", macro, "Der Makro-Score bewertet Zinsen, Nasdaq, Dollar und Inflationsumfeld. Hoch heißt: Das Umfeld hilft eher.")
     news_module = module_from_existing("News-Score", news, "Der News-Score bewertet die Nachrichtenstimmung. Hoch heißt: Nachrichten geben eher Rückenwind.")
     risk = research_risk_score(df, risk_reward)
@@ -2528,7 +2606,7 @@ def build_research_pack(
     earnings = research_earnings_module(symbol, info, asset_profile)
     event_risk = research_event_risk_module(info, asset_profile, macro)
     institutional = research_institutional_data(info, asset_profile)
-    modules = [chart, momentum, valuation, fundamentals, bubble_risk, market_regime, macro_impact, macro_module, news_module, risk, liquidity]
+    modules = [chart, momentum, valuation, fundamentals, innovation, bubble_risk, market_regime, macro_impact, macro_module, news_module, risk, liquidity]
     institutional_modules = [analyst, earnings, event_risk, institutional]
     confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules)
     uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)

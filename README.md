@@ -210,7 +210,7 @@ Die App zeigt im Bereich **Analyse-Details anzeigen** einen Kalibrierungsstatus.
 - 20 bis 50 Fälle: nur vorsichtige Hinweise
 - Über 50 Fälle: Kalibrierungsvorschläge erlaubt
 
-Künftige Trade- und Prognosehistorien werden lokal in `trade_history.json` ausgewertet. Diese Datei kann persönliche Entscheidungen enthalten und wird nicht versioniert.
+Der Kalibrierungsstatus zählt lokale Trade-, Forward-Test-, Decision- und Prognosehistorien. Diese Dateien können persönliche Entscheidungen enthalten und werden nicht versioniert.
 
 ### Depot-Effekt
 

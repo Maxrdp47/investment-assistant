@@ -481,8 +481,26 @@ def evaluate_due_forward_tests() -> tuple[int, str]:
     return updated, f"{updated} fällige Forward-Test-Auswertungen aktualisiert."
 
 
-def calibration_status_rows(history: list[dict]) -> tuple[str, list[dict[str, str]]]:
-    cases = len(history)
+def count_completed_reviews(history: list[dict]) -> int:
+    count = 0
+    for item in history:
+        review_after = item.get("review_after", {})
+        if isinstance(review_after, dict):
+            count += sum(1 for value in review_after.values() if value)
+    return count
+
+
+def calibration_status_rows(
+    trade_history: list[dict],
+    forward_tests: list[dict] | None = None,
+    decisions: list[dict] | None = None,
+    predictions: list[dict] | None = None,
+) -> tuple[str, list[dict[str, str]]]:
+    forward_tests = forward_tests or []
+    decisions = decisions or []
+    predictions = predictions or []
+    completed_reviews = count_completed_reviews(forward_tests) + count_completed_reviews(predictions)
+    cases = len(trade_history) + len(forward_tests) + len(decisions) + len(predictions) + completed_reviews
     if cases < 20:
         status = "Datenbasis zu klein. Score-Gewichtungen werden nicht angepasst."
         permission = "Keine Kalibrierung erlaubt"
@@ -494,7 +512,10 @@ def calibration_status_rows(history: list[dict]) -> tuple[str, list[dict[str, st
         permission = "Vorschläge erlaubt"
 
     rows = [
-        {"Messpunkt": "Dokumentierte Fälle", "Wert": str(cases), "Bedeutung": status},
+        {"Messpunkt": "Dokumentierte Fälle gesamt", "Wert": str(cases), "Bedeutung": status},
+        {"Messpunkt": "Forward-Tests", "Wert": str(len(forward_tests)), "Bedeutung": f"Ausgewertete Zeiträume: {count_completed_reviews(forward_tests)}."},
+        {"Messpunkt": "Entscheidungen", "Wert": str(len(decisions)), "Bedeutung": "Nutzerentscheidungen für spätere Opportunitätskostenanalyse."},
+        {"Messpunkt": "Prognosen", "Wert": str(len(predictions)), "Bedeutung": f"Ausgewertete Zeiträume: {count_completed_reviews(predictions)}."},
         {"Messpunkt": "Mindestdatenmenge", "Wert": "20 Fälle", "Bedeutung": "Darunter sind Trefferquoten statistisch zu dünn."},
         {"Messpunkt": "Kalibrierungsregel", "Wert": permission, "Bedeutung": "Version 1 ändert Gewichtungen niemals automatisch."},
     ]
@@ -4224,7 +4245,12 @@ def main() -> None:
             news,
             macro,
         )
-        calibration_status, calibration_rows = calibration_status_rows(load_trade_history())
+        calibration_status, calibration_rows = calibration_status_rows(
+            load_trade_history(),
+            load_forward_tests(),
+            load_decision_history(),
+            load_prediction_history(),
+        )
         action_title, action_html = final_recommendation_v2(
             asset_quality,
             buy_signal,

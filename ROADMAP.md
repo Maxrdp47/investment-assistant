@@ -272,6 +272,7 @@ Transparenzregeln:
 - Score-Gewichtungen nicht automatisch ändern, sondern Anpassungsvorschläge erzeugen.
 - Häufige Fehlerquellen erkennen, z. B. schwache Marktphasen-Erkennung, schlechte Krypto-Bewertung, unbrauchbare News-Signale oder übergewichtete technische Signale.
 - Kalibrierungsbericht anzeigen: Was funktioniert gut? Was funktioniert schlecht? Welche Module brauchen Verbesserung?
+  - Status: Basis umgesetzt am 2026-06-15: lokaler Kalibrierungsstatus zählt Forward-Tests, Entscheidungen, Prognosen und ausgewertete Zeiträume.
 - Lernlogik transparent machen und keine Blackbox-Entscheidungen treffen.
 - Änderungen an Bewertungslogik erst nach Dokumentation und Tests übernehmen.
 
@@ -476,20 +477,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Kalibrierungs- und Lernmodul beginnen: lokale Historien auswerten und Datenbasis einschätzen.
+1. Signalanalyse beginnen: aus lokalen Historien auswerten, welche Module häufiger mit positiven Ergebnissen zusammenfallen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Forward-Tests, Entscheidungen und Prognosen können gespeichert und teilweise ausgewertet werden.
-- Der nächste größte Nutzen liegt darin, die vorhandene lokale Historie zusammenzufassen und die Datenbasis für Lernhinweise einzuschätzen.
-- Diese Aufgabe ist PRIO B, weil sie Kalibrierung und Verbesserung der Analysequalität vorbereitet.
+- Lokale Historien werden im Kalibrierungsstatus zusammengeführt.
+- Der nächste größte Nutzen liegt darin, erste Signalanalysen aus den gespeicherten und ausgewerteten Fällen vorzubereiten.
+- Diese Aufgabe ist PRIO B, weil sie Lernhinweise und spätere Kalibrierung vorbereitet.
 
 Nächste konkrete Umsetzung:
 
-1. Lokale Forward-, Decision- und Prediction-Historien zählen.
-2. Mindestdatenmenge prüfen: unter 20, 20-50, über 50 Fälle.
-3. Erste transparente Lernhinweise anzeigen, ohne Gewichtungen automatisch zu ändern.
+1. Ausgewertete Forward-Tests und Prognosen lesen.
+2. Erfolgs-/Misserfolgsfälle nach Modul-Scores und Asset-Typ gruppieren.
+3. Bei zu kleiner Datenbasis nur Hinweis anzeigen; keine Gewichtungen ändern.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -945,6 +946,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Prognose-Auswertung umgesetzt: Sidebar kann fällige gespeicherte Prognosen nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten auswerten; gespeichert werden Rendite, maximale positive/negative Entwicklung und eine einfache Szenario-Lesart.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist ein Kalibrierungs- und Lernmodul, das lokale Historien zusammenfasst und Datenbasis/Mindestfallzahl transparent macht.
+- Kalibrierungs- und Lernstatus erweitert: Analyse-Details zählen jetzt Trade-Historie, Forward-Tests, Nutzerentscheidungen, Prognosen und ausgewertete Zeiträume gemeinsam; Gewichtungen werden weiterhin nicht automatisch geändert.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-B-Aufgabe ist eine erste Signalanalyse aus lokalen Historien, sobald ausreichend Fälle vorliegen.
 
 ### 2026-06-14
 

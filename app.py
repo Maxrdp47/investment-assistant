@@ -1559,6 +1559,63 @@ def research_commodity_context(profile: AssetProfile) -> ResearchModule:
     return ResearchModule("Rohstoff-Kontext", confidence, summary, details, beginner)
 
 
+def research_crypto_cycle(symbol: str, profile: AssetProfile, df: pd.DataFrame) -> ResearchModule:
+    if profile.asset_type != "Krypto":
+        return ResearchModule("Krypto-Zyklus", None, "Nicht relevant für diesen Asset-Typ.", ["Asset ist nicht als Krypto erkannt."], "Dieses Modul gilt nur für Kryptowährungen.")
+
+    latest = df.iloc[-1] if not df.empty else pd.Series(dtype=float)
+    volatility = value_or_none(latest.get("Volatility"))
+    volume = value_or_none(latest.get("Volume"))
+    volume_avg = value_or_none(latest.get("Volume_SMA_20"))
+    today = pd.Timestamp.today().normalize()
+    last_halving = pd.Timestamp("2024-04-20")
+    next_halving_estimate = pd.Timestamp("2028-04-20")
+    days_since_halving = int((today - last_halving).days)
+    days_to_next_halving = int((next_halving_estimate - today).days)
+
+    if days_since_halving < 180:
+        phase = "frühe Nach-Halving-Phase"
+        cycle_score = 6.5
+    elif days_since_halving < 550:
+        phase = "mittlere Zyklusphase"
+        cycle_score = 7.0
+    elif days_since_halving < 900:
+        phase = "späte Zyklusphase mit erhöhtem Rückschlagsrisiko"
+        cycle_score = 5.0
+    else:
+        phase = "späte/Übergangsphase vor dem nächsten Halving"
+        cycle_score = 4.5
+
+    details = [
+        f"Ticker: {symbol}.",
+        f"Letztes Bitcoin-Halving: 20.04.2024; Tage seitdem: {days_since_halving}.",
+        f"Nächstes Halving grob geschätzt um 2028; Tage bis zur Schätzung: {days_to_next_halving}.",
+        f"Zyklusphase: {phase} -> {cycle_score:.1f}/10.",
+        "ETF-Flows: Daten nicht verfügbar.",
+        "Fear & Greed: Daten nicht verfügbar.",
+        "On-Chain-Daten: Daten nicht verfügbar.",
+    ]
+    points = [cycle_score]
+    if volatility is not None:
+        vol_score = 7.0 if volatility <= 0.55 else 5.0 if volatility <= 0.85 else 3.0
+        points.append(vol_score)
+        details.append(f"Krypto-Volatilität: {volatility * 100:.1f}% -> {vol_score:.1f}/10.")
+    else:
+        details.append(data_missing("Krypto-Volatilität"))
+
+    if volume is not None and volume_avg is not None and volume_avg > 0:
+        liquidity_score = 7.0 if volume >= volume_avg else 5.0
+        points.append(liquidity_score)
+        details.append(f"Krypto-Liquidität: {volume / volume_avg:.2f}x des 20er-Volumenschnitts -> {liquidity_score:.1f}/10.")
+    else:
+        details.append(data_missing("Krypto-Liquidität / Volumenvergleich"))
+
+    score = round(float(np.mean(points)), 1)
+    summary = f"Krypto-Zyklus {score}/10. {phase}."
+    beginner = "Krypto-Zyklen können nach Bitcoin-Halvings Muster zeigen, sind aber keine Garantie. Fehlende ETF-Flow-, Fear-&-Greed- und On-Chain-Daten werden nicht geschätzt."
+    return ResearchModule("Krypto-Zyklus", score, summary, details, beginner)
+
+
 def research_bubble_risk(info: dict, df: pd.DataFrame, valuation: ResearchModule, momentum: ResearchModule, news: ModuleScore) -> ResearchModule:
     latest = df.iloc[-1] if not df.empty else pd.Series(dtype=float)
     points: list[float] = []
@@ -2660,6 +2717,7 @@ def build_research_pack(
     commodity_context = research_commodity_context(asset_profile)
     bubble_risk = research_bubble_risk(info, df, valuation, momentum, news)
     innovation = research_innovation_context(info, asset_profile, asset_quality, bubble_risk, news)
+    crypto_cycle = research_crypto_cycle(symbol, asset_profile, df)
     macro_module = module_from_existing("Makro-Score", macro, "Der Makro-Score bewertet Zinsen, Nasdaq, Dollar und Inflationsumfeld. Hoch heißt: Das Umfeld hilft eher.")
     news_module = module_from_existing("News-Score", news, "Der News-Score bewertet die Nachrichtenstimmung. Hoch heißt: Nachrichten geben eher Rückenwind.")
     risk = research_risk_score(df, risk_reward)
@@ -2669,6 +2727,8 @@ def build_research_pack(
     event_risk = research_event_risk_module(info, asset_profile, macro)
     institutional = research_institutional_data(info, asset_profile)
     modules = [chart, momentum, valuation, fundamentals, innovation, bubble_risk, market_regime, macro_impact, commodity_context, macro_module, news_module, risk, liquidity]
+    if asset_profile.asset_type == "Krypto":
+        modules.insert(4, crypto_cycle)
     institutional_modules = [analyst, earnings, event_risk, institutional]
     confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules)
     uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)

@@ -97,6 +97,7 @@ Enthalten sind:
 - Marktregime mit Hinweisen, Gegenargumenten, Unsicherheiten, betroffenen Asset-Klassen und Vertrauensgrad
 - Makro-Wirkung: Zinsen, Dollar, Risikoappetit und Inflations-/Realzinsproxy mit praktischer Wirkung auf Aktien, ETFs, Krypto und Rohstoffe
 - Rohstoff-Kontext: Öl, Gas, Kupfer, Gold und Uran-Proxy als Konjunktur-, Inflations-, Sicherheits- und Energiesignale, sofern Yahoo-Daten verfügbar sind
+- Krypto-Zyklus: nur bei Krypto-Assets, mit Bitcoin-Halving-Einordnung, Krypto-Volatilität und Liquidität; ETF-Flows, Fear & Greed und On-Chain-Daten bleiben `Daten nicht verfügbar`, wenn keine belastbare Quelle eingebunden ist
 - News-Score
 - Risiko-Score
 - Liquiditäts-Score

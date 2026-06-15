@@ -210,7 +210,7 @@ Transparenzregeln:
 
 ### Priorität 4: Krypto-Modul
 
-- Bitcoin-Halving-Zyklus integrieren.
+- Bitcoin-Halving-Zyklus integrieren. Status: Basis umgesetzt am 2026-06-15.
 - Fear & Greed Index prüfen und integrieren, falls zuverlässig verfügbar.
 - ETF-Flows integrieren, falls eine belastbare Datenquelle verfügbar ist.
 - On-Chain-Daten integrieren, falls verfügbar.
@@ -471,20 +471,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Krypto-Modul erweitern: Bitcoin-Halving-Zyklus und Krypto-Marktstruktur transparent einordnen.
+1. Forward-Testing-Modul beginnen: Analysen optional speichern und später messbar auswerten.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Marktregime, Makro-Wirkung, Rohstoff-Kontext, Blasenrisiko und Innovation/Hype sind als PRIO-A-Bausteine umgesetzt.
-- Der nächste größte Nutzen liegt in besserer Krypto-Speziallogik, weil Krypto anders bewertet werden muss als Aktien und ETFs.
-- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil Krypto-Zyklus, Liquidität und Marktstruktur die Analysequalität direkt beeinflussen.
+- Bitcoin-Halving-Zyklus und Krypto-Liquidität sind als Basis umgesetzt.
+- ETF-Flows, Fear & Greed und On-Chain-Daten bleiben ohne belastbare Quelle bewusst `Daten nicht verfügbar`.
+- Der nächste größte Nutzen liegt in PRIO B: Analysequalität messbar machen, statt weitere nicht belegte Datenquellen zu simulieren.
 
 Nächste konkrete Umsetzung:
 
-1. Bitcoin-Halving-Zyklus transparent einordnen.
-2. ETF-Flows, Fear & Greed und On-Chain-Daten nur verwenden, wenn belastbare Daten verfügbar sind.
-3. Fehlende Krypto-Spezialdaten sichtbar als `Daten nicht verfügbar` anzeigen.
+1. Datei für gespeicherte Forward-Tests festlegen.
+2. Optionales Speichern einer Analyse vorbereiten, ohne Broker-Anbindung.
+3. Spätere Auswertung nach 1 Woche, 1 Monat und 3 Monaten vorbereiten.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -919,6 +919,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Rohstoff-Kontextmodul umgesetzt: nutzt Yahoo-Proxies für Öl, Gas, Kupfer, Gold und Uran/URA, sofern verfügbar; zeigt 3M-Trends, Asset-Typ-Kontext und Unsicherheit statt sichere Kausalitäten zu behaupten.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-A-Teilaufgabe ist die Erweiterung des Krypto-Moduls mit Bitcoin-Halving-Zyklus und transparenter Krypto-Marktstruktur.
+- Krypto-Zyklusmodul umgesetzt: bei Krypto-Assets werden Bitcoin-Halving-Zyklus, geschätzte Zyklusphase, Krypto-Volatilität und Volumen/Liquidität angezeigt; ETF-Flows, Fear & Greed und On-Chain-Daten bleiben ohne Quelle `Daten nicht verfügbar`.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste Aufgabe ist PRIO B Forward-Testing, weil Messung der Analysequalität jetzt mehr Nutzen bringt als weitere unbelegte Datenquellen.
 
 ### 2026-06-14
 

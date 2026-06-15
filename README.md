@@ -185,6 +185,17 @@ Die App zeigt die Gewichtungen im Bereich **Analyse-Details anzeigen**. Je nach 
 
 Das **Kaufsignal** bleibt separat: Es nutzt vor allem den Technik-Score, das CRV und begrenzte Zu- oder Abschläge für Marktphase, RSI und Volatilität.
 
+### Research-Score-Einordnung
+
+Die Research-Tabellen übersetzen jeden Score zusätzlich in einfache Bänder:
+
+- `stark`: Der Baustein unterstützt die Analyse klar.
+- `konstruktiv`: Der Baustein spricht eher für das Investment, braucht aber Bestätigung.
+- `gemischt`: Der Baustein ist uneindeutig und sollte nicht allein entscheidend sein.
+- `schwach`: Der Baustein bremst die Analyse und spricht für Vorsicht.
+- `kritisch`: Der Baustein erhöht das Risiko deutlich.
+- `Daten nicht verfügbar`: Es fehlen belastbare Daten; die App erfindet keine Werte.
+
 ### Kalibrierung
 
 Die App zeigt im Bereich **Analyse-Details anzeigen** einen Kalibrierungsstatus. In Version 1 werden Gewichtungen nicht automatisch geändert.

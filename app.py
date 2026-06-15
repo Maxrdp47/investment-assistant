@@ -2417,6 +2417,36 @@ def signal_tone(score: float, positive_at: float = 6.0, negative_at: float = 4.0
     return "neutral"
 
 
+def score_band(score: float | None) -> str:
+    if score is None:
+        return "Daten nicht verfügbar"
+    if score >= 7.5:
+        return "stark"
+    if score >= 6.0:
+        return "konstruktiv"
+    if score >= 4.5:
+        return "gemischt"
+    if score >= 3.5:
+        return "schwach"
+    return "kritisch"
+
+
+def research_score_interpretation(module: ResearchModule) -> str:
+    if module.score is None:
+        return "Für diesen Baustein fehlen belastbare Daten. Er sollte die Entscheidung deshalb nicht stark beeinflussen."
+
+    band = score_band(module.score)
+    if module.score >= 7.5:
+        return f"{band.capitalize()}: Dieser Baustein unterstützt das Investment klar, ersetzt aber kein Kaufsignal."
+    if module.score >= 6.0:
+        return f"{band.capitalize()}: Dieser Baustein spricht eher für das Investment, braucht aber Bestätigung durch die übrigen Module."
+    if module.score >= 4.5:
+        return f"{band.capitalize()}: Dieser Baustein ist uneindeutig. Praktisch heißt das: nicht übergewichten, sondern auf Bestätigung warten."
+    if module.score >= 3.5:
+        return f"{band.capitalize()}: Dieser Baustein bremst die Analyse. Praktisch heißt das: vorsichtiger planen oder kleinere Tranchen wählen."
+    return f"{band.capitalize()}: Dieser Baustein spricht deutlich gegen einen Einstieg oder erhöht das Risiko stark."
+
+
 def beginner_explanations(
     latest: pd.Series,
     supports: list[float],
@@ -3479,7 +3509,9 @@ def main() -> None:
                         {
                             "Modul": module.name,
                             "Score": "n/a" if module.score is None else f"{module.score:.1f}/10",
+                            "Einordnung": score_band(module.score),
                             "Kurzfazit": module.summary,
+                            "Praktische Bedeutung": research_score_interpretation(module),
                         }
                         for module in research_pack.modules
                     ]
@@ -3491,7 +3523,7 @@ def main() -> None:
             if beginner_mode:
                 st.markdown("**Einfache Erklärung der Research-Scores**")
                 for module in research_pack.modules:
-                    render_analysis_card(module.name, module.beginner, module.summary)
+                    render_analysis_card(module.name, module.beginner, f"{module.summary} {research_score_interpretation(module)}")
 
             st.markdown("**Institutionelle Research-Module**")
             st.dataframe(
@@ -3500,7 +3532,9 @@ def main() -> None:
                         {
                             "Modul": module.name,
                             "Score": "n/a" if module.score is None else f"{module.score:.1f}/10",
+                            "Einordnung": score_band(module.score),
                             "Kurzfazit": module.summary,
+                            "Praktische Bedeutung": research_score_interpretation(module),
                         }
                         for module in research_pack.institutional_modules
                     ]
@@ -3511,7 +3545,7 @@ def main() -> None:
 
             with st.expander("Details zu institutionellen Modulen", expanded=False):
                 for module in research_pack.institutional_modules:
-                    render_analysis_card(module.name, "n/a" if module.score is None else f"{module.score:.1f}/10", module.beginner)
+                    render_analysis_card(module.name, "n/a" if module.score is None else f"{module.score:.1f}/10 - {score_band(module.score)}", f"{module.beginner} {research_score_interpretation(module)}")
                     for detail in module.details:
                         st.write(f"- {detail}")
 

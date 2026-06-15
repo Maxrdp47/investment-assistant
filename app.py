@@ -1498,6 +1498,79 @@ def research_macro_impact(profile: AssetProfile, macro: ModuleScore) -> Research
     return ResearchModule("Makro-Wirkung", macro.score, summary, details, beginner)
 
 
+def research_bubble_risk(info: dict, df: pd.DataFrame, valuation: ResearchModule, momentum: ResearchModule, news: ModuleScore) -> ResearchModule:
+    latest = df.iloc[-1] if not df.empty else pd.Series(dtype=float)
+    points: list[float] = []
+    details: list[str] = []
+
+    pe = value_or_none(info.get("trailingPE") or info.get("forwardPE"))
+    price_to_sales = value_or_none(info.get("priceToSalesTrailing12Months"))
+    if pe is not None and pe > 0:
+        risk = 2.0 if pe <= 20 else 4.5 if pe <= 40 else 7.0 if pe <= 80 else 9.0
+        points.append(risk)
+        details.append(f"Bewertung/KGV: {pe:.1f} -> Blasenrisiko {risk:.1f}/10.")
+    elif price_to_sales is not None and price_to_sales > 0:
+        risk = 2.5 if price_to_sales <= 4 else 5.0 if price_to_sales <= 10 else 7.5 if price_to_sales <= 20 else 9.0
+        points.append(risk)
+        details.append(f"Bewertung/KUV: {price_to_sales:.1f} -> Blasenrisiko {risk:.1f}/10.")
+    else:
+        details.append(data_missing("Bewertungsdaten für Blasenrisiko"))
+
+    rsi = value_or_none(latest.get("RSI_14"))
+    if rsi is not None:
+        risk = 8.0 if rsi > 75 else 6.5 if rsi > 70 else 4.0 if rsi >= 45 else 3.0
+        points.append(risk)
+        details.append(f"Momentum/RSI: {rsi:.1f} -> Blasenrisiko {risk:.1f}/10.")
+    else:
+        details.append(data_missing("RSI für Blasenrisiko"))
+
+    close = df["Close"].dropna() if not df.empty and "Close" in df else pd.Series(dtype=float)
+    if len(close) >= 60 and float(close.iloc[-60]) != 0:
+        change_3m = (float(close.iloc[-1]) - float(close.iloc[-60])) / float(close.iloc[-60])
+        risk = 8.5 if change_3m > 0.60 else 7.0 if change_3m > 0.35 else 5.0 if change_3m > 0.15 else 3.5
+        points.append(risk)
+        details.append(f"3M-Kursanstieg: {change_3m * 100:+.1f}% -> Blasenrisiko {risk:.1f}/10.")
+    else:
+        details.append(data_missing("3M-Kursanstieg"))
+
+    volatility = value_or_none(latest.get("Volatility"))
+    if volatility is not None:
+        risk = 8.0 if volatility > 0.90 else 6.5 if volatility > 0.60 else 4.5 if volatility > 0.35 else 3.0
+        points.append(risk)
+        details.append(f"Volatilität: {volatility * 100:.1f}% -> Blasenrisiko {risk:.1f}/10.")
+    else:
+        details.append(data_missing("Volatilität für Blasenrisiko"))
+
+    if news.score >= 7:
+        points.append(6.0)
+        details.append("Sentiment/News: sehr positiv -> mögliches Hype-Risiko 6.0/10.")
+    elif news.score <= 4:
+        points.append(3.0)
+        details.append("Sentiment/News: negativ -> kein positives Hype-Signal aus News.")
+    else:
+        points.append(4.5)
+        details.append("Sentiment/News: neutral bis gemischt -> moderates Hype-Risiko.")
+
+    details.append("Medienaufmerksamkeit: Daten nicht verfügbar.")
+    details.append("Zuflüsse/Flows: Daten nicht verfügbar.")
+    details.append(f"Bewertungsscore als Gegencheck: {valuation.score}/10. Momentum-Score als Gegencheck: {momentum.score}/10.")
+
+    if not points:
+        return ResearchModule("Blasenrisiko", None, "Blasenrisiko: Daten nicht verfügbar.", details, "Blasenrisiko zeigt, ob Bewertung, Momentum und Stimmung überhitzt wirken. Fehlende Daten werden nicht geschätzt.")
+
+    score = round(float(np.mean(points)), 1)
+    if score >= 7.5:
+        summary = f"Blasenrisiko hoch: {score}/10."
+    elif score >= 6.0:
+        summary = f"Blasenrisiko erhöht: {score}/10."
+    elif score >= 4.5:
+        summary = f"Blasenrisiko mittel: {score}/10."
+    else:
+        summary = f"Blasenrisiko niedrig bis moderat: {score}/10."
+    beginner = "Blasenrisiko prüft, ob Kurs, Bewertung, Momentum und Stimmung überhitzt wirken. Ein hoher Wert ist ein Warnsignal, kein automatischer Verkauf."
+    return ResearchModule("Blasenrisiko", score, summary, details, beginner)
+
+
 def build_data_source_warnings(
     ticker_info: dict,
     original_currency: str,
@@ -2446,6 +2519,7 @@ def build_research_pack(
     fundamentals = research_fundamental_module(asset_quality, asset_profile)
     market_regime = research_market_regime(df, market_phase, macro)
     macro_impact = research_macro_impact(asset_profile, macro)
+    bubble_risk = research_bubble_risk(info, df, valuation, momentum, news)
     macro_module = module_from_existing("Makro-Score", macro, "Der Makro-Score bewertet Zinsen, Nasdaq, Dollar und Inflationsumfeld. Hoch heißt: Das Umfeld hilft eher.")
     news_module = module_from_existing("News-Score", news, "Der News-Score bewertet die Nachrichtenstimmung. Hoch heißt: Nachrichten geben eher Rückenwind.")
     risk = research_risk_score(df, risk_reward)
@@ -2454,7 +2528,7 @@ def build_research_pack(
     earnings = research_earnings_module(symbol, info, asset_profile)
     event_risk = research_event_risk_module(info, asset_profile, macro)
     institutional = research_institutional_data(info, asset_profile)
-    modules = [chart, momentum, valuation, fundamentals, market_regime, macro_impact, macro_module, news_module, risk, liquidity]
+    modules = [chart, momentum, valuation, fundamentals, bubble_risk, market_regime, macro_impact, macro_module, news_module, risk, liquidity]
     institutional_modules = [analyst, earnings, event_risk, institutional]
     confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules)
     uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)
@@ -2653,9 +2727,23 @@ def signal_tone(score: float, positive_at: float = 6.0, negative_at: float = 4.0
     return "neutral"
 
 
-def score_band(score: float | None) -> str:
+def is_warning_score_module(module: ResearchModule) -> bool:
+    return "Blasenrisiko" in module.name
+
+
+def score_band(score: float | None, inverse: bool = False) -> str:
     if score is None:
         return "Daten nicht verfügbar"
+    if inverse:
+        if score >= 7.5:
+            return "hoch / Warnsignal"
+        if score >= 6.0:
+            return "erhöht"
+        if score >= 4.5:
+            return "mittel"
+        if score >= 3.5:
+            return "moderat"
+        return "niedrig"
     if score >= 7.5:
         return "stark"
     if score >= 6.0:
@@ -2671,7 +2759,16 @@ def research_score_interpretation(module: ResearchModule) -> str:
     if module.score is None:
         return "Für diesen Baustein fehlen belastbare Daten. Er sollte die Entscheidung deshalb nicht stark beeinflussen."
 
-    band = score_band(module.score)
+    inverse = is_warning_score_module(module)
+    band = score_band(module.score, inverse)
+    if inverse:
+        if module.score >= 7.5:
+            return f"{band.capitalize()}: Dieser Baustein warnt vor Überhitzung oder spekulativer Bewertung. Praktisch heißt das: besonders vorsichtig planen."
+        if module.score >= 6.0:
+            return f"{band.capitalize()}: Es gibt Überhitzungszeichen. Praktisch heißt das: keine großen Sofortkäufe."
+        if module.score >= 4.5:
+            return f"{band.capitalize()}: Das Blasenrisiko ist gemischt. Praktisch heißt das: weitere Bestätigung abwarten."
+        return f"{band.capitalize()}: Aus den verfügbaren Daten kommt kein starkes Blasenwarnsignal."
     if module.score >= 7.5:
         return f"{band.capitalize()}: Dieser Baustein unterstützt das Investment klar, ersetzt aber kein Kaufsignal."
     if module.score >= 6.0:
@@ -3745,7 +3842,7 @@ def main() -> None:
                         {
                             "Modul": module.name,
                             "Score": "n/a" if module.score is None else f"{module.score:.1f}/10",
-                            "Einordnung": score_band(module.score),
+                            "Einordnung": score_band(module.score, is_warning_score_module(module)),
                             "Kurzfazit": module.summary,
                             "Praktische Bedeutung": research_score_interpretation(module),
                         }
@@ -3768,7 +3865,7 @@ def main() -> None:
                         {
                             "Modul": module.name,
                             "Score": "n/a" if module.score is None else f"{module.score:.1f}/10",
-                            "Einordnung": score_band(module.score),
+                            "Einordnung": score_band(module.score, is_warning_score_module(module)),
                             "Kurzfazit": module.summary,
                             "Praktische Bedeutung": research_score_interpretation(module),
                         }
@@ -3781,7 +3878,7 @@ def main() -> None:
 
             with st.expander("Details zu institutionellen Modulen", expanded=False):
                 for module in research_pack.institutional_modules:
-                    render_analysis_card(module.name, "n/a" if module.score is None else f"{module.score:.1f}/10 - {score_band(module.score)}", f"{module.beginner} {research_score_interpretation(module)}")
+                    render_analysis_card(module.name, "n/a" if module.score is None else f"{module.score:.1f}/10 - {score_band(module.score, is_warning_score_module(module))}", f"{module.beginner} {research_score_interpretation(module)}")
                     for detail in module.details:
                         st.write(f"- {detail}")
 

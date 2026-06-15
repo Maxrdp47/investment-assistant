@@ -91,6 +91,7 @@ Enthalten sind:
 - Momentum-Score
 - Bewertungsscore oder bei Krypto Zyklus-/On-Chain-Score
 - Fundamentaldaten-Score oder bei Krypto Netzwerk-/Adoptionsscore
+- Blasenrisiko: Bewertung, Momentum, 3M-Kursanstieg, Volatilität und News-Sentiment; hoher Wert ist ein Warnsignal
 - Makro-Score
 - Marktregime mit Hinweisen, Gegenargumenten, Unsicherheiten, betroffenen Asset-Klassen und Vertrauensgrad
 - Makro-Wirkung: Zinsen, Dollar, Risikoappetit und Inflations-/Realzinsproxy mit praktischer Wirkung auf Aktien, ETFs, Krypto und Rohstoffe

@@ -471,20 +471,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Blasenrisiko-Modul beginnen: Bewertung, Momentum, Sentiment und Datenqualität transparent einschätzen.
+1. Innovations-Modul beginnen: Innovationsführer, indirekte Profiteure und Hype-Aktien trennen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Marktregime und Makro-Wirkung sind als erste PRIO-A-Bausteine umgesetzt.
-- Der nächste größte Nutzen liegt in einem Blasenrisiko-Kontext, weil Momentum und Bewertung ohne Warnlogik zu optimistisch wirken können.
-- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil Überhitzung und Spekulationsphasen die Analysequalität direkt beeinflussen.
+- Marktregime, Makro-Wirkung und Blasenrisiko sind als PRIO-A-Bausteine umgesetzt.
+- Der nächste größte Nutzen liegt in einer Innovations-/Hype-Einordnung, weil starke Storys ohne belastbare Daten schnell fehlinterpretiert werden.
+- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil qualitative Marktstellung und Hype-Risiko die Analysequalität direkt beeinflussen.
 
 Nächste konkrete Umsetzung:
 
-1. Vorhandene Bewertung, Momentum, News und Volatilität verwenden.
-2. Medienaufmerksamkeit und Zuflüsse nur anzeigen, wenn Daten verfügbar sind.
-3. Blasenrisiko als Kontext und nicht als automatisches Verkaufssignal darstellen.
+1. Vorhandene Wachstums-, Margen-, Bewertungs-, News- und Marktstellungsdaten verwenden.
+2. Fehlende Innovationsbelege als `Daten nicht verfügbar` kennzeichnen.
+3. Innovationsführer, indirekte Profiteure und Hype-Aktien getrennt erklären.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -910,6 +910,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Makro-Wirkungsmodul ergänzt: erklärt Zinsen, Dollar, Risikoappetit und Inflations-/Realzinsproxy mit praktischer Wirkung auf Aktien, ETFs, Krypto und Rohstoffe; Aussagen bleiben als Wahrscheinlichkeitszusammenhänge gekennzeichnet.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-A-Teilaufgabe ist ein erstes Blasenrisiko-Modul aus verfügbaren Bewertungs-, Momentum-, Sentiment- und Volatilitätsdaten.
+- Blasenrisiko-Modul umgesetzt: nutzt vorhandene Bewertungsdaten, RSI, 3M-Kursanstieg, Volatilität und News-Sentiment; Medienaufmerksamkeit und Zuflüsse werden als `Daten nicht verfügbar` gekennzeichnet; hoher Score wird als Warnsignal interpretiert.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-A-Teilaufgabe ist das Innovations-Modul zur Trennung von Innovationsführern, indirekten Profiteuren und Hype-Aktien.
 
 ### 2026-06-14
 

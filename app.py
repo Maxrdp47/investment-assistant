@@ -1350,6 +1350,97 @@ def score_macro() -> ModuleScore:
     return ModuleScore(final_score, summary, details)
 
 
+def research_market_regime(df: pd.DataFrame, market_phase: MarketPhase, macro: ModuleScore) -> ResearchModule:
+    macro_data = load_macro_prices()
+    nasdaq_change = trend_change(macro_data.get("Nasdaq", pd.DataFrame()))
+    rates_change = trend_change(macro_data.get("US-Zinsen 10J", pd.DataFrame()))
+    dollar_change = trend_change(macro_data.get("Dollar-Index", pd.DataFrame()))
+    inflation_proxy = trend_change(macro_data.get("Inflationserwartung Proxy", pd.DataFrame()))
+    latest = df.iloc[-1] if not df.empty else pd.Series(dtype=float)
+    close = value_or_none(latest.get("Close"))
+    sma_50 = value_or_none(latest.get("SMA_50"))
+    sma_200 = value_or_none(latest.get("SMA_200"))
+    volatility = value_or_none(latest.get("Volatility"))
+
+    hints: list[str] = []
+    counterpoints: list[str] = []
+    uncertainties: list[str] = []
+    regimes: list[str] = []
+    confidence_points = 0
+
+    if nasdaq_change is not None:
+        confidence_points += 1
+        hints.append(f"Nasdaq 3M: {nasdaq_change * 100:+.1f}%.")
+        if nasdaq_change > 0.06:
+            regimes.append("Risk-On / Wachstumsphase")
+        elif nasdaq_change < -0.06:
+            regimes.append("Risk-Off / Defensivphase")
+    else:
+        uncertainties.append(data_missing("Nasdaq-Trend"))
+
+    if rates_change is not None:
+        confidence_points += 1
+        hints.append(f"US-Zinsen 10J 3M: {rates_change * 100:+.1f}%.")
+        if rates_change > 0.08:
+            regimes.append("Liquiditätsentzug")
+            counterpoints.append("Steigende Zinsen können Wachstumsaktien und Krypto belasten.")
+        elif rates_change < -0.08:
+            regimes.append("Liquiditätsentlastung")
+    else:
+        uncertainties.append(data_missing("US-Zinsen"))
+
+    if dollar_change is not None:
+        confidence_points += 1
+        hints.append(f"Dollar-Index 3M: {dollar_change * 100:+.1f}%.")
+        if dollar_change > 0.04:
+            regimes.append("Dollar-Stärke / globale Straffung")
+        elif dollar_change < -0.04:
+            regimes.append("Dollar-Schwäche / Rückenwind für Risikoassets")
+    else:
+        uncertainties.append(data_missing("Dollar-Index"))
+
+    if inflation_proxy is not None:
+        confidence_points += 1
+        hints.append(f"TIP-Proxy 3M: {inflation_proxy * 100:+.1f}%.")
+    else:
+        uncertainties.append(data_missing("Inflations-/Realzins-Proxy"))
+
+    if close is not None and sma_50 is not None and sma_200 is not None:
+        confidence_points += 1
+        if close > sma_50 > sma_200:
+            regimes.append("asset-spezifischer Aufwärtstrend")
+            hints.append("Asset notiert über 50er- und 200er-Durchschnitt.")
+        elif close < sma_50 < sma_200:
+            regimes.append("asset-spezifischer Abwärtstrend")
+            counterpoints.append("Asset notiert unter wichtigen Durchschnittslinien.")
+    else:
+        uncertainties.append(data_missing("50er/200er-Trendstruktur"))
+
+    if volatility is not None:
+        confidence_points += 1
+        hints.append(f"Asset-Volatilität: {volatility * 100:.1f}%.")
+        if volatility > 0.75:
+            regimes.append("Spekulationsphase / hohe Unsicherheit")
+            counterpoints.append("Hohe Schwankung kann Signale schnell entwerten.")
+    else:
+        uncertainties.append(data_missing("Volatilität"))
+
+    if not regimes:
+        regimes.append("Gemischtes Marktregime")
+    unique_regimes = list(dict.fromkeys(regimes))
+    confidence = round(clamp(3.5 + confidence_points * 1.0), 1)
+    summary = f"Marktregime: {', '.join(unique_regimes[:3])}. Vertrauensgrad {confidence}/10."
+    details = [
+        "Erkannte Hinweise: " + ("; ".join(hints) if hints else "Daten nicht verfügbar."),
+        "Gegenargumente: " + ("; ".join(counterpoints) if counterpoints else "Keine klaren Gegenargumente aus den verfügbaren Proxies."),
+        "Unsicherheiten: " + ("; ".join(uncertainties) if uncertainties else "Keine wesentlichen Datenlücken in den genutzten Proxies."),
+        f"Betroffene Asset-Klassen: Aktien, ETFs und Krypto; genaue Wirkung hängt vom Asset-Typ und der Marktphase `{market_phase.phase}` ab.",
+        f"Praktische Bedeutung: {macro.summary} Marktregime ist ein Kontextsignal, kein automatisches Kaufsignal.",
+    ]
+    beginner = "Das Marktregime beschreibt das große Umfeld. Risk-On hilft Risikoassets eher, Risk-Off und Liquiditätsentzug machen Einstiege unsicherer. Es ist nur ein Kontextsignal."
+    return ResearchModule("Marktregime", confidence, summary, details, beginner)
+
+
 def build_data_source_warnings(
     ticker_info: dict,
     original_currency: str,
@@ -2296,6 +2387,7 @@ def build_research_pack(
     momentum = research_momentum_score(df)
     valuation = research_valuation_score(info, asset_profile, df, macro)
     fundamentals = research_fundamental_module(asset_quality, asset_profile)
+    market_regime = research_market_regime(df, market_phase, macro)
     macro_module = module_from_existing("Makro-Score", macro, "Der Makro-Score bewertet Zinsen, Nasdaq, Dollar und Inflationsumfeld. Hoch heißt: Das Umfeld hilft eher.")
     news_module = module_from_existing("News-Score", news, "Der News-Score bewertet die Nachrichtenstimmung. Hoch heißt: Nachrichten geben eher Rückenwind.")
     risk = research_risk_score(df, risk_reward)
@@ -2304,7 +2396,7 @@ def build_research_pack(
     earnings = research_earnings_module(symbol, info, asset_profile)
     event_risk = research_event_risk_module(info, asset_profile, macro)
     institutional = research_institutional_data(info, asset_profile)
-    modules = [chart, momentum, valuation, fundamentals, macro_module, news_module, risk, liquidity]
+    modules = [chart, momentum, valuation, fundamentals, market_regime, macro_module, news_module, risk, liquidity]
     institutional_modules = [analyst, earnings, event_risk, institutional]
     confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules)
     uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)

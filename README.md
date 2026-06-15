@@ -92,6 +92,7 @@ Enthalten sind:
 - Bewertungsscore oder bei Krypto Zyklus-/On-Chain-Score
 - Fundamentaldaten-Score oder bei Krypto Netzwerk-/Adoptionsscore
 - Makro-Score
+- Marktregime mit Hinweisen, Gegenargumenten, Unsicherheiten, betroffenen Asset-Klassen und Vertrauensgrad
 - News-Score
 - Risiko-Score
 - Liquiditäts-Score

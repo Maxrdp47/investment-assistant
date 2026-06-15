@@ -22,6 +22,7 @@ SEARCH_HISTORY_PATH = Path(__file__).resolve().parent / "search_history.json"
 TRADE_HISTORY_PATH = Path(__file__).resolve().parent / "trade_history.json"
 FORWARD_TEST_PATH = Path(__file__).resolve().parent / "forward_tests.json"
 DECISION_HISTORY_PATH = Path(__file__).resolve().parent / "decision_history.json"
+PREDICTION_HISTORY_PATH = Path(__file__).resolve().parent / "prediction_history.json"
 YFINANCE_CACHE_DIR.mkdir(exist_ok=True)
 yf.set_tz_cache_location(str(YFINANCE_CACHE_DIR))
 
@@ -331,6 +332,28 @@ def save_decision_record(record: dict) -> bool:
     history.insert(0, record)
     try:
         DECISION_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        return False
+    return True
+
+
+def load_prediction_history() -> list[dict]:
+    if not PREDICTION_HISTORY_PATH.exists():
+        return []
+    try:
+        data = json.loads(PREDICTION_HISTORY_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return [item for item in data if isinstance(item, dict)]
+
+
+def save_prediction_record(record: dict) -> bool:
+    history = load_prediction_history()
+    history.insert(0, record)
+    try:
+        PREDICTION_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
     except OSError:
         return False
     return True
@@ -2920,6 +2943,37 @@ def build_decision_record(
     }
 
 
+def build_prediction_record(
+    symbol: str,
+    asset_identity: dict,
+    asset_profile: AssetProfile,
+    latest: pd.Series,
+    market_phase: MarketPhase,
+    risk_reward: RiskReward,
+    research_pack: ResearchPack,
+) -> dict:
+    return {
+        "created_at": pd.Timestamp.now().isoformat(),
+        "symbol": symbol,
+        "name": asset_identity.get("name", ""),
+        "asset_type": asset_profile.asset_type,
+        "price_at_prediction": value_or_none(latest.get("Close")),
+        "market_phase": market_phase.phase,
+        "confidence": research_pack.confidence.score,
+        "risk_reward_score": risk_reward.score,
+        "risk_reward_ratio": risk_reward.ratio,
+        "scenarios": research_pack.scenarios,
+        "decisive_mark": research_pack.conclusion.get("Welche Marke ist entscheidend?"),
+        "invalidation_or_buy_zones": research_pack.buy_zones,
+        "review_after": {
+            "1w": None,
+            "1m": None,
+            "3m": None,
+        },
+        "note": "Prognose-Tracking speichert nur Szenarien zur späteren Auswertung. Keine Order, keine Broker-Anbindung.",
+    }
+
+
 def technical_module(score_result: ScoreResult, phase: MarketPhase) -> ModuleScore:
     details = score_result.reasons.copy()
     details.append(f"Marktphase: {phase.phase}.")
@@ -4329,6 +4383,20 @@ def main() -> None:
 
             st.markdown("**Bull / Base / Bear-Szenarien**")
             st.dataframe(pd.DataFrame(research_pack.scenarios), use_container_width=True, hide_index=True)
+            if st.button("Szenarien als Prognose speichern", use_container_width=True):
+                prediction_record = build_prediction_record(
+                    symbol,
+                    asset_identity,
+                    asset_profile,
+                    latest,
+                    market_phase,
+                    risk_reward,
+                    research_pack,
+                )
+                if save_prediction_record(prediction_record):
+                    st.success("Prognose gespeichert. Es wurde keine Order ausgelöst.")
+                else:
+                    st.error("Prognose konnte nicht gespeichert werden.")
 
             st.markdown("**Nachkaufzonen**")
             st.dataframe(pd.DataFrame(research_pack.buy_zones), use_container_width=True, hide_index=True)

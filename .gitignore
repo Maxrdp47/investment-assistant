@@ -11,6 +11,7 @@ search_history.json
 trade_history.json
 forward_tests.json
 decision_history.json
+prediction_history.json
 
 # Secrets and local environment
 .streamlit/secrets.toml

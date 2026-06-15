@@ -258,6 +258,7 @@ Transparenzregeln:
 ### PRIO B: Prognose-Tracking-Modul
 
 - Prognosen aus Bull/Base/Bear-Szenarien dauerhaft speichern.
+  - Status: Basis umgesetzt am 2026-06-15 (`prediction_history.json`, lokal und nicht versioniert).
 - Kursziele, Wahrscheinlichkeiten, Zeithorizont und entscheidende Widerlegungsmarken erfassen.
 - Später prüfen, welches Szenario am besten getroffen hat.
 - Trefferquote je Modul, Signalart, Asset-Typ und Marktphase berechnen.
@@ -474,20 +475,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Prognose-Tracking-Modul beginnen: Bull/Base/Bear-Prognosen dauerhaft speichern.
+1. Prognose-Auswertung beginnen: gespeicherte Bull/Base/Bear-Prognosen mit echten Kursdaten vergleichen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Decision Tracking ist als Basis umgesetzt.
-- Der nächste größte Nutzen liegt darin, Bull/Base/Bear-Prognosen separat zu speichern und später mit Ergebnissen zu vergleichen.
+- Prognose-Speicherung ist als Basis umgesetzt.
+- Der nächste größte Nutzen liegt darin, gespeicherte Szenarien später mit echten Kursdaten zu vergleichen.
 - Diese Aufgabe ist PRIO B, weil sie Prognosequalität messbar macht.
 
 Nächste konkrete Umsetzung:
 
-1. Lokale Datei für Prognosen festlegen.
-2. Szenarien, Kursziele, Wahrscheinlichkeiten und Widerlegungsmarken speichern.
-3. Keine automatische Handlung, nur Dokumentation und spätere Auswertung.
+1. Gespeicherte Prognosen laden.
+2. Fällige Prognosen mit Kursdaten auswerten.
+3. Trefferstatus, maximale positive und negative Entwicklung dokumentieren.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -936,6 +937,10 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - `decision_history.json` in `.gitignore` und README-Datenschutzliste aufgenommen.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist Prognose-Tracking für Bull/Base/Bear-Szenarien.
+- Prognose-Tracking-Basisspeicherung umgesetzt: Bull/Base/Bear-Szenarien, Wahrscheinlichkeiten, Kursziele, entscheidende Marke und Kaufzonen können lokal in `prediction_history.json` gespeichert werden; keine Orderfunktion.
+- `prediction_history.json` in `.gitignore` und README-Datenschutzliste aufgenommen.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-B-Aufgabe ist die Prognose-Auswertung mit echten Kursdaten.
 
 ### 2026-06-14
 

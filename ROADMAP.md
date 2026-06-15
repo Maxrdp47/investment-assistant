@@ -339,6 +339,7 @@ Beispielausgabe:
 - Confidence: 8/10
 - Zeithorizont: 2-6 Wochen
 - CRV: 3,1
+- Status: Basis umgesetzt am 2026-06-15. Aus Scanner-Kandidaten werden Trading-Setups mit Richtung, Chance, Confidence, Zielzone, Stop-Zone, Zeithorizont, CRV, Risiken und Chancen erzeugt. Speichern ins lokale Trade Journal ist optional und löst keine Order aus.
 
 ### PRIO B: Trade Journal
 
@@ -479,20 +480,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Trading-Modus beginnen: aus Scanner-Kandidaten ein konkretes Setup mit Zielzone, Stop-Zone, CRV, Chance, Confidence und Risiken ableiten.
+1. Trade-Journal und Performance-Tracking erweitern: gespeicherte Trading-Setups nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten auswerten.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Signalanalyse und Opportunity Scanner sind als Basis umgesetzt.
-- Der nächste größte Nutzen liegt im Trading-Modus, weil Scanner-Kandidaten dadurch in prüfbare Setups mit Ziel, Stop und Zeithorizont überführt werden können.
-- Diese Aufgabe ist PRIO B, weil sie spätere Performance-Messung, Trade Journal und Lernsystem vorbereitet.
+- Signalanalyse, Opportunity Scanner und Trading-Modus sind als Basis umgesetzt.
+- Der nächste größte Nutzen liegt in der Auswertung gespeicherter Setups, weil dadurch Trefferquote, Drawdown und Lernsystem messbar werden.
+- Diese Aufgabe ist PRIO B, weil sie Performance-Messung und spätere Kalibrierung vorbereitet.
 
 Nächste konkrete Umsetzung:
 
-1. Scanner-Ergebnisse in ein Setup-Format überführen.
-2. Zielzone und Stop-Zone aus Widerständen, Unterstützungen und Volatilität ableiten.
-3. Chance, Confidence, CRV, wichtigste Risiken und wichtigste Chancen anzeigen.
+1. `trade_history.json`-Einträge mit Review-Feldern für 1 Woche, 1 Monat und 3 Monate erweitern.
+2. Auswertung gegen echte Kursdaten analog zu Forward-Tests implementieren.
+3. Treffer, maximale positive Entwicklung, maximale negative Entwicklung, Ziel erreicht und Stop erreicht speichern.
 4. Keine automatische Orderfunktion einbauen.
 5. Tests ausführen und ROADMAP aktualisieren.
 
@@ -960,6 +961,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist der Trading-Modus auf Basis der Scanner-Kandidaten.
 - Streamlit-Community-Cloud-Vorbereitung umgesetzt: `app.py` nutzt keine Windows-Pfade, yfinance-Cache fällt bei Schreibproblemen auf ein temporäres Verzeichnis zurück, `.streamlit/config.toml` ist vorhanden, `portfolio.json` enthält nur GitHub-kompatible Minimaldaten und README erklärt das Cloud-Deployment.
 - Tests dokumentiert: `python -m py_compile app.py` erfolgreich.
+- Trading-Modus-Basis umgesetzt: Aus Opportunity-Scanner-Kandidaten werden Setups mit Richtung, Chance, Confidence, Zielzone, Stop-Zone, CRV, Zeithorizont, Risiken und Chancen erzeugt; Setups können lokal in `trade_history.json` gespeichert werden und lösen keine Order aus.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Trading-Setup-Direkttest mit `NVDA` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-B-Aufgabe ist Performance-Tracking für gespeicherte Trade-Journal-Setups.
 
 ### 2026-06-14
 

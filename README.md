@@ -145,7 +145,7 @@ Die ROADMAP sieht zusätzliche Module vor, die nicht nur neue Features liefern s
 
 - Opportunity Scanner: In der Sidebar kann eine kleine Watchlist gescannt werden. Die App nutzt vorhandene Analysefunktionen, zeigt Top-Long-Chancen, Short-/Absicherungs-Kandidaten, Opportunity Score, Vertrauensscore, Zeithorizont und wichtigste Begründungen. Der Scanner macht nur Vorschläge und führt keine Käufe oder Verkäufe aus.
 - Trading-Modus: Es werden nur Kandidaten aus dem Opportunity Scanner analysiert. Für jedes Setup werden Richtung, Chance, Confidence, Zielzone, Stop-Zone, Zeithorizont, CRV, Risiken und Chancen angezeigt.
-- Trade Journal: Vorgeschlagene Trades sollen in `trade_history.json` dokumentiert werden, ohne eine Order auszuführen.
+- Trade Journal: Trading-Setups können lokal in `trade_history.json` dokumentiert werden, ohne eine Order auszuführen.
 - Performance Tracking: Vorgeschlagene Trades sollen nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten überprüft werden.
 - Forward-Testing: Eine angezeigte Analyse kann optional lokal in `forward_tests.json` gespeichert werden. Fällige Tests können in der Sidebar ausgewertet werden; gespeichert werden Rendite, maximale positive und negative Entwicklung. Die Datei wird nicht versioniert und löst niemals eine Order aus.
 - Decision-Tracking: Nutzerentscheidungen wie gekauft, gehalten, verkauft oder beobachtet können optional lokal in `decision_history.json` protokolliert werden. Es wird keine Order ausgeführt.

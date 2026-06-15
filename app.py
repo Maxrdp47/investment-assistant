@@ -287,6 +287,18 @@ def save_successful_search(query: str, candidate: dict) -> None:
         pass
 
 
+def append_trade_records(records: list[dict]) -> bool:
+    if not records:
+        return False
+    history = load_trade_history()
+    history = records + history
+    try:
+        TRADE_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        return False
+    return True
+
+
 def load_trade_history() -> list[dict]:
     if not TRADE_HISTORY_PATH.exists():
         return []
@@ -1576,6 +1588,150 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
 
     results.sort(key=lambda item: (item["Opportunity Score"], item["Vertrauen"]), reverse=True)
     return results, errors
+
+
+def fallback_move_from_volatility(latest: pd.Series, default: float = 0.08) -> float:
+    volatility = value_or_none(latest.get("Volatility"))
+    if volatility is None:
+        return default
+    return min(max(volatility / 4, 0.04), 0.25)
+
+
+def setup_probability(direction: str, buy_signal: ModuleScore, confidence: float, crv: float | None) -> int:
+    if direction == "Short / Absicherung":
+        base = 45 + (5 - buy_signal.score) * 6 + (confidence - 5) * 3
+    else:
+        base = 45 + (buy_signal.score - 5) * 7 + (confidence - 5) * 3
+    if crv is not None:
+        base += min(max(crv - 1.5, -1.0), 2.0) * 4
+    return int(round(min(max(base, 20), 82)))
+
+
+def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
+    try:
+        raw_data = load_price_data(symbol, "1y", "1d")
+        if raw_data.empty or "Close" not in raw_data:
+            return None, f"{symbol}: keine Kursdaten verfügbar."
+
+        df = calculate_indicators(raw_data, "1d")
+        latest = df.iloc[-1]
+        close = float(latest["Close"])
+        supports = local_levels(df["Low"], "support") if "Low" in df else []
+        resistances = local_levels(df["High"], "resistance") if "High" in df else []
+        score_result = calculate_score_v2(df, supports, resistances)
+        info = load_ticker_info(symbol)
+        identity = build_asset_identity(symbol, info, ticker_candidate(symbol, source="Trading-Modus"))
+        profile = detect_asset_type(symbol, info)
+        market_phase = detect_market_phase(df)
+        risk_reward = calculate_risk_reward(close, supports, resistances)
+        asset_quality = score_asset_quality(symbol, profile, df)
+        buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
+        confidence = scanner_confidence(df, market_phase, latest)
+        direction = scanner_direction(buy_signal, market_phase)
+        move = fallback_move_from_volatility(latest)
+
+        support = supports[0] if supports else None
+        resistance = resistances[0] if resistances else None
+        if direction == "Short / Absicherung":
+            target = support if support is not None else close * (1 - move)
+            stop = resistance if resistance is not None else close * (1 + move * 0.75)
+            reward_pct = (close - target) / close if target < close else None
+            risk_pct = (stop - close) / close if stop > close else None
+            setup_label = "Short / Absicherung"
+        else:
+            target = resistance if resistance is not None else close * (1 + move)
+            stop = support * 0.98 if support is not None else close * (1 - move * 0.75)
+            reward_pct = (target - close) / close if target > close else None
+            risk_pct = (close - stop) / close if stop < close else None
+            setup_label = "Long" if buy_signal.score >= 6.5 else "Beobachten"
+
+        crv = reward_pct / risk_pct if reward_pct is not None and risk_pct is not None and risk_pct > 0 else None
+        chance = setup_probability(direction, buy_signal, confidence, crv)
+        risks = [
+            "Setup verliert Aussagekraft, wenn die Stop-Zone klar gebrochen wird.",
+            "Hohe Volatilität kann Ziel und Stop schnell anlaufen.",
+            "Makro- oder News-Schocks können technische Signale überlagern.",
+        ]
+        chances = [
+            "Besseres CRV, wenn Einstieg nahe Unterstützung oder nach Bestätigung erfolgt.",
+            "Momentum verbessert sich, wenn MACD und Marktphase drehen.",
+            "Zielzone wird wahrscheinlicher, wenn Volumen die Bewegung bestätigt.",
+        ]
+        if direction == "Beobachten":
+            risks.insert(0, "Noch kein klares Trading-Setup; der Kandidat gehört auf die Beobachtungsliste.")
+
+        return {
+            "Datum": pd.Timestamp.now().isoformat(),
+            "Asset": identity.get("name", symbol),
+            "Ticker": symbol,
+            "Asset-Typ": profile.asset_type,
+            "Richtung": setup_label,
+            "Einstieg": close,
+            "Zielzone": target,
+            "Stop-Zone": stop,
+            "Chance": chance,
+            "Confidence": confidence,
+            "CRV": None if crv is None else round(crv, 2),
+            "Zeithorizont": "2-8 Wochen",
+            "Marktphase": market_phase.phase,
+            "Kaufsignal": buy_signal.score,
+            "Asset-Qualität": asset_quality.score,
+            "Risiken": risks[:3],
+            "Chancen": chances[:3],
+            "Begründung": f"{setup_label}: Kaufsignal {buy_signal.score:.1f}/10, Confidence {confidence:.1f}/10, Marktphase {market_phase.phase}.",
+            "Hinweis": "Nur Analyse und Dokumentation. Keine automatische Kauf- oder Verkaufsfunktion.",
+        }, None
+    except Exception as exc:
+        return None, f"{symbol}: {exc}"
+
+
+def setup_display_rows(setups: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    for setup in setups:
+        rows.append(
+            {
+                "Asset": setup["Asset"],
+                "Ticker": setup["Ticker"],
+                "Richtung": setup["Richtung"],
+                "Chance": f"{setup['Chance']}%",
+                "Confidence": f"{setup['Confidence']:.1f}/10",
+                "Einstieg": format_currency(float(setup["Einstieg"])),
+                "Zielzone": format_currency(float(setup["Zielzone"])) if setup.get("Zielzone") is not None else "Daten nicht verfügbar",
+                "Stop-Zone": format_currency(float(setup["Stop-Zone"])) if setup.get("Stop-Zone") is not None else "Daten nicht verfügbar",
+                "CRV": "Daten nicht verfügbar" if setup.get("CRV") is None else f"{setup['CRV']:.2f}",
+                "Zeithorizont": setup["Zeithorizont"],
+                "Begründung": setup["Begründung"],
+            }
+        )
+    return rows
+
+
+def render_trading_mode(setups: list[dict], errors: list[str]) -> None:
+    st.subheader("Trading-Modus")
+    st.caption("Trading-Setups entstehen nur aus Scanner-Kandidaten. Sie sind Vorschläge zur Prüfung, keine Order und keine Broker-Anbindung.")
+
+    if errors:
+        with st.expander("Nicht erstellte Setups", expanded=False):
+            for error in errors:
+                st.write(f"- {error}")
+
+    if not setups:
+        st.info("Keine belastbaren Trading-Setups aus den aktuellen Scanner-Kandidaten ableitbar.")
+        return
+
+    st.dataframe(pd.DataFrame(setup_display_rows(setups)), use_container_width=True, hide_index=True)
+
+    with st.expander("Risiken und Chancen je Setup", expanded=False):
+        for setup in setups:
+            st.markdown(f"**{setup['Ticker']} · {setup['Richtung']}**")
+            st.write("Chancen: " + " ".join(setup["Chancen"]))
+            st.write("Risiken: " + " ".join(setup["Risiken"]))
+
+    if st.button("Trading-Setups lokal im Trade Journal speichern", use_container_width=True):
+        if append_trade_records(setups):
+            st.success("Trading-Setups in `trade_history.json` gespeichert. Es wurde keine Order ausgelöst.")
+        else:
+            st.error("Trading-Setups konnten nicht gespeichert werden.")
 
 
 def render_opportunity_scanner(results: list[dict], errors: list[str]) -> None:
@@ -4357,6 +4513,23 @@ def main() -> None:
             with st.spinner("Scanne Watchlist nach Chancen..."):
                 scanner_results, scanner_errors = scan_opportunities(scanner_symbols)
             render_opportunity_scanner(scanner_results, scanner_errors)
+            setup_symbols = [
+                item["Ticker"]
+                for item in scanner_results
+                if item["Richtung"] in {"Long", "Short / Absicherung"}
+            ][:5]
+            if not setup_symbols:
+                setup_symbols = [item["Ticker"] for item in scanner_results[:3]]
+            with st.spinner("Erzeuge Trading-Setups aus Scanner-Kandidaten..."):
+                trading_setups: list[dict] = []
+                trading_errors: list[str] = []
+                for setup_symbol in setup_symbols:
+                    setup, setup_error = build_trading_setup(setup_symbol)
+                    if setup is not None:
+                        trading_setups.append(setup)
+                    if setup_error:
+                        trading_errors.append(setup_error)
+            render_trading_mode(trading_setups, trading_errors)
             st.divider()
 
     if manual_symbol.strip():

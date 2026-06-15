@@ -123,7 +123,7 @@ Die ROADMAP sieht zusätzliche Module vor, die nicht nur neue Features liefern s
 - Performance Tracking: Vorgeschlagene Trades sollen nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten überprüft werden.
 - Forward-Testing: Eine angezeigte Analyse kann optional lokal in `forward_tests.json` gespeichert werden. Fällige Tests können in der Sidebar ausgewertet werden; gespeichert werden Rendite, maximale positive und negative Entwicklung. Die Datei wird nicht versioniert und löst niemals eine Order aus.
 - Decision-Tracking: Nutzerentscheidungen wie gekauft, gehalten, verkauft oder beobachtet können optional lokal in `decision_history.json` protokolliert werden. Es wird keine Order ausgeführt.
-- Prognose-Tracking: Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken können lokal in `prediction_history.json` gespeichert und später mit realen Ergebnissen verglichen werden.
+- Prognose-Tracking: Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken können lokal in `prediction_history.json` gespeichert werden. Fällige Prognosen können in der Sidebar mit echten Kursdaten ausgewertet werden.
 - Confidence-System: Chancen sollen zusätzlich mit ähnlichen historischen Fällen und Trefferquoten eingeordnet werden.
 - Kalibrierungs- und Lernmodul: Häufige Fehlprognosen sollen zeigen, welche Module verbessert werden müssen.
 

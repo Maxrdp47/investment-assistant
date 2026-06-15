@@ -261,6 +261,7 @@ Transparenzregeln:
   - Status: Basis umgesetzt am 2026-06-15 (`prediction_history.json`, lokal und nicht versioniert).
 - Kursziele, Wahrscheinlichkeiten, Zeithorizont und entscheidende Widerlegungsmarken erfassen.
 - Später prüfen, welches Szenario am besten getroffen hat.
+  - Status: Basis umgesetzt am 2026-06-15 für 1 Woche, 1 Monat und 3 Monate.
 - Trefferquote je Modul, Signalart, Asset-Typ und Marktphase berechnen.
 - Fehlprognosen sichtbar machen und Ursachen kategorisieren.
 - Nur echte nachträgliche Kursdaten verwenden; fehlende Daten als `Daten nicht verfügbar` kennzeichnen.
@@ -475,20 +476,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Prognose-Auswertung beginnen: gespeicherte Bull/Base/Bear-Prognosen mit echten Kursdaten vergleichen.
+1. Kalibrierungs- und Lernmodul beginnen: lokale Historien auswerten und Datenbasis einschätzen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Prognose-Speicherung ist als Basis umgesetzt.
-- Der nächste größte Nutzen liegt darin, gespeicherte Szenarien später mit echten Kursdaten zu vergleichen.
-- Diese Aufgabe ist PRIO B, weil sie Prognosequalität messbar macht.
+- Forward-Tests, Entscheidungen und Prognosen können gespeichert und teilweise ausgewertet werden.
+- Der nächste größte Nutzen liegt darin, die vorhandene lokale Historie zusammenzufassen und die Datenbasis für Lernhinweise einzuschätzen.
+- Diese Aufgabe ist PRIO B, weil sie Kalibrierung und Verbesserung der Analysequalität vorbereitet.
 
 Nächste konkrete Umsetzung:
 
-1. Gespeicherte Prognosen laden.
-2. Fällige Prognosen mit Kursdaten auswerten.
-3. Trefferstatus, maximale positive und negative Entwicklung dokumentieren.
+1. Lokale Forward-, Decision- und Prediction-Historien zählen.
+2. Mindestdatenmenge prüfen: unter 20, 20-50, über 50 Fälle.
+3. Erste transparente Lernhinweise anzeigen, ohne Gewichtungen automatisch zu ändern.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -941,6 +942,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - `prediction_history.json` in `.gitignore` und README-Datenschutzliste aufgenommen.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist die Prognose-Auswertung mit echten Kursdaten.
+- Prognose-Auswertung umgesetzt: Sidebar kann fällige gespeicherte Prognosen nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten auswerten; gespeichert werden Rendite, maximale positive/negative Entwicklung und eine einfache Szenario-Lesart.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-B-Aufgabe ist ein Kalibrierungs- und Lernmodul, das lokale Historien zusammenfasst und Datenbasis/Mindestfallzahl transparent macht.
 
 ### 2026-06-14
 

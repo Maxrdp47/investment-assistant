@@ -359,6 +359,69 @@ def save_prediction_record(record: dict) -> bool:
     return True
 
 
+def evaluate_due_predictions() -> tuple[int, str]:
+    history = load_prediction_history()
+    if not history:
+        return 0, "Keine Prognosen gespeichert."
+
+    periods = {"1w": 7, "1m": 30, "3m": 90}
+    now = pd.Timestamp.now(tz=None)
+    updated = 0
+    for record in history:
+        symbol = record.get("symbol")
+        entry_price = value_or_none(record.get("price_at_prediction"))
+        created_at_raw = record.get("created_at")
+        if not symbol or entry_price is None or not created_at_raw:
+            continue
+        try:
+            created_at = pd.Timestamp(created_at_raw).tz_localize(None)
+        except Exception:
+            continue
+        review_after = record.setdefault("review_after", {"1w": None, "1m": None, "3m": None})
+        due_periods = [
+            label for label, days in periods.items()
+            if review_after.get(label) is None and now >= created_at + pd.Timedelta(days=days)
+        ]
+        if not due_periods:
+            continue
+        try:
+            data = yf.download(symbol, start=created_at.date(), end=(now + pd.Timedelta(days=1)).date(), interval="1d", auto_adjust=True, progress=False, threads=False)
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.get_level_values(0)
+            data = data.dropna(subset=["Close"]) if not data.empty and "Close" in data else pd.DataFrame()
+        except Exception:
+            data = pd.DataFrame()
+        if data.empty:
+            continue
+
+        closes = data["Close"].astype(float)
+        highs = data["High"].astype(float) if "High" in data else closes
+        lows = data["Low"].astype(float) if "Low" in data else closes
+        current_price = float(closes.iloc[-1])
+        max_positive = (float(highs.max()) - entry_price) / entry_price * 100
+        max_negative = (float(lows.min()) - entry_price) / entry_price * 100
+        return_pct = (current_price - entry_price) / entry_price * 100
+        scenario_hit = "Bull/Base wahrscheinlicher" if return_pct > 3 else "Bear wahrscheinlicher" if return_pct < -3 else "Base wahrscheinlicher"
+        for label in due_periods:
+            review_after[label] = {
+                "reviewed_at": now.isoformat(),
+                "current_price": current_price,
+                "return_pct": round(return_pct, 2),
+                "max_positive_pct": round(max_positive, 2),
+                "max_negative_pct": round(max_negative, 2),
+                "scenario_read": scenario_hit,
+                "note": "Prognose-Auswertung mit Kursdaten; keine Kauf- oder Verkaufsautomatisierung.",
+            }
+            updated += 1
+
+    if updated:
+        try:
+            PREDICTION_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            return updated, "Prognosen ausgewertet, aber Datei konnte nicht gespeichert werden."
+    return updated, f"{updated} fällige Prognose-Auswertungen aktualisiert."
+
+
 def evaluate_due_forward_tests() -> tuple[int, str]:
     history = load_forward_tests()
     if not history:
@@ -4018,9 +4081,17 @@ def main() -> None:
         beginner_mode = st.toggle("Anfänger-Modus", value=True)
         with st.expander("Forward-Testing", expanded=False):
             forward_tests = load_forward_tests()
+            predictions = load_prediction_history()
             st.caption(f"Gespeicherte Analysen: {len(forward_tests)}")
             if st.button("Fällige Forward-Tests auswerten", use_container_width=True):
                 updated, message = evaluate_due_forward_tests()
+                if updated:
+                    st.success(message)
+                else:
+                    st.info(message)
+            st.caption(f"Gespeicherte Prognosen: {len(predictions)}")
+            if st.button("Fällige Prognosen auswerten", use_container_width=True):
+                updated, message = evaluate_due_predictions()
                 if updated:
                     st.success(message)
                 else:

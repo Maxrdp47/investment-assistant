@@ -107,7 +107,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Kaufsignal weiter von Asset-Qualität abgrenzen. Status: umgesetzt am 2026-06-15.
 - Research-Scores stärker erklären: Was bedeutet hoch, mittel oder niedrig? Status: umgesetzt am 2026-06-15.
 - Nachkaufzonen robuster machen, wenn keine klaren Kurszonen erkannt werden. Status: umgesetzt am 2026-06-15.
-- Bull/Base/Bear-Szenarien stärker aus Trend, Volatilität, Unterstützungen und Widerständen ableiten.
+- Bull/Base/Bear-Szenarien stärker aus Trend, Volatilität, Unterstützungen und Widerständen ableiten. Status: umgesetzt am 2026-06-15.
 
 ### Priorität 3: Profi-Research
 
@@ -471,19 +471,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Bull/Base/Bear-Szenarien stärker aus Trend, Volatilität, Unterstützungen und Widerständen ableiten.
+1. Marktregime-, Innovations-, Blasen- und Makro-Wirkungsmodul beginnen.
 
 Warum diese Aufgabe zuerst:
 
-- Nachkaufzonen sind jetzt robuster gegen fehlende Marken.
-- Der nächste größte Nutzen liegt in besseren Szenarien, weil sie den Research-Plan und die Wahrscheinlichkeiten direkt verständlicher machen.
-- Diese Aufgabe ist PRIO A, weil Bull/Base/Bear-Szenarien zentrale Entscheidungsgrundlagen sind.
+- Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
+- Die ROADMAP enthält nun ein neues PRIO-A-Paket für Marktregime, Makro-Wirkung und Blasenrisiko.
+- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil Marktumfeld und Makro-Wirkungen die Analysequalität direkt beeinflussen.
 
 Nächste konkrete Umsetzung:
 
-1. Szenario-Logik prüfen.
-2. Wahrscheinlichkeiten stärker an Trend, Volatilität, Unterstützungen, Widerständen und CRV koppeln.
-3. Kursziele bei fehlenden Marken ehrlich als `Daten nicht verfügbar` belassen.
+1. Minimal belastbares Marktregime-Modul auf Basis vorhandener Proxies planen.
+2. Keine neuen externen Daten erfinden; vorhandene Makro- und Chartdaten verwenden.
+3. Ausgabe mit Hinweisen, Gegenargumenten, Unsicherheiten und Vertrauensgrad ergänzen.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -900,6 +900,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Nachkaufzonen robuster gemacht: faire Kaufzone nutzt nur Unterstützungen unter dem Kurs, Sicherheits-Kaufzone nur Widerstand oder SMA50 oberhalb des Kurses; fehlende Marken erhalten Statushinweise statt erfundener Kursziele.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-A-Aufgabe sind stärkere Bull/Base/Bear-Szenarien aus Trend, Volatilität, Unterstützungen, Widerständen und CRV.
+- Bull/Base/Bear-Szenarien verbessert: Wahrscheinlichkeiten berücksichtigen jetzt zusätzlich SMA-Trendstruktur, Abstand zu Unterstützung/Widerstand, Volatilität und CRV; Kursziele bleiben bei fehlenden Marken `Daten nicht verfügbar`.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-A-Aufgabe ist der Einstieg in das Marktregime-, Innovations-, Blasen- und Makro-Wirkungsmodul.
 
 ### 2026-06-14
 

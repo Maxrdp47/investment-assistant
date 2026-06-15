@@ -45,6 +45,32 @@ Der Test kompiliert `app.py`, startet Streamlit kurz auf einem freien lokalen Po
 .\.venv\Scripts\python.exe scripts\smoke_test.py --skip-live-data
 ```
 
+## Deployment auf Streamlit Community Cloud
+
+Die App ist für Streamlit Community Cloud vorbereitet und kann im Handy-Browser genutzt werden.
+
+1. Repository zu GitHub pushen.
+2. Auf [Streamlit Community Cloud](https://share.streamlit.io/) mit GitHub anmelden.
+3. **New app** wählen.
+4. Repository `investment-assistant` auswählen.
+5. Branch `main` auswählen.
+6. Main file path: `app.py`.
+7. Deploy starten.
+
+Streamlit installiert die Abhängigkeiten automatisch aus `requirements.txt`. Es werden keine Broker-Zugangsdaten, API-Keys oder Passwörter benötigt.
+
+Für den Depot-Modus darf `portfolio.json` im Repository liegen, solange die Datei nur diese GitHub-kompatiblen Minimaldaten enthält:
+
+- `cash`
+- `ticker`
+- `asset_type`
+- `shares`
+- `buy_price`
+
+Nicht in das Repository gehören Kontonummern, Depotnummern, Broker-Zugangsdaten, API-Keys, Passwörter oder persönliche Identifikationsdaten.
+
+Hinweis: Laufzeitdateien wie `search_history.json`, `trade_history.json`, `forward_tests.json`, `decision_history.json` und `prediction_history.json` sind auf Streamlit Cloud nicht als dauerhaftes Speichersystem gedacht. Sie bleiben lokale Analysehilfen und lösen niemals eine Order aus.
+
 ## Asset-Suche
 
 Du kannst entweder einen Namen oder direkt einen Yahoo-Finance-Ticker eingeben.

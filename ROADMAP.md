@@ -958,6 +958,8 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Opportunity-Scanner-Basis umgesetzt: Sidebar-Watchlist mit Standardwerten `BTC-EUR`, `NVDA`, `PLTR`, `1810.HK` und `EUNL.DE`; Scan nutzt bestehende Kurs-, Asset-Typ-, Kaufsignal-, Asset-Qualitäts-, CRV- und Vertrauenslogik; einzelne Tickerfehler werden abgefangen und fehlende Daten nicht erfunden.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`; Scanner-Direkttest mit `BTC-EUR` und `NVDA` erfolgreich.
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist der Trading-Modus auf Basis der Scanner-Kandidaten.
+- Streamlit-Community-Cloud-Vorbereitung umgesetzt: `app.py` nutzt keine Windows-Pfade, yfinance-Cache fällt bei Schreibproblemen auf ein temporäres Verzeichnis zurück, `.streamlit/config.toml` ist vorhanden, `portfolio.json` enthält nur GitHub-kompatible Minimaldaten und README erklärt das Cloud-Deployment.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich.
 
 ### 2026-06-14
 

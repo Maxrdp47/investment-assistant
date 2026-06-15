@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import difflib
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -23,7 +24,11 @@ TRADE_HISTORY_PATH = Path(__file__).resolve().parent / "trade_history.json"
 FORWARD_TEST_PATH = Path(__file__).resolve().parent / "forward_tests.json"
 DECISION_HISTORY_PATH = Path(__file__).resolve().parent / "decision_history.json"
 PREDICTION_HISTORY_PATH = Path(__file__).resolve().parent / "prediction_history.json"
-YFINANCE_CACHE_DIR.mkdir(exist_ok=True)
+try:
+    YFINANCE_CACHE_DIR.mkdir(exist_ok=True)
+except OSError:
+    YFINANCE_CACHE_DIR = Path(tempfile.gettempdir()) / "investment-assistent-yfinance-cache"
+    YFINANCE_CACHE_DIR.mkdir(exist_ok=True)
 yf.set_tz_cache_location(str(YFINANCE_CACHE_DIR))
 
 PERIOD_OPTIONS = {

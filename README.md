@@ -60,6 +60,15 @@ Die App ist für Streamlit Community Cloud vorbereitet und kann im Handy-Browser
 
 Streamlit installiert die Abhängigkeiten automatisch aus `requirements.txt`. Es werden keine Broker-Zugangsdaten, API-Keys oder Passwörter benötigt.
 
+Nach dem Deploy zeigt Streamlit eine öffentliche App-URL an. Diese URL kannst du direkt im Handy-Browser öffnen und als Lesezeichen oder zum Home-Bildschirm hinzufügen. Die App läuft dann über Streamlit Cloud; auf dem Handy muss keine Python-Umgebung installiert werden.
+
+Auf dem Handy gilt:
+
+- Die App analysiert weiterhin nur und handelt nicht automatisch.
+- Es gibt keine Broker-Anbindung.
+- Wenn `search_history.json` auf Streamlit Cloud fehlt, startet die App trotzdem und beginnt mit leerer Suchhistorie.
+- Änderungen an lokalen Laufzeitdateien sind auf Streamlit Cloud nicht als dauerhafte Datensicherung gedacht.
+
 Für den Depot-Modus darf `portfolio.json` im Repository liegen, solange die Datei nur diese GitHub-kompatiblen Minimaldaten enthält:
 
 - `cash`

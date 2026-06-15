@@ -968,6 +968,7 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Neue PRIO-A-Aufgabe vorgezogen: Analyse-Daten vollständig von Chart-Daten entkoppeln, weil der gewählte Chart-Zeitraum die Analysequalität nicht verschlechtern darf.
 - Entkopplung umgesetzt: Einzelanalyse lädt Chart-Daten separat für die Visualisierung und Analyse-Daten separat mit maximal verfügbarer Tageshistorie; Datenqualitätsbereich zeigt Chart-Historie und Analyse-Historie; langfristige und kurzfristige Unterstützungen/Widerstände werden getrennt angezeigt.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; aktualisierter Smoke-Test prüft getrennte Chart- und Analyse-Daten und lief mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Streamlit-Community-Cloud-Check erneut durchgeführt: keine lokalen Windows-Pfade in `app.py`, Requirements vollständig, `portfolio.json` im erlaubten Minimalformat, keine Secrets/Brokerdaten gefunden, `.streamlit/config.toml` vorhanden und README um Mobile-Hinweise erweitert.
 
 ### 2026-06-14
 

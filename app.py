@@ -1441,6 +1441,63 @@ def research_market_regime(df: pd.DataFrame, market_phase: MarketPhase, macro: M
     return ResearchModule("Marktregime", confidence, summary, details, beginner)
 
 
+def research_macro_impact(profile: AssetProfile, macro: ModuleScore) -> ResearchModule:
+    macro_data = load_macro_prices()
+    nasdaq_change = trend_change(macro_data.get("Nasdaq", pd.DataFrame()))
+    rates_change = trend_change(macro_data.get("US-Zinsen 10J", pd.DataFrame()))
+    dollar_change = trend_change(macro_data.get("Dollar-Index", pd.DataFrame()))
+    inflation_proxy = trend_change(macro_data.get("Inflationserwartung Proxy", pd.DataFrame()))
+
+    details: list[str] = []
+    if rates_change is None:
+        details.append(data_missing("Zinswirkung"))
+    elif rates_change > 0.08:
+        details.append("Zinsen: steigend -> tendenziell Gegenwind für Wachstumsaktien, lange Duration, Krypto und hoch bewertete Assets.")
+    elif rates_change < -0.08:
+        details.append("Zinsen: fallend -> tendenziell Rückenwind für Wachstumsaktien, ETFs mit Growth-Anteil und Krypto.")
+    else:
+        details.append("Zinsen: weitgehend stabil -> kein starkes Makro-Signal aus den verfügbaren Zinsdaten.")
+
+    if dollar_change is None:
+        details.append(data_missing("Dollar-Wirkung"))
+    elif dollar_change > 0.04:
+        details.append("Dollar: stärker -> oft Gegenwind für globale Risikoassets, Rohstoffe und Krypto.")
+    elif dollar_change < -0.04:
+        details.append("Dollar: schwächer -> oft Rückenwind für Rohstoffe, internationale Assets und Risikoappetit.")
+    else:
+        details.append("Dollar: stabil -> kein klares Belastungs- oder Rückenwind-Signal.")
+
+    if nasdaq_change is None:
+        details.append(data_missing("Risikoappetit / Nasdaq"))
+    elif nasdaq_change > 0.06:
+        details.append("Risikoappetit: Nasdaq steigt -> Risk-On-Hinweis, positiv für Technologie, Growth und teilweise Krypto.")
+    elif nasdaq_change < -0.06:
+        details.append("Risikoappetit: Nasdaq fällt -> Risk-Off-Hinweis, vorsichtiger bei zyklischen Aktien und Krypto.")
+    else:
+        details.append("Risikoappetit: Nasdaq seitwärts -> gemischtes Umfeld.")
+
+    if inflation_proxy is None:
+        details.append(data_missing("Inflations-/Realzinswirkung"))
+    elif inflation_proxy > 0:
+        details.append("Inflations-/Realzins-Proxy: TIP steigt -> kann auf Entspannung beim Realzinsdruck oder Nachfrage nach Inflationsschutz hindeuten.")
+    else:
+        details.append("Inflations-/Realzins-Proxy: TIP fällt -> kann auf höheren Realzinsdruck hindeuten; das belastet oft Growth und Gold.")
+
+    asset_effects = {
+        "Aktie": "Für Aktien zählt besonders: steigende Zinsen belasten Bewertungen, Risk-On hilft Growth und starke Margen puffern Makrodruck besser ab.",
+        "ETF": "Für ETFs zählt besonders: breite Diversifikation glättet Einzeleffekte, aber Region, Sektor und Growth-/Value-Anteil bestimmen die Makro-Sensitivität.",
+        "Krypto": "Für Krypto zählt besonders: Liquidität, Dollar und Realzinsen wirken oft stärker als klassische Unternehmensdaten.",
+        "Derivat / unbekannt": "Für unbekannte oder derivative Assets ist die Makro-Wirkung schwerer belastbar; Positionsgröße und Risikobegrenzung sind wichtiger.",
+    }
+    details.append("Asset-Typ-Wirkung: " + asset_effects.get(profile.asset_type, asset_effects["Derivat / unbekannt"]))
+    details.append("Rohstoffe: Öl und Gas reagieren stark auf Angebot, Nachfrage und Geopolitik; Gold eher auf Realzinsen und Sicherheitsnachfrage; Kupfer eher auf Wachstum; Uran eher auf strukturelle Energie- und Angebotsfaktoren.")
+    details.append("Unsicherheit: Diese Aussagen sind Wahrscheinlichkeitszusammenhänge, keine sicheren Kausalitäten.")
+
+    summary = f"Makro-Wirkung {macro.score}/10 für {profile.asset_type}. {macro.summary}"
+    beginner = "Das Makro-Wirkungsmodul erklärt, warum Zinsen, Dollar, Inflation und Risikoappetit ein Asset unterstützen oder belasten können. Es ist Kontext, kein Kaufbefehl."
+    return ResearchModule("Makro-Wirkung", macro.score, summary, details, beginner)
+
+
 def build_data_source_warnings(
     ticker_info: dict,
     original_currency: str,
@@ -2388,6 +2445,7 @@ def build_research_pack(
     valuation = research_valuation_score(info, asset_profile, df, macro)
     fundamentals = research_fundamental_module(asset_quality, asset_profile)
     market_regime = research_market_regime(df, market_phase, macro)
+    macro_impact = research_macro_impact(asset_profile, macro)
     macro_module = module_from_existing("Makro-Score", macro, "Der Makro-Score bewertet Zinsen, Nasdaq, Dollar und Inflationsumfeld. Hoch heißt: Das Umfeld hilft eher.")
     news_module = module_from_existing("News-Score", news, "Der News-Score bewertet die Nachrichtenstimmung. Hoch heißt: Nachrichten geben eher Rückenwind.")
     risk = research_risk_score(df, risk_reward)
@@ -2396,7 +2454,7 @@ def build_research_pack(
     earnings = research_earnings_module(symbol, info, asset_profile)
     event_risk = research_event_risk_module(info, asset_profile, macro)
     institutional = research_institutional_data(info, asset_profile)
-    modules = [chart, momentum, valuation, fundamentals, market_regime, macro_module, news_module, risk, liquidity]
+    modules = [chart, momentum, valuation, fundamentals, market_regime, macro_impact, macro_module, news_module, risk, liquidity]
     institutional_modules = [analyst, earnings, event_risk, institutional]
     confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules)
     uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)

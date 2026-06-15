@@ -471,20 +471,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Makro-Wirkungsmodul ausbauen: Auswirkungen von Zinsen, Dollar, Inflation und Liquidität je Asset-Klasse erklären.
+1. Blasenrisiko-Modul beginnen: Bewertung, Momentum, Sentiment und Datenqualität transparent einschätzen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Ein erstes Marktregime-Modul ist umgesetzt.
-- Der nächste größte Nutzen liegt darin, die Makro-Wirkung je Asset-Klasse verständlicher zu machen.
-- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil Makro-Wirkungen die Analysequalität direkt beeinflussen.
+- Marktregime und Makro-Wirkung sind als erste PRIO-A-Bausteine umgesetzt.
+- Der nächste größte Nutzen liegt in einem Blasenrisiko-Kontext, weil Momentum und Bewertung ohne Warnlogik zu optimistisch wirken können.
+- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil Überhitzung und Spekulationsphasen die Analysequalität direkt beeinflussen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Makro-Proxies weiterverwenden.
-2. Auswirkungen auf Aktien, ETFs, Krypto und Rohstoffe getrennt erklären.
-3. Unsicherheit und Datenqualität sichtbar halten.
+1. Vorhandene Bewertung, Momentum, News und Volatilität verwenden.
+2. Medienaufmerksamkeit und Zuflüsse nur anzeigen, wenn Daten verfügbar sind.
+3. Blasenrisiko als Kontext und nicht als automatisches Verkaufssignal darstellen.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -907,6 +907,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Erstes Marktregime-Modul umgesetzt: nutzt vorhandene Nasdaq-, US-Zins-, Dollar-, TIP-, Trend- und Volatilitätsdaten; zeigt Hinweise, Gegenargumente, Unsicherheiten, betroffene Asset-Klassen und Vertrauensgrad.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-A-Teilaufgabe ist das Makro-Wirkungsmodul mit getrennten Auswirkungen auf Aktien, ETFs, Krypto und Rohstoffe.
+- Makro-Wirkungsmodul ergänzt: erklärt Zinsen, Dollar, Risikoappetit und Inflations-/Realzinsproxy mit praktischer Wirkung auf Aktien, ETFs, Krypto und Rohstoffe; Aussagen bleiben als Wahrscheinlichkeitszusammenhänge gekennzeichnet.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-A-Teilaufgabe ist ein erstes Blasenrisiko-Modul aus verfügbaren Bewertungs-, Momentum-, Sentiment- und Volatilitätsdaten.
 
 ### 2026-06-14
 

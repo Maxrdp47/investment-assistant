@@ -19,6 +19,7 @@ DISCLAIMER = "Dies ist keine Finanzberatung, sondern eine technische Analysehilf
 YFINANCE_CACHE_DIR = Path(__file__).resolve().parent / ".yfinance-cache"
 PORTFOLIO_PATH = Path(__file__).resolve().parent / "portfolio.json"
 SEARCH_HISTORY_PATH = Path(__file__).resolve().parent / "search_history.json"
+TRADE_HISTORY_PATH = Path(__file__).resolve().parent / "trade_history.json"
 YFINANCE_CACHE_DIR.mkdir(exist_ok=True)
 yf.set_tz_cache_location(str(YFINANCE_CACHE_DIR))
 
@@ -275,6 +276,38 @@ def save_successful_search(query: str, candidate: dict) -> None:
         SEARCH_HISTORY_PATH.write_text(json.dumps(history[:12], ensure_ascii=False, indent=2), encoding="utf-8")
     except OSError:
         pass
+
+
+def load_trade_history() -> list[dict]:
+    if not TRADE_HISTORY_PATH.exists():
+        return []
+    try:
+        data = json.loads(TRADE_HISTORY_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return [item for item in data if isinstance(item, dict)]
+
+
+def calibration_status_rows(history: list[dict]) -> tuple[str, list[dict[str, str]]]:
+    cases = len(history)
+    if cases < 20:
+        status = "Datenbasis zu klein. Score-Gewichtungen werden nicht angepasst."
+        permission = "Keine Kalibrierung erlaubt"
+    elif cases <= 50:
+        status = "Vorsichtige Hinweise möglich. Score-Gewichtungen bleiben unverändert."
+        permission = "Nur Hinweise"
+    else:
+        status = "Kalibrierungsvorschläge erlaubt. Änderungen müssen dokumentiert und getestet werden."
+        permission = "Vorschläge erlaubt"
+
+    rows = [
+        {"Messpunkt": "Dokumentierte Fälle", "Wert": str(cases), "Bedeutung": status},
+        {"Messpunkt": "Mindestdatenmenge", "Wert": "20 Fälle", "Bedeutung": "Darunter sind Trefferquoten statistisch zu dünn."},
+        {"Messpunkt": "Kalibrierungsregel", "Wert": permission, "Bedeutung": "Version 1 ändert Gewichtungen niemals automatisch."},
+    ]
+    return status, rows
 
 
 @st.cache_data(ttl=60)
@@ -3221,6 +3254,7 @@ def main() -> None:
             news,
             macro,
         )
+        calibration_status, calibration_rows = calibration_status_rows(load_trade_history())
         action_title, action_html = final_recommendation_v2(
             asset_quality,
             buy_signal,
@@ -3443,6 +3477,14 @@ def main() -> None:
 
             st.markdown("**Kaufsignal-Gewichtung**")
             st.write("Das Kaufsignal nutzt den Technik-Score mit 70 %, den CRV-Score mit 20 % und danach begrenzte Zu- oder Abschläge für Marktphase, RSI und hohe Volatilität.")
+
+            st.markdown("**Kalibrierungsstatus**")
+            st.write(calibration_status)
+            st.dataframe(
+                pd.DataFrame(calibration_rows),
+                use_container_width=True,
+                hide_index=True,
+            )
 
             st.markdown("**Technik-Score erklärt**")
             for name, points, text in score_result.breakdown:

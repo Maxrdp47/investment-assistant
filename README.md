@@ -185,6 +185,16 @@ Die App zeigt die Gewichtungen im Bereich **Analyse-Details anzeigen**. Je nach 
 
 Das **Kaufsignal** bleibt separat: Es nutzt vor allem den Technik-Score, das CRV und begrenzte Zu- oder Abschläge für Marktphase, RSI und Volatilität.
 
+### Kalibrierung
+
+Die App zeigt im Bereich **Analyse-Details anzeigen** einen Kalibrierungsstatus. In Version 1 werden Gewichtungen nicht automatisch geändert.
+
+- Unter 20 dokumentierten Fällen: `Datenbasis zu klein`
+- 20 bis 50 Fälle: nur vorsichtige Hinweise
+- Über 50 Fälle: Kalibrierungsvorschläge erlaubt
+
+Künftige Trade- und Prognosehistorien werden lokal in `trade_history.json` ausgewertet. Diese Datei kann persönliche Entscheidungen enthalten und wird nicht versioniert.
+
 ### Depot-Effekt
 
 Wird nur berechnet, wenn **Portfolio in Bewertung einbeziehen** aktiv ist.
@@ -273,6 +283,7 @@ Wichtig: Die Portfolio-Daten werden ausschließlich für den separaten Depot-Eff
 Diese Dateien sind lokal/private Daten und werden nicht versioniert:
 
 - `search_history.json`
+- `trade_history.json`
 - `.streamlit/secrets.toml`
 - `.env`
 - `.venv/`

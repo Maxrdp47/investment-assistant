@@ -20,6 +20,7 @@ YFINANCE_CACHE_DIR = Path(__file__).resolve().parent / ".yfinance-cache"
 PORTFOLIO_PATH = Path(__file__).resolve().parent / "portfolio.json"
 SEARCH_HISTORY_PATH = Path(__file__).resolve().parent / "search_history.json"
 TRADE_HISTORY_PATH = Path(__file__).resolve().parent / "trade_history.json"
+FORWARD_TEST_PATH = Path(__file__).resolve().parent / "forward_tests.json"
 YFINANCE_CACHE_DIR.mkdir(exist_ok=True)
 yf.set_tz_cache_location(str(YFINANCE_CACHE_DIR))
 
@@ -288,6 +289,28 @@ def load_trade_history() -> list[dict]:
     if not isinstance(data, list):
         return []
     return [item for item in data if isinstance(item, dict)]
+
+
+def load_forward_tests() -> list[dict]:
+    if not FORWARD_TEST_PATH.exists():
+        return []
+    try:
+        data = json.loads(FORWARD_TEST_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return [item for item in data if isinstance(item, dict)]
+
+
+def save_forward_test(record: dict) -> bool:
+    history = load_forward_tests()
+    history.insert(0, record)
+    try:
+        FORWARD_TEST_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        return False
+    return True
 
 
 def calibration_status_rows(history: list[dict]) -> tuple[str, list[dict[str, str]]]:
@@ -2739,6 +2762,49 @@ def build_research_pack(
     return ResearchPack(data_quality, modules, institutional_modules, confidence, uncertainty_factors, scenarios, buy_zones, action, conclusion)
 
 
+def build_forward_test_record(
+    symbol: str,
+    asset_identity: dict,
+    asset_profile: AssetProfile,
+    latest: pd.Series,
+    asset_quality: ModuleScore,
+    buy_signal: ModuleScore,
+    market_phase: MarketPhase,
+    risk_reward: RiskReward,
+    research_pack: ResearchPack,
+    portfolio_result: PortfolioResult,
+) -> dict:
+    close = value_or_none(latest.get("Close"))
+    return {
+        "created_at": pd.Timestamp.now().isoformat(),
+        "symbol": symbol,
+        "name": asset_identity.get("name", ""),
+        "asset_type": asset_profile.asset_type,
+        "entry_price": close,
+        "market_phase": market_phase.phase,
+        "asset_quality": asset_quality.score,
+        "buy_signal": buy_signal.score,
+        "confidence": research_pack.confidence.score,
+        "risk_reward_score": risk_reward.score,
+        "risk_reward_ratio": risk_reward.ratio,
+        "portfolio_mode": portfolio_result.enabled,
+        "portfolio_score": portfolio_result.score,
+        "action": research_pack.action,
+        "scenarios": research_pack.scenarios,
+        "buy_zones": research_pack.buy_zones,
+        "module_scores": [
+            {"name": module.name, "score": module.score, "summary": module.summary}
+            for module in research_pack.modules
+        ],
+        "review_after": {
+            "1w": None,
+            "1m": None,
+            "3m": None,
+        },
+        "note": "Forward-Test speichert nur die Analyse. Keine Kauf- oder Verkaufsautomatisierung.",
+    }
+
+
 def technical_module(score_result: ScoreResult, phase: MarketPhase) -> ModuleScore:
     details = score_result.reasons.copy()
     details.append(f"Marktphase: {phase.phase}.")
@@ -3954,6 +4020,23 @@ def main() -> None:
                 for warning in data_source_warnings:
                     st.write(f"- {warning}")
         st.markdown(action_html, unsafe_allow_html=True)
+        if st.button("Analyse als Forward-Test speichern", use_container_width=True):
+            record = build_forward_test_record(
+                symbol,
+                asset_identity,
+                asset_profile,
+                latest,
+                asset_quality,
+                buy_signal,
+                market_phase,
+                risk_reward,
+                research_pack,
+                portfolio_result,
+            )
+            if save_forward_test(record):
+                st.success("Forward-Test gespeichert. Die Datei `forward_tests.json` bleibt lokal und löst keine Order aus.")
+            else:
+                st.error("Forward-Test konnte nicht gespeichert werden.")
         if beginner_mode:
             buy_answer, buy_text = beginner_buy_answer(buy_signal.score, action_title)
             st.markdown(

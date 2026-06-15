@@ -9,6 +9,7 @@ __pycache__/
 # Local search history
 search_history.json
 trade_history.json
+forward_tests.json
 
 # Secrets and local environment
 .streamlit/secrets.toml

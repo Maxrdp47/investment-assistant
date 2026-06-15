@@ -236,6 +236,7 @@ Transparenzregeln:
 ### PRIO B: Forward-Testing-Modul
 
 - Jede neue Analyse optional als Forward-Test speichern.
+  - Status: Basis umgesetzt am 2026-06-15 (`forward_tests.json`, lokal und nicht versioniert).
 - Startzeitpunkt, Asset, Ticker, Asset-Typ, Marktphase, Kaufsignal, Asset-Qualität, Depot-Effekt, Vertrauensscore und relevante Modul-Scores erfassen.
 - Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken speichern.
 - Nach festgelegten Zeiträumen prüfen: 1 Woche, 1 Monat, 3 Monate, 6 Monate und 12 Monate.
@@ -471,20 +472,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Forward-Testing-Modul beginnen: Analysen optional speichern und später messbar auswerten.
+1. Forward-Testing-Auswertung beginnen: gespeicherte Analysen nach 1 Woche, 1 Monat und 3 Monaten prüfen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Bitcoin-Halving-Zyklus und Krypto-Liquidität sind als Basis umgesetzt.
-- ETF-Flows, Fear & Greed und On-Chain-Daten bleiben ohne belastbare Quelle bewusst `Daten nicht verfügbar`.
-- Der nächste größte Nutzen liegt in PRIO B: Analysequalität messbar machen, statt weitere nicht belegte Datenquellen zu simulieren.
+- Forward-Test-Speicherung ist als Basis umgesetzt.
+- Der nächste größte Nutzen liegt darin, gespeicherte Analysen später mit echten Kursdaten auszuwerten.
+- Diese Aufgabe ist PRIO B, weil sie die Analysequalität messbar macht.
 
 Nächste konkrete Umsetzung:
 
-1. Datei für gespeicherte Forward-Tests festlegen.
-2. Optionales Speichern einer Analyse vorbereiten, ohne Broker-Anbindung.
-3. Spätere Auswertung nach 1 Woche, 1 Monat und 3 Monaten vorbereiten.
+1. Gespeicherte Forward-Tests laden.
+2. Für fällige Zeiträume echte Kursdaten abrufen.
+3. Treffer, maximale positive Entwicklung und maximale negative Entwicklung dokumentieren.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -922,6 +923,10 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Krypto-Zyklusmodul umgesetzt: bei Krypto-Assets werden Bitcoin-Halving-Zyklus, geschätzte Zyklusphase, Krypto-Volatilität und Volumen/Liquidität angezeigt; ETF-Flows, Fear & Greed und On-Chain-Daten bleiben ohne Quelle `Daten nicht verfügbar`.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste Aufgabe ist PRIO B Forward-Testing, weil Messung der Analysequalität jetzt mehr Nutzen bringt als weitere unbelegte Datenquellen.
+- Forward-Test-Basisspeicherung umgesetzt: Nutzer können die aktuell angezeigte Analyse optional lokal in `forward_tests.json` speichern; gespeichert werden Analysezeitpunkt, Symbol, Asset-Typ, Einstiegskurs, Scores, Szenarien, Kaufzonen, Modul-Scores und Review-Felder; keine Orderfunktion.
+- `forward_tests.json` in `.gitignore` und README-Datenschutzliste aufgenommen.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-B-Aufgabe ist die Auswertung gespeicherter Forward-Tests mit echten Kursdaten.
 
 ### 2026-06-14
 

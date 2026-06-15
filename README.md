@@ -121,7 +121,7 @@ Die ROADMAP sieht zusätzliche Module vor, die nicht nur neue Features liefern s
 - Trading-Modus: Es werden nur Kandidaten aus dem Opportunity Scanner analysiert. Für jedes Setup werden Richtung, Chance, Confidence, Zielzone, Stop-Zone, Zeithorizont, CRV, Risiken und Chancen angezeigt.
 - Trade Journal: Vorgeschlagene Trades sollen in `trade_history.json` dokumentiert werden, ohne eine Order auszuführen.
 - Performance Tracking: Vorgeschlagene Trades sollen nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten überprüft werden.
-- Forward-Testing: Eine angezeigte Analyse kann optional lokal in `forward_tests.json` gespeichert werden. Die Datei enthält Analysezeitpunkt, Scores, Szenarien und spätere Review-Felder, wird nicht versioniert und löst niemals eine Order aus.
+- Forward-Testing: Eine angezeigte Analyse kann optional lokal in `forward_tests.json` gespeichert werden. Fällige Tests können in der Sidebar ausgewertet werden; gespeichert werden Rendite, maximale positive und negative Entwicklung. Die Datei wird nicht versioniert und löst niemals eine Order aus.
 - Decision-Tracking: Nutzerentscheidungen wie gekauft, gehalten, verkauft oder beobachtet können optional protokolliert werden.
 - Prognose-Tracking: Bull/Base/Bear-Szenarien, Kursziele und Wahrscheinlichkeiten werden später mit realen Ergebnissen verglichen.
 - Confidence-System: Chancen sollen zusätzlich mit ähnlichen historischen Fällen und Trefferquoten eingeordnet werden.

@@ -240,6 +240,7 @@ Transparenzregeln:
 - Startzeitpunkt, Asset, Ticker, Asset-Typ, Marktphase, Kaufsignal, Asset-Qualität, Depot-Effekt, Vertrauensscore und relevante Modul-Scores erfassen.
 - Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken speichern.
 - Nach festgelegten Zeiträumen prüfen: 1 Woche, 1 Monat, 3 Monate, 6 Monate und 12 Monate.
+  - Status: Basis umgesetzt am 2026-06-15 für 1 Woche, 1 Monat und 3 Monate.
 - Tatsächliche Kursentwicklung, maximalen Drawdown, maximale positive Bewegung und Treffer der Szenarien auswerten.
 - Keine Performance-Werte erfinden, wenn Kursdaten fehlen.
 - Ergebnisse getrennt nach Asset-Typ, Marktphase und Signalart ausweisen.
@@ -472,20 +473,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Forward-Testing-Auswertung beginnen: gespeicherte Analysen nach 1 Woche, 1 Monat und 3 Monaten prüfen.
+1. Decision-Tracking-Modul beginnen: Nutzerentscheidungen optional protokollieren.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Forward-Test-Speicherung ist als Basis umgesetzt.
-- Der nächste größte Nutzen liegt darin, gespeicherte Analysen später mit echten Kursdaten auszuwerten.
-- Diese Aufgabe ist PRIO B, weil sie die Analysequalität messbar macht.
+- Forward-Test-Speicherung und erste Auswertung sind als Basis umgesetzt.
+- Der nächste größte Nutzen liegt darin, Nutzerentscheidungen optional zu dokumentieren, damit später App-Empfehlung und tatsächliche Entscheidung verglichen werden können.
+- Diese Aufgabe ist PRIO B, weil sie die Analysequalität und Opportunitätskosten messbar macht.
 
 Nächste konkrete Umsetzung:
 
-1. Gespeicherte Forward-Tests laden.
-2. Für fällige Zeiträume echte Kursdaten abrufen.
-3. Treffer, maximale positive Entwicklung und maximale negative Entwicklung dokumentieren.
+1. Lokale Datei für Entscheidungen festlegen.
+2. Optionales Protokollieren von Kaufen, Nicht kaufen, Halten, Verkaufen oder Beobachten ermöglichen.
+3. Keine Broker-Anbindung, keine Ausführung, nur Dokumentation.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -927,6 +928,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - `forward_tests.json` in `.gitignore` und README-Datenschutzliste aufgenommen.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist die Auswertung gespeicherter Forward-Tests mit echten Kursdaten.
+- Forward-Test-Auswertung umgesetzt: Sidebar kann fällige gespeicherte Analysen nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten auswerten; gespeichert werden aktuelle Rendite, maximale positive Entwicklung und maximale negative Entwicklung.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-B-Aufgabe ist Decision Tracking, damit Nutzerentscheidungen später mit App-Einschätzungen verglichen werden können.
 
 ### 2026-06-14
 

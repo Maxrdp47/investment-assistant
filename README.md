@@ -150,8 +150,8 @@ Komfortfunktionen dürfen nicht vor Analysequalität bearbeitet werden. Wenn Pri
 
 Bewertet nur die langfristige Qualität des Assets.
 
-- Bei Aktien: Umsatz, Gewinn, Free Cashflow, Verschuldung, Margen, Bewertung und Marktstellung, soweit verfügbar
-- Bei ETFs: Diversifikation, TER/Kostenquote, Fondsvolumen, Region/Sektor und langfristige Stabilität, soweit verfügbar
+- Bei Aktien: Umsatz, Gewinn, Free Cashflow, Verschuldung, Margen, Kapitalrendite, Bewertung, Kurs-Umsatz-Verhältnis und Marktstellung, soweit verfügbar
+- Bei ETFs: Diversifikation, TER/Kostenquote, Fondsvolumen, Region/Sektor, Performance und langfristige Stabilität aus realer Volatilität, soweit verfügbar
 - Bei Krypto: Marktstellung, Liquidität, Volatilität und verfügbare Langfristdaten
 
 Wenn Daten fehlen, zeigt die App **Daten nicht verfügbar** und erfindet keine Werte.

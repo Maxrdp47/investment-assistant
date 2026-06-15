@@ -383,19 +383,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Asset-Qualität je Asset-Typ verbessern.
+1. Kaufsignal weiter von Asset-Qualität abgrenzen und je Asset-Typ präzisieren.
 
 Warum diese Aufgabe zuerst:
 
-- Die langfristige Qualität hängt stark vom Asset-Typ ab.
-- Aktien, ETFs und Kryptos brauchen bessere Speziallogik, ohne fehlende Daten zu erfinden.
-- Diese Aufgabe ist wichtiger als Komfort, weil Asset-Qualität eine zentrale Entscheidungsgrundlage ist.
+- Asset-Qualität wurde je Asset-Typ erweitert.
+- Der nächste größte Nutzen liegt darin, das kurzfristige Kaufsignal noch klarer als Timing-Signal zu erklären.
+- Diese Aufgabe ist PRIO A, weil Bewertungslogik und verständliche Handlungseinordnung direkt die Analysequalität bestimmen.
 
 Nächste konkrete Umsetzung:
 
-1. Aktien-, ETF- und Krypto-Qualitätslogik prüfen.
-2. Fehlende Daten sauber als `Daten nicht verfügbar` belassen.
-3. Speziallogik verbessern, ohne neue externe Quellen blind zu erfinden.
+1. Kaufsignal-Details nach Asset-Typ prüfen.
+2. Sicherstellen, dass Asset-Qualität nicht in das Kaufsignal einfließt.
+3. Timing-Begründung für RSI, MACD, Marktphase, CRV und Volatilität schärfen.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -776,6 +776,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Kalibrierungsstatus ergänzt: Die App zeigt Anzahl dokumentierter Fälle, Mindestdatenmenge und ob Hinweise oder Kalibrierungsvorschläge erlaubt sind; Gewichtungen werden nicht automatisch geändert.
 - `trade_history.json` als lokale, nicht versionierte Datei für spätere Trade-/Prognosehistorie vorbereitet.
 - Nächste tatsächliche Priorität gesetzt: Asset-Qualität je Asset-Typ verbessern.
+- Asset-Qualität je Asset-Typ verbessert: Aktien bewerten zusätzlich Margen, Kapitalrendite und Kurs-Umsatz-Verhältnis; ETFs bewerten langfristige Stabilität aus berechneter Volatilität; fehlende Daten bleiben sichtbar als `Daten nicht verfügbar`.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; erster Smoke-Test ohne Netzwerk scheiterte erwartbar am Yahoo-Datenabruf für `BTC-EUR`; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-A-Aufgabe ist die weitere Abgrenzung und Präzisierung des Kaufsignals, weil die langfristige Asset-Qualität nun besser getrennt abgebildet ist.
 
 ### 2026-06-14
 

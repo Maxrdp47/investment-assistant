@@ -847,6 +847,18 @@ def data_missing(label: str) -> str:
     return f"{label}: Daten nicht verfügbar."
 
 
+def score_profitability_metric(value: float) -> float:
+    if value >= 0.20:
+        return 8.5
+    if value >= 0.10:
+        return 7.0
+    if value >= 0.03:
+        return 5.5
+    if value >= 0:
+        return 4.5
+    return 2.5
+
+
 def score_stock_fundamentals(info: dict) -> ModuleScore:
     quote_type = str(info.get("quoteType", "")).upper()
     details: list[str] = []
@@ -886,6 +898,39 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     else:
         details.append(data_missing("Free Cashflow"))
 
+    margin_candidates = [
+        ("Nettomarge", info.get("profitMargins")),
+        ("Operative Marge", info.get("operatingMargins")),
+        ("Bruttomarge", info.get("grossMargins")),
+    ]
+    margin_label = None
+    margin_value = None
+    for label, raw_value in margin_candidates:
+        parsed_value = value_or_none(raw_value)
+        if parsed_value is not None:
+            margin_label = label
+            margin_value = parsed_value
+            break
+    if margin_value is not None and margin_label is not None:
+        score = score_profitability_metric(margin_value)
+        points.append(score)
+        details.append(f"{margin_label}: {margin_value * 100:.1f}% -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("Marge"))
+
+    roe = value_or_none(info.get("returnOnEquity"))
+    roa = value_or_none(info.get("returnOnAssets"))
+    if roe is not None:
+        score = score_profitability_metric(roe)
+        points.append(score)
+        details.append(f"Eigenkapitalrendite: {roe * 100:.1f}% -> {score:.1f}/10.")
+    elif roa is not None:
+        score = score_profitability_metric(roa)
+        points.append(score)
+        details.append(f"Kapitalrendite: {roa * 100:.1f}% -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("Eigenkapitalrendite / Kapitalrendite"))
+
     pe = value_or_none(info.get("trailingPE") or info.get("forwardPE"))
     if pe is not None and pe > 0:
         if pe <= 15:
@@ -900,6 +945,14 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
         details.append(f"KGV: {pe:.1f} -> {score:.1f}/10.")
     else:
         details.append(data_missing("KGV"))
+
+    price_to_sales = value_or_none(info.get("priceToSalesTrailing12Months"))
+    if price_to_sales is not None and price_to_sales > 0:
+        score = 8.0 if price_to_sales <= 3 else 6.5 if price_to_sales <= 8 else 4.5 if price_to_sales <= 15 else 3.0
+        points.append(score)
+        details.append(f"Kurs-Umsatz-Verhältnis: {price_to_sales:.1f} -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("Kurs-Umsatz-Verhältnis"))
 
     market_cap = value_or_none(info.get("marketCap"))
     if market_cap is not None:
@@ -916,7 +969,7 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     return ModuleScore(final_score, f"Aktien-Fundamentalscore {final_score}/10 aus {len(points)} verfügbaren Kennzahlen.", details)
 
 
-def score_etf_fundamentals(info: dict) -> ModuleScore:
+def score_etf_fundamentals(info: dict, df: pd.DataFrame | None = None) -> ModuleScore:
     details: list[str] = []
     points: list[float] = []
 
@@ -955,6 +1008,17 @@ def score_etf_fundamentals(info: dict) -> ModuleScore:
             details.append(f"{label}: {perf * 100:.1f}% -> {score:.1f}/10.")
         else:
             details.append(data_missing(label))
+
+    if df is not None and not df.empty and "Volatility" in df.columns:
+        volatility = value_or_none(df.iloc[-1].get("Volatility"))
+        if volatility is not None:
+            score = 8.0 if volatility <= 0.18 else 6.5 if volatility <= 0.28 else 5.0 if volatility <= 0.45 else 3.5
+            points.append(score)
+            details.append(f"Langfristige Stabilität: Volatilität {volatility * 100:.1f}% -> {score:.1f}/10.")
+        else:
+            details.append(data_missing("Langfristige Stabilität / Volatilität"))
+    else:
+        details.append(data_missing("Langfristige Stabilität / Volatilität"))
 
     if not points:
         return ModuleScore(5.0, "ETF-Daten nicht ausreichend verfügbar. Der Score wird neutral gewertet.", details)
@@ -1012,7 +1076,7 @@ def score_asset_fundamentals(symbol: str, profile: AssetProfile, technical: Modu
     if profile.asset_type == "Aktie":
         return score_stock_fundamentals(info)
     if profile.asset_type == "ETF":
-        return score_etf_fundamentals(info)
+        return score_etf_fundamentals(info, df)
     if profile.asset_type == "Krypto":
         return score_crypto_fundamentals(info, technical, macro, df)
     return score_unknown_fundamentals(profile)
@@ -1042,7 +1106,7 @@ def score_asset_quality(symbol: str, profile: AssetProfile, df: pd.DataFrame) ->
         result = score_stock_fundamentals(info)
         return ModuleScore(result.score, result.summary.replace("Fundamentalscore", "Asset-Qualität"), result.details)
     if profile.asset_type == "ETF":
-        result = score_etf_fundamentals(info)
+        result = score_etf_fundamentals(info, df)
         return ModuleScore(result.score, result.summary.replace("ETF-Score", "ETF-Qualität"), result.details)
     if profile.asset_type == "Krypto":
         latest = df.iloc[-1]

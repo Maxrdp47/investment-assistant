@@ -438,6 +438,7 @@ Auswerten, welche Signale historisch nützlich waren:
 - CRV
 - Opportunity Score
 - Confidence Score
+  - Status: Basis umgesetzt am 2026-06-15: Signalanalyse zählt ausgewertete Forward-Tests und Prognosen und zeigt Trefferquoten nach Asset-Typ erst ab ausreichender Datenbasis.
 
 ### PRIO B: Kalibrierungsvorschläge
 
@@ -477,20 +478,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Signalanalyse beginnen: aus lokalen Historien auswerten, welche Module häufiger mit positiven Ergebnissen zusammenfallen.
+1. Opportunity Scanner beginnen: kleine Watchlist nach bestehenden Analyse-Scores scannen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Lokale Historien werden im Kalibrierungsstatus zusammengeführt.
-- Der nächste größte Nutzen liegt darin, erste Signalanalysen aus den gespeicherten und ausgewerteten Fällen vorzubereiten.
-- Diese Aufgabe ist PRIO B, weil sie Lernhinweise und spätere Kalibrierung vorbereitet.
+- Signalanalyse ist als Basis umgesetzt.
+- Der nächste größte Nutzen liegt in einem ersten Opportunity Scanner, der mehrere Assets nach derselben Bewertungslogik vergleichen kann.
+- Diese Aufgabe ist PRIO B, weil sie Chancenfindung und spätere Performance-Messung verbindet.
 
 Nächste konkrete Umsetzung:
 
-1. Ausgewertete Forward-Tests und Prognosen lesen.
-2. Erfolgs-/Misserfolgsfälle nach Modul-Scores und Asset-Typ gruppieren.
-3. Bei zu kleiner Datenbasis nur Hinweis anzeigen; keine Gewichtungen ändern.
+1. Kleine Standard-Watchlist definieren.
+2. Bestehende Analysefunktionen wiederverwenden und Top-Chancen tabellarisch anzeigen.
+3. Fehler bei einzelnen Tickerscans abfangen und keine Daten erfinden.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -949,6 +950,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Kalibrierungs- und Lernstatus erweitert: Analyse-Details zählen jetzt Trade-Historie, Forward-Tests, Nutzerentscheidungen, Prognosen und ausgewertete Zeiträume gemeinsam; Gewichtungen werden weiterhin nicht automatisch geändert.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist eine erste Signalanalyse aus lokalen Historien, sobald ausreichend Fälle vorliegen.
+- Signalanalyse-Basis umgesetzt: Analyse-Details zeigen ausgewertete Fälle, positive/negative Ausgänge und ab ausreichender Datenbasis Trefferquoten nach Asset-Typ; Gewichtungen bleiben unverändert.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-B-Aufgabe ist ein erster Opportunity Scanner auf Basis der bestehenden Analysefunktionen.
 
 ### 2026-06-14
 

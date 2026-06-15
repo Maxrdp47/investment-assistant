@@ -212,6 +212,8 @@ Die App zeigt im Bereich **Analyse-Details anzeigen** einen Kalibrierungsstatus.
 
 Der Kalibrierungsstatus zählt lokale Trade-, Forward-Test-, Decision- und Prognosehistorien. Diese Dateien können persönliche Entscheidungen enthalten und werden nicht versioniert.
 
+Die Signalanalyse wertet nur lokal bereits ausgewertete Forward-Tests und Prognosen aus. Unter 20 Fällen zeigt sie nur den Sammelstand; Gewichtungen werden nie automatisch geändert.
+
 ### Depot-Effekt
 
 Wird nur berechnet, wenn **Portfolio in Bewertung einbeziehen** aktiv ist.

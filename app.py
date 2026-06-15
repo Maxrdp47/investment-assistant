@@ -522,6 +522,51 @@ def calibration_status_rows(
     return status, rows
 
 
+def signal_learning_rows(forward_tests: list[dict], predictions: list[dict]) -> tuple[str, list[dict[str, str]]]:
+    evaluated: list[dict] = []
+    for item in [*forward_tests, *predictions]:
+        review_after = item.get("review_after", {})
+        if not isinstance(review_after, dict):
+            continue
+        for period, result in review_after.items():
+            if isinstance(result, dict):
+                evaluated.append({"period": period, "record": item, "result": result})
+
+    count = len(evaluated)
+    if count < 20:
+        status = "Datenbasis zu klein. Signalanalyse zeigt nur den Sammelstand."
+    elif count <= 50:
+        status = "Vorsichtige Hinweise möglich. Noch keine automatischen Gewichtungsänderungen."
+    else:
+        status = "Datenbasis groß genug für Kalibrierungsvorschläge. Änderungen bleiben manuell und testpflichtig."
+
+    positive = sum(1 for item in evaluated if value_or_none(item["result"].get("return_pct")) is not None and float(item["result"].get("return_pct")) > 0)
+    negative = sum(1 for item in evaluated if value_or_none(item["result"].get("return_pct")) is not None and float(item["result"].get("return_pct")) <= 0)
+    rows = [
+        {"Signal": "Ausgewertete Fälle", "Wert": str(count), "Hinweis": status},
+        {"Signal": "Positive Ausgänge", "Wert": str(positive), "Hinweis": "Rendite über 0 % im jeweiligen Auswertungszeitraum."},
+        {"Signal": "Negative Ausgänge", "Wert": str(negative), "Hinweis": "Rendite bei oder unter 0 % im jeweiligen Auswertungszeitraum."},
+    ]
+
+    if count >= 20:
+        by_asset: dict[str, list[float]] = {}
+        for item in evaluated:
+            asset_type = str(item["record"].get("asset_type") or "Unbekannt")
+            return_pct = value_or_none(item["result"].get("return_pct"))
+            if return_pct is not None:
+                by_asset.setdefault(asset_type, []).append(float(return_pct))
+        for asset_type, values in sorted(by_asset.items()):
+            hit_rate = sum(1 for value in values if value > 0) / len(values) * 100
+            rows.append(
+                {
+                    "Signal": f"Trefferquote {asset_type}",
+                    "Wert": f"{hit_rate:.1f}%",
+                    "Hinweis": f"{len(values)} ausgewertete Fälle; nur Hinweis, keine automatische Gewichtung.",
+                }
+            )
+    return status, rows
+
+
 @st.cache_data(ttl=60)
 def load_price_data(symbol: str, period: str, interval: str) -> pd.DataFrame:
     try:
@@ -4245,12 +4290,17 @@ def main() -> None:
             news,
             macro,
         )
+        trade_history = load_trade_history()
+        forward_history = load_forward_tests()
+        decision_history = load_decision_history()
+        prediction_history = load_prediction_history()
         calibration_status, calibration_rows = calibration_status_rows(
-            load_trade_history(),
-            load_forward_tests(),
-            load_decision_history(),
-            load_prediction_history(),
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
         )
+        signal_learning_status, signal_learning_table = signal_learning_rows(forward_history, prediction_history)
         action_title, action_html = final_recommendation_v2(
             asset_quality,
             buy_signal,
@@ -4538,6 +4588,13 @@ def main() -> None:
             st.write(calibration_status)
             st.dataframe(
                 pd.DataFrame(calibration_rows),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Signalanalyse**")
+            st.write(signal_learning_status)
+            st.dataframe(
+                pd.DataFrame(signal_learning_table),
                 use_container_width=True,
                 hide_index=True,
             )

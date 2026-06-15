@@ -43,6 +43,7 @@ REFRESH_OPTIONS = {
     "1 Minute": 60,
     "5 Minuten": 300,
 }
+DEFAULT_SCANNER_WATCHLIST = "BTC-EUR, NVDA, PLTR, 1810.HK, EUNL.DE"
 
 KNOWN_TICKERS = {
     "xiaomi": ["1810.HK", "3CP.F", "3CP.DE", "XIACY"],
@@ -1473,6 +1474,137 @@ def score_buy_signal(
 
     final_score = round(clamp(score), 1)
     return ModuleScore(final_score, f"Kaufsignal {final_score}/10 für {profile.asset_type} aus Marktphase, Trend, RSI, MACD, Volumen, Kurszonen, CRV und asset-typischer Volatilität.", details)
+
+
+def parse_watchlist_symbols(raw: str) -> list[str]:
+    symbols: list[str] = []
+    for item in raw.replace("\n", ",").replace(";", ",").split(","):
+        symbol = item.strip().upper()
+        if symbol and symbol not in symbols:
+            symbols.append(symbol)
+    return symbols[:20]
+
+
+def scanner_direction(buy_signal: ModuleScore, market_phase: MarketPhase) -> str:
+    if buy_signal.score >= 6.5:
+        return "Long"
+    if buy_signal.score <= 3.5 and market_phase.phase == "Bärenmarkt":
+        return "Short / Absicherung"
+    return "Beobachten"
+
+
+def scanner_confidence(df: pd.DataFrame, market_phase: MarketPhase, latest: pd.Series) -> float:
+    points: list[float] = []
+    points.append(8.0 if len(df) >= 200 else 6.0 if len(df) >= 120 else 4.0)
+    points.append(market_phase_clarity_score(market_phase))
+    points.append(signal_stability_score(df))
+
+    volume = value_or_none(latest.get("Volume"))
+    volume_avg = value_or_none(latest.get("Volume_SMA_20"))
+    if volume is not None and volume_avg is not None and volume_avg > 0:
+        points.append(7.0 if volume > 0 else 4.5)
+    else:
+        points.append(4.0)
+
+    return round(score_from_optional(points), 1)
+
+
+def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
+    results: list[dict] = []
+    errors: list[str] = []
+    macro = score_macro()
+
+    for symbol in symbols:
+        try:
+            raw_data = load_price_data(symbol, "1y", "1d")
+            if raw_data.empty or "Close" not in raw_data:
+                errors.append(f"{symbol}: keine Kursdaten verfügbar.")
+                continue
+
+            df = calculate_indicators(raw_data, "1d")
+            if df.empty:
+                errors.append(f"{symbol}: Indikatoren konnten nicht berechnet werden.")
+                continue
+
+            supports = local_levels(df["Low"], "support") if "Low" in df else []
+            resistances = local_levels(df["High"], "resistance") if "High" in df else []
+            score_result = calculate_score_v2(df, supports, resistances)
+            latest = df.iloc[-1]
+            info = load_ticker_info(symbol)
+            identity = build_asset_identity(symbol, info, ticker_candidate(symbol, source="Scanner"))
+            profile = detect_asset_type(symbol, info)
+            market_phase = detect_market_phase(df)
+            close_value = float(latest["Close"])
+            risk_reward = calculate_risk_reward(close_value, supports, resistances)
+            asset_quality = score_asset_quality(symbol, profile, df)
+            buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
+            confidence = scanner_confidence(df, market_phase, latest)
+
+            opportunity_score = round(clamp(buy_signal.score * 0.55 + asset_quality.score * 0.20 + risk_reward.score * 0.15 + confidence * 0.10), 1)
+            direction = scanner_direction(buy_signal, market_phase)
+            reasons = [
+                f"Kaufsignal {buy_signal.score:.1f}/10",
+                f"Asset-Qualität {asset_quality.score:.1f}/10",
+                f"Marktphase: {market_phase.phase}",
+                risk_reward.summary,
+            ]
+            if macro.summary:
+                reasons.append(f"Makro: {macro.summary}")
+
+            results.append(
+                {
+                    "Asset": identity.get("name", symbol),
+                    "Ticker": symbol,
+                    "Typ": profile.asset_type,
+                    "Richtung": direction,
+                    "Opportunity Score": opportunity_score,
+                    "Vertrauen": confidence,
+                    "Zeithorizont": "2-8 Wochen",
+                    "Kaufsignal": buy_signal.score,
+                    "Asset-Qualität": asset_quality.score,
+                    "CRV": "Daten nicht verfügbar" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}",
+                    "Wichtigste Begründungen": " | ".join(reasons[:5]),
+                }
+            )
+        except Exception as exc:
+            errors.append(f"{symbol}: {exc}")
+
+    results.sort(key=lambda item: (item["Opportunity Score"], item["Vertrauen"]), reverse=True)
+    return results, errors
+
+
+def render_opportunity_scanner(results: list[dict], errors: list[str]) -> None:
+    st.subheader("Opportunity Scanner")
+    st.caption("Der Scanner vergleicht eine definierte Watchlist. Er macht nur Vorschläge und löst keine Käufe oder Verkäufe aus.")
+
+    if errors:
+        with st.expander("Datenqualität / nicht gescannte Ticker", expanded=False):
+            for error in errors:
+                st.write(f"- {error}")
+
+    if not results:
+        st.info("Keine verwertbaren Scanner-Ergebnisse. Bitte Watchlist oder Ticker prüfen.")
+        return
+
+    long_rows = [item for item in results if item["Richtung"] == "Long"]
+    short_rows = [item for item in results if item["Richtung"] == "Short / Absicherung"]
+    watch_rows = [item for item in results if item["Richtung"] == "Beobachten"]
+
+    st.markdown("**Top Long Chancen**")
+    if long_rows:
+        st.dataframe(pd.DataFrame(long_rows[:10]), use_container_width=True, hide_index=True)
+    else:
+        st.info("Keine klare Long-Chance in der aktuellen Watchlist.")
+
+    st.markdown("**Top Short / Absicherungs-Kandidaten**")
+    if short_rows:
+        st.dataframe(pd.DataFrame(short_rows[:10]), use_container_width=True, hide_index=True)
+    else:
+        st.info("Keine klare Short- oder Absicherungs-Chance in der aktuellen Watchlist.")
+
+    if watch_rows:
+        with st.expander("Beobachtungsliste", expanded=False):
+            st.dataframe(pd.DataFrame(watch_rows[:10]), use_container_width=True, hide_index=True)
 
 
 POSITIVE_WORDS = {
@@ -4163,6 +4295,16 @@ def main() -> None:
                 else:
                     st.info(message)
 
+        with st.expander("Opportunity Scanner", expanded=False):
+            scanner_watchlist_raw = st.text_area(
+                "Watchlist",
+                value=DEFAULT_SCANNER_WATCHLIST,
+                help="Kommagetrennte Yahoo-Finance-Ticker. Der Scanner macht nur Vorschläge und handelt nicht automatisch.",
+            )
+            scanner_symbols = parse_watchlist_symbols(scanner_watchlist_raw)
+            st.caption(f"{len(scanner_symbols)} Ticker vorbereitet.")
+            scan_requested = st.button("Watchlist scannen", use_container_width=True)
+
         candidates = find_ticker_candidates(query)
         candidate_labels = [format_candidate(candidate) for candidate in candidates]
         selected_label = st.selectbox("Gefundene Yahoo-Finance-Treffer", candidate_labels or [""])
@@ -4202,6 +4344,15 @@ def main() -> None:
     if refresh_seconds:
         st.markdown(f"<meta http-equiv='refresh' content='{refresh_seconds}'>", unsafe_allow_html=True)
         st.caption(f"Auto-Refresh aktiv: Die Seite lädt alle {refresh_seconds} Sekunden neu. Yahoo-Finance-Daten können verzögert sein.")
+
+    if scan_requested:
+        if not scanner_symbols:
+            st.info("Bitte mindestens einen Yahoo-Finance-Ticker für den Opportunity Scanner eintragen.")
+        else:
+            with st.spinner("Scanne Watchlist nach Chancen..."):
+                scanner_results, scanner_errors = scan_opportunities(scanner_symbols)
+            render_opportunity_scanner(scanner_results, scanner_errors)
+            st.divider()
 
     if manual_symbol.strip():
         symbol = manual_symbol.strip().upper()

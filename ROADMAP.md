@@ -313,6 +313,7 @@ Regeln:
 - Keine automatische Kauf- oder Verkaufsfunktion.
 - Keine Broker-Anbindung.
 - Fehlende Daten werden als `Daten nicht verfügbar` gekennzeichnet.
+- Status: Basis umgesetzt am 2026-06-15. Eine Sidebar-Watchlist scannt bis zu 20 Yahoo-Finance-Ticker mit vorhandener Analyse-, Kaufsignal-, Asset-Qualitäts-, CRV- und Vertrauenslogik und zeigt Long-, Short-/Absicherungs- sowie Beobachtungskandidaten tabellarisch.
 
 ### PRIO B: Trading-Modus
 
@@ -478,21 +479,22 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Opportunity Scanner beginnen: kleine Watchlist nach bestehenden Analyse-Scores scannen.
+1. Trading-Modus beginnen: aus Scanner-Kandidaten ein konkretes Setup mit Zielzone, Stop-Zone, CRV, Chance, Confidence und Risiken ableiten.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Signalanalyse ist als Basis umgesetzt.
-- Der nächste größte Nutzen liegt in einem ersten Opportunity Scanner, der mehrere Assets nach derselben Bewertungslogik vergleichen kann.
-- Diese Aufgabe ist PRIO B, weil sie Chancenfindung und spätere Performance-Messung verbindet.
+- Signalanalyse und Opportunity Scanner sind als Basis umgesetzt.
+- Der nächste größte Nutzen liegt im Trading-Modus, weil Scanner-Kandidaten dadurch in prüfbare Setups mit Ziel, Stop und Zeithorizont überführt werden können.
+- Diese Aufgabe ist PRIO B, weil sie spätere Performance-Messung, Trade Journal und Lernsystem vorbereitet.
 
 Nächste konkrete Umsetzung:
 
-1. Kleine Standard-Watchlist definieren.
-2. Bestehende Analysefunktionen wiederverwenden und Top-Chancen tabellarisch anzeigen.
-3. Fehler bei einzelnen Tickerscans abfangen und keine Daten erfinden.
-4. Tests ausführen und ROADMAP aktualisieren.
+1. Scanner-Ergebnisse in ein Setup-Format überführen.
+2. Zielzone und Stop-Zone aus Widerständen, Unterstützungen und Volatilität ableiten.
+3. Chance, Confidence, CRV, wichtigste Risiken und wichtigste Chancen anzeigen.
+4. Keine automatische Orderfunktion einbauen.
+5. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
 
@@ -953,6 +955,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Signalanalyse-Basis umgesetzt: Analyse-Details zeigen ausgewertete Fälle, positive/negative Ausgänge und ab ausreichender Datenbasis Trefferquoten nach Asset-Typ; Gewichtungen bleiben unverändert.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist ein erster Opportunity Scanner auf Basis der bestehenden Analysefunktionen.
+- Opportunity-Scanner-Basis umgesetzt: Sidebar-Watchlist mit Standardwerten `BTC-EUR`, `NVDA`, `PLTR`, `1810.HK` und `EUNL.DE`; Scan nutzt bestehende Kurs-, Asset-Typ-, Kaufsignal-, Asset-Qualitäts-, CRV- und Vertrauenslogik; einzelne Tickerfehler werden abgefangen und fehlende Daten nicht erfunden.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`; Scanner-Direkttest mit `BTC-EUR` und `NVDA` erfolgreich.
+- Priorität angepasst: Nächste PRIO-B-Aufgabe ist der Trading-Modus auf Basis der Scanner-Kandidaten.
 
 ### 2026-06-14
 

@@ -1295,6 +1295,28 @@ def load_macro_prices() -> dict[str, pd.DataFrame]:
     return result
 
 
+@st.cache_data(ttl=30 * 60)
+def load_commodity_prices() -> dict[str, pd.DataFrame]:
+    tickers = {
+        "Öl": "CL=F",
+        "Gas": "NG=F",
+        "Kupfer": "HG=F",
+        "Gold": "GC=F",
+        "Uran-Proxy": "URA",
+    }
+    result: dict[str, pd.DataFrame] = {}
+    for name, ticker in tickers.items():
+        try:
+            data = yf.download(ticker, period="6mo", interval="1d", auto_adjust=True, progress=False, threads=False)
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.get_level_values(0)
+            if not data.empty and "Close" in data:
+                result[name] = data.dropna(subset=["Close"])
+        except Exception:
+            continue
+    return result
+
+
 def trend_change(data: pd.DataFrame, days: int = 60) -> float | None:
     if data.empty or "Close" not in data or len(data) < 5:
         return None
@@ -1496,6 +1518,45 @@ def research_macro_impact(profile: AssetProfile, macro: ModuleScore) -> Research
     summary = f"Makro-Wirkung {macro.score}/10 für {profile.asset_type}. {macro.summary}"
     beginner = "Das Makro-Wirkungsmodul erklärt, warum Zinsen, Dollar, Inflation und Risikoappetit ein Asset unterstützen oder belasten können. Es ist Kontext, kein Kaufbefehl."
     return ResearchModule("Makro-Wirkung", macro.score, summary, details, beginner)
+
+
+def research_commodity_context(profile: AssetProfile) -> ResearchModule:
+    commodity_data = load_commodity_prices()
+    details: list[str] = []
+    available = 0
+    interpretations = {
+        "Öl": "Öl reagiert stark auf Konjunktur, Angebot, OPEC-Politik und Geopolitik.",
+        "Gas": "Gas reagiert stark auf Wetter, Lagerbestände, regionale Versorgung und Geopolitik.",
+        "Kupfer": "Kupfer gilt oft als Wachstums- und Industrieindikator.",
+        "Gold": "Gold reagiert häufig auf Realzinsen, Dollar und Sicherheitsnachfrage.",
+        "Uran-Proxy": "Uran/URA ist ein struktureller Energie- und Angebotsmarkt; ETF-Proxies bilden den Spotmarkt nur indirekt ab.",
+    }
+
+    for name, explanation in interpretations.items():
+        change = trend_change(commodity_data.get(name, pd.DataFrame()))
+        if change is None:
+            details.append(f"{name}: Daten nicht verfügbar. {explanation}")
+            continue
+        available += 1
+        direction = "steigt" if change > 0.03 else "fällt" if change < -0.03 else "seitwärts"
+        details.append(f"{name}: {direction} über ca. 3 Monate ({change * 100:+.1f}%). {explanation}")
+
+    asset_context = {
+        "Aktie": "Für Aktien sind Rohstoffe besonders relevant, wenn Kosten, Energiepreise oder Zyklik das Geschäftsmodell beeinflussen.",
+        "ETF": "Für ETFs hängt die Wirkung von Region und Sektor ab; breite Welt-ETFs reagieren meist indirekter als Energie-, Rohstoff- oder Industrie-ETFs.",
+        "Krypto": "Für Krypto wirken Rohstoffe meist indirekt über Inflation, Realzinsen, Dollar und Liquidität.",
+        "Derivat / unbekannt": "Bei unbekannten Assets ist die Rohstoffwirkung schwerer zuzuordnen.",
+    }
+    details.append("Asset-Typ-Kontext: " + asset_context.get(profile.asset_type, asset_context["Derivat / unbekannt"]))
+    details.append("Unsicherheit: Rohstoffpreise sind nur Kontextsignale und keine sicheren Prognosen für das analysierte Asset.")
+
+    if available == 0:
+        return ResearchModule("Rohstoff-Kontext", None, "Rohstoffdaten nicht verfügbar.", details, "Rohstoffe zeigen Konjunktur-, Inflations- und Sicherheitsstress. Ohne Daten wird nichts geschätzt.")
+
+    confidence = round(clamp(3.0 + available * 1.3), 1)
+    summary = f"Rohstoff-Kontext: {available}/5 Proxies verfügbar. Vertrauensgrad {confidence}/10."
+    beginner = "Rohstoffe helfen, das Umfeld zu verstehen: Öl und Gas für Energie/Geopolitik, Kupfer für Wachstum, Gold für Realzinsen/Sicherheit, Uran für strukturelle Energie."
+    return ResearchModule("Rohstoff-Kontext", confidence, summary, details, beginner)
 
 
 def research_bubble_risk(info: dict, df: pd.DataFrame, valuation: ResearchModule, momentum: ResearchModule, news: ModuleScore) -> ResearchModule:
@@ -2596,6 +2657,7 @@ def build_research_pack(
     fundamentals = research_fundamental_module(asset_quality, asset_profile)
     market_regime = research_market_regime(df, market_phase, macro)
     macro_impact = research_macro_impact(asset_profile, macro)
+    commodity_context = research_commodity_context(asset_profile)
     bubble_risk = research_bubble_risk(info, df, valuation, momentum, news)
     innovation = research_innovation_context(info, asset_profile, asset_quality, bubble_risk, news)
     macro_module = module_from_existing("Makro-Score", macro, "Der Makro-Score bewertet Zinsen, Nasdaq, Dollar und Inflationsumfeld. Hoch heißt: Das Umfeld hilft eher.")
@@ -2606,7 +2668,7 @@ def build_research_pack(
     earnings = research_earnings_module(symbol, info, asset_profile)
     event_risk = research_event_risk_module(info, asset_profile, macro)
     institutional = research_institutional_data(info, asset_profile)
-    modules = [chart, momentum, valuation, fundamentals, innovation, bubble_risk, market_regime, macro_impact, macro_module, news_module, risk, liquidity]
+    modules = [chart, momentum, valuation, fundamentals, innovation, bubble_risk, market_regime, macro_impact, commodity_context, macro_module, news_module, risk, liquidity]
     institutional_modules = [analyst, earnings, event_risk, institutional]
     confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules)
     uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)

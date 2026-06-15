@@ -471,20 +471,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Rohstoff-Kontextmodul beginnen: Öl, Gas, Kupfer, Gold und Uran als Makro-/Rohstoff-Kontext erklären.
+1. Krypto-Modul erweitern: Bitcoin-Halving-Zyklus und Krypto-Marktstruktur transparent einordnen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Marktregime, Makro-Wirkung, Blasenrisiko und Innovation/Hype sind als PRIO-A-Bausteine umgesetzt.
-- Der nächste größte Nutzen liegt in einem Rohstoff-Kontext, weil Dollar, Realzinsen, Energie und Konjunktur wichtige Makro-Signale liefern können.
-- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil Rohstoff- und Makro-Kontext die Analysequalität direkt beeinflussen.
+- Marktregime, Makro-Wirkung, Rohstoff-Kontext, Blasenrisiko und Innovation/Hype sind als PRIO-A-Bausteine umgesetzt.
+- Der nächste größte Nutzen liegt in besserer Krypto-Speziallogik, weil Krypto anders bewertet werden muss als Aktien und ETFs.
+- Diese Aufgabe hat höheren Nutzen als Komfortfunktionen, weil Krypto-Zyklus, Liquidität und Marktstruktur die Analysequalität direkt beeinflussen.
 
 Nächste konkrete Umsetzung:
 
-1. Keine Rohstoffpreise erfinden; nur vorhandene oder klar verfügbare Proxies nutzen.
-2. Öl, Gas, Kupfer, Gold und Uran als Wirkungskategorien erklären.
-3. Datenlücken und Unsicherheit sichtbar halten.
+1. Bitcoin-Halving-Zyklus transparent einordnen.
+2. ETF-Flows, Fear & Greed und On-Chain-Daten nur verwenden, wenn belastbare Daten verfügbar sind.
+3. Fehlende Krypto-Spezialdaten sichtbar als `Daten nicht verfügbar` anzeigen.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -916,6 +916,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Innovations-/Hype-Modul umgesetzt: nutzt vorhandene Wachstums-, Margen-, Free-Cashflow-, Marktstellungs-, Beschreibungs- und News-Daten; Produktvorsprung, Patente, Entwickleraktivität und Marktanteile bleiben `Daten nicht verfügbar`, wenn sie nicht vorliegen.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-A-Teilaufgabe ist ein Rohstoff-Kontextmodul mit Öl, Gas, Kupfer, Gold und Uran als Makro-/Rohstoff-Wirkungskategorien.
+- Rohstoff-Kontextmodul umgesetzt: nutzt Yahoo-Proxies für Öl, Gas, Kupfer, Gold und Uran/URA, sofern verfügbar; zeigt 3M-Trends, Asset-Typ-Kontext und Unsicherheit statt sichere Kausalitäten zu behaupten.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-A-Teilaufgabe ist die Erweiterung des Krypto-Moduls mit Bitcoin-Halving-Zyklus und transparenter Krypto-Marktstruktur.
 
 ### 2026-06-14
 

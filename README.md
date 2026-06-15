@@ -172,7 +172,7 @@ Einflussfaktoren:
 - Chancen-Risiko-Verhältnis
 - Volatilität
 
-Portfolio-Daten verändern das Kaufsignal nicht.
+Portfolio-Daten verändern das Kaufsignal nicht. Asset-Qualität verändert das Kaufsignal ebenfalls nicht. Das Kaufsignal bewertet nur den aktuellen Einstiegszeitpunkt; MACD und Volatilität werden dabei je nach Asset-Typ eingeordnet, weil ein ETF, eine Aktie und Krypto unterschiedliche Schwankungsprofile haben.
 
 ### Gewichtungen
 

@@ -103,8 +103,8 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 
 - Gewichtungen der Scores transparent dokumentieren. Status: umgesetzt am 2026-06-15.
 - Score-Logik kalibrieren. Status: Basis umgesetzt am 2026-06-15; echte Gewichtungsänderungen erst mit ausreichender Historie.
-- Asset-Qualität je Asset-Typ verbessern.
-- Kaufsignal weiter von Asset-Qualität abgrenzen.
+- Asset-Qualität je Asset-Typ verbessern. Status: umgesetzt am 2026-06-15.
+- Kaufsignal weiter von Asset-Qualität abgrenzen. Status: umgesetzt am 2026-06-15.
 - Research-Scores stärker erklären: Was bedeutet hoch, mittel oder niedrig?
 - Nachkaufzonen robuster machen, wenn keine klaren Kurszonen erkannt werden.
 - Bull/Base/Bear-Szenarien stärker aus Trend, Volatilität, Unterstützungen und Widerständen ableiten.
@@ -383,19 +383,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Kaufsignal weiter von Asset-Qualität abgrenzen und je Asset-Typ präzisieren.
+1. Research-Scores stärker erklären: Was bedeutet hoch, mittel oder niedrig?
 
 Warum diese Aufgabe zuerst:
 
-- Asset-Qualität wurde je Asset-Typ erweitert.
-- Der nächste größte Nutzen liegt darin, das kurzfristige Kaufsignal noch klarer als Timing-Signal zu erklären.
-- Diese Aufgabe ist PRIO A, weil Bewertungslogik und verständliche Handlungseinordnung direkt die Analysequalität bestimmen.
+- Asset-Qualität und Kaufsignal sind jetzt sauberer getrennt.
+- Der nächste größte Nutzen liegt darin, die vorhandenen Research-Scores für Anfänger und fortgeschrittene Nutzer klarer zu übersetzen.
+- Diese Aufgabe ist PRIO A, weil ein Score ohne praktische Bedeutung die Entscheidungsqualität schwächt.
 
 Nächste konkrete Umsetzung:
 
-1. Kaufsignal-Details nach Asset-Typ prüfen.
-2. Sicherstellen, dass Asset-Qualität nicht in das Kaufsignal einfließt.
-3. Timing-Begründung für RSI, MACD, Marktphase, CRV und Volatilität schärfen.
+1. Research-Score-Anzeigen prüfen.
+2. Für hohe, mittlere und niedrige Scores kurze praktische Interpretation ergänzen.
+3. Anfänger-Modus und Score-Transparenz konsistent halten.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -779,6 +779,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Asset-Qualität je Asset-Typ verbessert: Aktien bewerten zusätzlich Margen, Kapitalrendite und Kurs-Umsatz-Verhältnis; ETFs bewerten langfristige Stabilität aus berechneter Volatilität; fehlende Daten bleiben sichtbar als `Daten nicht verfügbar`.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; erster Smoke-Test ohne Netzwerk scheiterte erwartbar am Yahoo-Datenabruf für `BTC-EUR`; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-A-Aufgabe ist die weitere Abgrenzung und Präzisierung des Kaufsignals, weil die langfristige Asset-Qualität nun besser getrennt abgebildet ist.
+- Kaufsignal weiter von Asset-Qualität abgegrenzt: MACD-Bestätigung, Bodenbildungs-Hinweis und asset-typische Volatilitätsschwellen ergänzt; App zeigt ausdrücklich, dass Asset-Qualität und Depot-Effekt nicht in das Kaufsignal einfließen.
+- Smoke-Test aktualisiert und erfolgreich ausgeführt: `score_buy_signal` nutzt jetzt den Asset-Typ; `BTC-EUR`, `NVDA` und `1810.HK` liefen mit Netzwerkfreigabe erfolgreich durch.
+- Priorität angepasst: Nächste PRIO-A-Aufgabe ist die stärkere Erklärung der Research-Scores, weil die Score-Bedeutung unmittelbar die Nutzbarkeit der Analyse verbessert.
 
 ### 2026-06-14
 

@@ -1159,22 +1159,29 @@ def score_buy_signal(
     market_phase: MarketPhase,
     risk_reward: RiskReward,
     latest: pd.Series,
+    profile: AssetProfile,
 ) -> ModuleScore:
     rsi = value_or_none(latest.get("RSI_14"))
     volatility = value_or_none(latest.get("Volatility"))
+    macd = value_or_none(latest.get("MACD"))
+    signal = value_or_none(latest.get("MACD_Signal"))
     score = score_result.score * 0.70 + risk_reward.score * 0.20
     details = list(score_result.reasons)
     details.append(risk_reward.summary)
+    details.append("Asset-Qualität und Depot-Effekt fließen nicht in dieses Kaufsignal ein.")
 
     if market_phase.phase == "Bullenmarkt":
         score += 0.6
         details.append("Marktphase unterstützt den Einstieg.")
     elif market_phase.phase == "Bärenmarkt":
         score -= 0.8
-        details.append("Bärenmarkt senkt die Qualität des aktuellen Kaufsignals.")
+        details.append("Bärenmarkt senkt die Zuverlässigkeit des aktuellen Einstiegszeitpunkts.")
     elif market_phase.phase == "Korrektur innerhalb eines Aufwärtstrends":
         score += 0.2
         details.append("Korrektur im Aufwärtstrend kann antizyklisch interessant sein.")
+    elif market_phase.phase == "Bodenbildungsphase":
+        score += 0.1
+        details.append("Bodenbildungsphase kann interessant sein, braucht aber Bestätigung durch Kursverhalten, MACD oder Volumen.")
 
     if rsi is not None and rsi < 30:
         score += 0.4
@@ -1182,12 +1189,33 @@ def score_buy_signal(
     if rsi is not None and rsi > 70:
         score -= 0.7
         details.append("RSI über 70 warnt vor Überhitzung.")
-    if volatility is not None and volatility > 0.75:
-        score -= 0.6
-        details.append("Sehr hohe Volatilität verschlechtert den Einstiegszeitpunkt.")
+
+    if macd is not None and signal is not None:
+        if macd > signal:
+            score += 0.35
+            details.append("MACD liegt über der Signal-Linie: kurzfristiges Momentum bestätigt den Einstieg eher.")
+        else:
+            score -= 0.35
+            details.append("MACD liegt unter der Signal-Linie: Momentum bestätigt den Einstieg noch nicht.")
+    else:
+        details.append(data_missing("MACD-Timing"))
+
+    volatility_thresholds = {
+        "Aktie": (0.45, 0.65),
+        "ETF": (0.25, 0.35),
+        "Krypto": (0.75, 1.10),
+    }
+    elevated_volatility, high_volatility = volatility_thresholds.get(profile.asset_type, (0.55, 0.75))
+    if volatility is not None:
+        if volatility > high_volatility:
+            score -= 0.7
+            details.append(f"Sehr hohe Volatilität für {profile.asset_type}: Einstieg nur mit kleinerer Tranche und klarer Marke.")
+        elif volatility > elevated_volatility:
+            score -= 0.25
+            details.append(f"Erhöhte Volatilität für {profile.asset_type}: Timing ist brauchbar, aber Positionsgröße vorsichtig wählen.")
 
     final_score = round(clamp(score), 1)
-    return ModuleScore(final_score, f"Kaufsignal {final_score}/10 aus Marktphase, Trend, RSI, MACD, Volumen, Kurszonen, CRV und Volatilität.", details)
+    return ModuleScore(final_score, f"Kaufsignal {final_score}/10 für {profile.asset_type} aus Marktphase, Trend, RSI, MACD, Volumen, Kurszonen, CRV und asset-typischer Volatilität.", details)
 
 
 POSITIVE_WORDS = {
@@ -3291,7 +3319,7 @@ def main() -> None:
         asset_quality = score_asset_quality(symbol, asset_profile, df)
         fundamentals = asset_quality
         news = score_news(symbol)
-        buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest)
+        buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, asset_profile)
         research_pack = build_research_pack(
             symbol,
             asset_profile,
@@ -3540,7 +3568,7 @@ def main() -> None:
             )
 
             st.markdown("**Kaufsignal-Gewichtung**")
-            st.write("Das Kaufsignal nutzt den Technik-Score mit 70 %, den CRV-Score mit 20 % und danach begrenzte Zu- oder Abschläge für Marktphase, RSI und hohe Volatilität.")
+            st.write("Das Kaufsignal nutzt den Technik-Score mit 70 %, den CRV-Score mit 20 % und danach begrenzte Zu- oder Abschläge für Marktphase, RSI, MACD und asset-typische Volatilität. Asset-Qualität und Depot-Effekt fließen nicht ein.")
 
             st.markdown("**Kalibrierungsstatus**")
             st.write(calibration_status)

@@ -84,7 +84,7 @@ def run_analysis_flow(symbols: list[str]) -> None:
         info = app.load_ticker_info(symbol)
         profile = app.detect_asset_type(symbol, info)
         asset_quality = app.score_asset_quality(symbol, profile, df)
-        buy_signal = app.score_buy_signal(score, phase, risk_reward, latest)
+        buy_signal = app.score_buy_signal(score, phase, risk_reward, latest, profile)
         if asset_quality.score < 0 or buy_signal.score < 0:
             raise RuntimeError(f"{symbol}: Ungültige Scores.")
         print(f"{symbol}: OK | Asset-Qualität {asset_quality.score}/10 | Kaufsignal {buy_signal.score}/10 | {phase.phase}")

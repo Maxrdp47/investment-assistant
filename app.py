@@ -21,6 +21,7 @@ PORTFOLIO_PATH = Path(__file__).resolve().parent / "portfolio.json"
 SEARCH_HISTORY_PATH = Path(__file__).resolve().parent / "search_history.json"
 TRADE_HISTORY_PATH = Path(__file__).resolve().parent / "trade_history.json"
 FORWARD_TEST_PATH = Path(__file__).resolve().parent / "forward_tests.json"
+DECISION_HISTORY_PATH = Path(__file__).resolve().parent / "decision_history.json"
 YFINANCE_CACHE_DIR.mkdir(exist_ok=True)
 yf.set_tz_cache_location(str(YFINANCE_CACHE_DIR))
 
@@ -308,6 +309,28 @@ def save_forward_test(record: dict) -> bool:
     history.insert(0, record)
     try:
         FORWARD_TEST_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        return False
+    return True
+
+
+def load_decision_history() -> list[dict]:
+    if not DECISION_HISTORY_PATH.exists():
+        return []
+    try:
+        data = json.loads(DECISION_HISTORY_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return [item for item in data if isinstance(item, dict)]
+
+
+def save_decision_record(record: dict) -> bool:
+    history = load_decision_history()
+    history.insert(0, record)
+    try:
+        DECISION_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
     except OSError:
         return False
     return True
@@ -2864,6 +2887,39 @@ def build_forward_test_record(
     }
 
 
+def build_decision_record(
+    symbol: str,
+    asset_identity: dict,
+    asset_profile: AssetProfile,
+    latest: pd.Series,
+    asset_quality: ModuleScore,
+    buy_signal: ModuleScore,
+    market_phase: MarketPhase,
+    research_pack: ResearchPack,
+    decision: str,
+    user_note: str,
+) -> dict:
+    return {
+        "created_at": pd.Timestamp.now().isoformat(),
+        "symbol": symbol,
+        "name": asset_identity.get("name", ""),
+        "asset_type": asset_profile.asset_type,
+        "price_at_decision": value_or_none(latest.get("Close")),
+        "decision": decision,
+        "user_note": user_note.strip(),
+        "app_action": research_pack.action,
+        "asset_quality": asset_quality.score,
+        "buy_signal": buy_signal.score,
+        "confidence": research_pack.confidence.score,
+        "market_phase": market_phase.phase,
+        "module_scores": [
+            {"name": module.name, "score": module.score, "summary": module.summary}
+            for module in research_pack.modules
+        ],
+        "note": "Decision Tracking dokumentiert nur eine Nutzerentscheidung. Keine Order, keine Broker-Anbindung.",
+    }
+
+
 def technical_module(score_result: ScoreResult, phase: MarketPhase) -> ModuleScore:
     details = score_result.reasons.copy()
     details.append(f"Marktphase: {phase.phase}.")
@@ -4105,6 +4161,31 @@ def main() -> None:
                 st.success("Forward-Test gespeichert. Die Datei `forward_tests.json` bleibt lokal und löst keine Order aus.")
             else:
                 st.error("Forward-Test konnte nicht gespeichert werden.")
+        with st.expander("Eigene Entscheidung dokumentieren", expanded=False):
+            decision_choice = st.selectbox(
+                "Was machst du mit dieser Analyse?",
+                ["Beobachten", "Nicht kaufen", "Kaufen", "Halten", "Verkaufen"],
+                index=0,
+                key=f"decision_choice_{symbol}",
+            )
+            decision_note = st.text_area("Optionaler Kommentar", value="", key=f"decision_note_{symbol}")
+            if st.button("Entscheidung speichern", use_container_width=True, key=f"save_decision_{symbol}"):
+                decision_record = build_decision_record(
+                    symbol,
+                    asset_identity,
+                    asset_profile,
+                    latest,
+                    asset_quality,
+                    buy_signal,
+                    market_phase,
+                    research_pack,
+                    decision_choice,
+                    decision_note,
+                )
+                if save_decision_record(decision_record):
+                    st.success("Entscheidung gespeichert. Es wurde keine Order ausgelöst.")
+                else:
+                    st.error("Entscheidung konnte nicht gespeichert werden.")
         if beginner_mode:
             buy_answer, buy_text = beginner_buy_answer(buy_signal.score, action_title)
             st.markdown(

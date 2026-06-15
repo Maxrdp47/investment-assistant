@@ -248,6 +248,7 @@ Transparenzregeln:
 ### PRIO B: Decision-Tracking-Modul
 
 - Nutzerentscheidungen optional protokollieren: gekauft, nicht gekauft, gehalten, verkauft, beobachtet.
+  - Status: Basis umgesetzt am 2026-06-15 (`decision_history.json`, lokal und nicht versioniert).
 - Zeitpunkt, Entscheidungsgrund, angezeigte Empfehlung und relevante Scores speichern.
 - Optionalen Nutzerkommentar ermöglichen.
 - Später vergleichen, ob die Entscheidung gegen oder mit der App-Einschätzung getroffen wurde.
@@ -473,20 +474,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Decision-Tracking-Modul beginnen: Nutzerentscheidungen optional protokollieren.
+1. Prognose-Tracking-Modul beginnen: Bull/Base/Bear-Prognosen dauerhaft speichern.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Forward-Test-Speicherung und erste Auswertung sind als Basis umgesetzt.
-- Der nächste größte Nutzen liegt darin, Nutzerentscheidungen optional zu dokumentieren, damit später App-Empfehlung und tatsächliche Entscheidung verglichen werden können.
-- Diese Aufgabe ist PRIO B, weil sie die Analysequalität und Opportunitätskosten messbar macht.
+- Decision Tracking ist als Basis umgesetzt.
+- Der nächste größte Nutzen liegt darin, Bull/Base/Bear-Prognosen separat zu speichern und später mit Ergebnissen zu vergleichen.
+- Diese Aufgabe ist PRIO B, weil sie Prognosequalität messbar macht.
 
 Nächste konkrete Umsetzung:
 
-1. Lokale Datei für Entscheidungen festlegen.
-2. Optionales Protokollieren von Kaufen, Nicht kaufen, Halten, Verkaufen oder Beobachten ermöglichen.
-3. Keine Broker-Anbindung, keine Ausführung, nur Dokumentation.
+1. Lokale Datei für Prognosen festlegen.
+2. Szenarien, Kursziele, Wahrscheinlichkeiten und Widerlegungsmarken speichern.
+3. Keine automatische Handlung, nur Dokumentation und spätere Auswertung.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -931,6 +932,10 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Forward-Test-Auswertung umgesetzt: Sidebar kann fällige gespeicherte Analysen nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten auswerten; gespeichert werden aktuelle Rendite, maximale positive Entwicklung und maximale negative Entwicklung.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist Decision Tracking, damit Nutzerentscheidungen später mit App-Einschätzungen verglichen werden können.
+- Decision-Tracking-Basis umgesetzt: Nutzer können Kaufen, Nicht kaufen, Halten, Verkaufen oder Beobachten mit optionalem Kommentar lokal in `decision_history.json` speichern; App-Einschätzung und Modul-Scores werden mitgespeichert; keine Orderfunktion.
+- `decision_history.json` in `.gitignore` und README-Datenschutzliste aufgenommen.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-B-Aufgabe ist Prognose-Tracking für Bull/Base/Bear-Szenarien.
 
 ### 2026-06-14
 

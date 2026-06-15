@@ -334,6 +334,103 @@ def load_forward_tests() -> list[dict]:
     return [item for item in data if isinstance(item, dict)]
 
 
+def trade_direction_multiplier(direction: str) -> int:
+    return -1 if "Short" in str(direction) else 1
+
+
+def evaluate_due_trade_history() -> tuple[int, str]:
+    history = load_trade_history()
+    if not history:
+        return 0, "Keine Trading-Setups gespeichert."
+
+    periods = {"1w": 7, "1m": 30, "3m": 90}
+    now = pd.Timestamp.now(tz=None)
+    updated = 0
+    for record in history:
+        symbol = record.get("Ticker") or record.get("symbol")
+        entry_price = value_or_none(record.get("Einstieg") or record.get("entry_price"))
+        target_price = value_or_none(record.get("Zielzone") or record.get("target"))
+        stop_price = value_or_none(record.get("Stop-Zone") or record.get("stop"))
+        direction = str(record.get("Richtung") or record.get("direction") or "Long")
+        created_at_raw = record.get("Datum") or record.get("created_at")
+        if not symbol or entry_price is None or not created_at_raw:
+            continue
+        try:
+            created_at = pd.Timestamp(created_at_raw).tz_localize(None)
+        except Exception:
+            continue
+
+        review_after = record.setdefault("review_after", {"1w": None, "1m": None, "3m": None})
+        due_periods = [
+            label for label, days in periods.items()
+            if review_after.get(label) is None and now >= created_at + pd.Timedelta(days=days)
+        ]
+        if not due_periods:
+            continue
+
+        try:
+            data = yf.download(symbol, start=created_at.date(), end=(now + pd.Timedelta(days=1)).date(), interval="1d", auto_adjust=True, progress=False, threads=False)
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.get_level_values(0)
+            data = data.dropna(subset=["Close"]) if not data.empty and "Close" in data else pd.DataFrame()
+        except Exception:
+            data = pd.DataFrame()
+        if data.empty:
+            continue
+
+        closes = data["Close"].astype(float)
+        highs = data["High"].astype(float) if "High" in data else closes
+        lows = data["Low"].astype(float) if "Low" in data else closes
+        current_price = float(closes.iloc[-1])
+        multiplier = trade_direction_multiplier(direction)
+        if multiplier > 0:
+            return_pct = (current_price - entry_price) / entry_price * 100
+            max_positive = (float(highs.max()) - entry_price) / entry_price * 100
+            max_negative = (float(lows.min()) - entry_price) / entry_price * 100
+            target_hit = target_price is not None and float(highs.max()) >= target_price
+            stop_hit = stop_price is not None and float(lows.min()) <= stop_price
+        else:
+            return_pct = (entry_price - current_price) / entry_price * 100
+            max_positive = (entry_price - float(lows.min())) / entry_price * 100
+            max_negative = (entry_price - float(highs.max())) / entry_price * 100
+            target_hit = target_price is not None and float(lows.min()) <= target_price
+            stop_hit = stop_price is not None and float(highs.max()) >= stop_price
+
+        if target_hit and stop_hit:
+            result = "Ziel und Stop im Zeitraum berührt"
+        elif target_hit:
+            result = "Treffer"
+        elif stop_hit:
+            result = "Fehlschlag"
+        elif return_pct > 0:
+            result = "positiv offen"
+        elif return_pct < 0:
+            result = "negativ offen"
+        else:
+            result = "neutral"
+
+        for label in due_periods:
+            review_after[label] = {
+                "reviewed_at": now.isoformat(),
+                "current_price": current_price,
+                "return_pct": round(return_pct, 2),
+                "max_positive_pct": round(max_positive, 2),
+                "max_negative_pct": round(max_negative, 2),
+                "target_hit": bool(target_hit),
+                "stop_hit": bool(stop_hit),
+                "result": result,
+                "note": "Trade-Journal-Auswertung mit Kursdaten; keine Kauf- oder Verkaufsautomatisierung.",
+            }
+            updated += 1
+
+    if updated:
+        try:
+            TRADE_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            return updated, "Trading-Setups ausgewertet, aber Datei konnte nicht gespeichert werden."
+    return updated, f"{updated} fällige Trade-Journal-Auswertungen aktualisiert."
+
+
 def save_forward_test(record: dict) -> bool:
     history = load_forward_tests()
     history.insert(0, record)
@@ -1705,6 +1802,11 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
             "Risiken": risks[:3],
             "Chancen": chances[:3],
             "Begründung": f"{setup_label}: Kaufsignal {buy_signal.score:.1f}/10, Confidence {confidence:.1f}/10, Marktphase {market_phase.phase}.",
+            "review_after": {
+                "1w": None,
+                "1m": None,
+                "3m": None,
+            },
             "Hinweis": "Nur Analyse und Dokumentation. Keine automatische Kauf- oder Verkaufsfunktion.",
         }, None
     except Exception as exc:
@@ -4475,8 +4577,16 @@ def main() -> None:
         portfolio_enabled = st.toggle("Portfolio in Bewertung einbeziehen", value=False)
         beginner_mode = st.toggle("Anfänger-Modus", value=True)
         with st.expander("Forward-Testing", expanded=False):
+            trade_setups = load_trade_history()
             forward_tests = load_forward_tests()
             predictions = load_prediction_history()
+            st.caption(f"Gespeicherte Trading-Setups: {len(trade_setups)}")
+            if st.button("Fällige Trading-Setups auswerten", use_container_width=True):
+                updated, message = evaluate_due_trade_history()
+                if updated:
+                    st.success(message)
+                else:
+                    st.info(message)
             st.caption(f"Gespeicherte Analysen: {len(forward_tests)}")
             if st.button("Fällige Forward-Tests auswerten", use_container_width=True):
                 updated, message = evaluate_due_forward_tests()

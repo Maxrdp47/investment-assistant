@@ -386,6 +386,7 @@ Bewerten:
 - Ziel erreicht?
 - Stop erreicht?
 - beste Alternative?
+- Status: Basis umgesetzt am 2026-06-15. Gespeicherte Trading-Setups werden nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten ausgewertet; Ziel/Stop, Rendite sowie maximale positive und negative Entwicklung werden gespeichert.
 
 ### PRIO B: Erweitertes Decision Tracking
 
@@ -481,20 +482,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Trade-Journal und Performance-Tracking erweitern: gespeicherte Trading-Setups nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten auswerten.
+1. Erweitertes Decision Tracking beginnen: Long, Short, Halten und Beobachten gegen die beste Alternative vergleichen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
 - Signalanalyse, Opportunity Scanner und Trading-Modus sind als Basis umgesetzt.
-- Der nächste größte Nutzen liegt in der Auswertung gespeicherter Setups, weil dadurch Trefferquote, Drawdown und Lernsystem messbar werden.
-- Diese Aufgabe ist PRIO B, weil sie Performance-Messung und spätere Kalibrierung vorbereitet.
+- Der nächste größte Nutzen liegt im erweiterten Decision Tracking, weil damit nicht nur geprüft wird, ob eine Idee positiv war, sondern ob sie im Vergleich zu Alternativen die beste Entscheidung war.
+- Diese Aufgabe ist PRIO B, weil sie Opportunitätskosten und spätere Kalibrierung vorbereitet.
 
 Nächste konkrete Umsetzung:
 
-1. `trade_history.json`-Einträge mit Review-Feldern für 1 Woche, 1 Monat und 3 Monate erweitern.
-2. Auswertung gegen echte Kursdaten analog zu Forward-Tests implementieren.
-3. Treffer, maximale positive Entwicklung, maximale negative Entwicklung, Ziel erreicht und Stop erreicht speichern.
+1. Aus gespeicherten Nutzerentscheidungen Alternativen ableiten: Long, Short, Halten, Beobachten.
+2. Rendite der dokumentierten Entscheidung gegen beste Alternative vergleichen.
+3. Opportunitätskosten speichern und anzeigen.
 4. Keine automatische Orderfunktion einbauen.
 5. Tests ausführen und ROADMAP aktualisieren.
 
@@ -969,6 +970,8 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Entkopplung umgesetzt: Einzelanalyse lädt Chart-Daten separat für die Visualisierung und Analyse-Daten separat mit maximal verfügbarer Tageshistorie; Datenqualitätsbereich zeigt Chart-Historie und Analyse-Historie; langfristige und kurzfristige Unterstützungen/Widerstände werden getrennt angezeigt.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; aktualisierter Smoke-Test prüft getrennte Chart- und Analyse-Daten und lief mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Streamlit-Community-Cloud-Check erneut durchgeführt: keine lokalen Windows-Pfade in `app.py`, Requirements vollständig, `portfolio.json` im erlaubten Minimalformat, keine Secrets/Brokerdaten gefunden, `.streamlit/config.toml` vorhanden und README um Mobile-Hinweise erweitert.
+- Performance-Tracking für Trade-Journal umgesetzt: Fällige Setups in `trade_history.json` können über die Sidebar mit echten Kursdaten ausgewertet werden; gespeichert werden Rendite, maximale positive/negative Entwicklung, Ziel erreicht, Stop erreicht und Ergebnis.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Trade-History-Auswertung mit gemockten Kursdaten erfolgreich. Live-Test mit Yahoo-Finance-Daten bleibt optional.
 
 ### 2026-06-14
 

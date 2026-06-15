@@ -406,6 +406,7 @@ Berechnen:
 - Rendite der Empfehlung
 - Rendite der besten Alternative
 - Opportunitätskosten
+- Status: Basis umgesetzt am 2026-06-15. Gespeicherte Nutzerentscheidungen werden gegen Long, Short und Halten/Beobachten ausgewertet; beste Alternative und Opportunitätskosten werden gespeichert.
 
 ### PRIO B: Confidence-System
 
@@ -482,21 +483,21 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Erweitertes Decision Tracking beginnen: Long, Short, Halten und Beobachten gegen die beste Alternative vergleichen.
+1. Confidence-System erweitern: ähnliche historische Setups und Trefferquote aus lokaler Historie anzeigen.
 
 Warum diese Aufgabe zuerst:
 
 - Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
 - Signalanalyse, Opportunity Scanner und Trading-Modus sind als Basis umgesetzt.
-- Der nächste größte Nutzen liegt im erweiterten Decision Tracking, weil damit nicht nur geprüft wird, ob eine Idee positiv war, sondern ob sie im Vergleich zu Alternativen die beste Entscheidung war.
-- Diese Aufgabe ist PRIO B, weil sie Opportunitätskosten und spätere Kalibrierung vorbereitet.
+- Der nächste größte Nutzen liegt im Confidence-System, weil Chancen dann nicht nur geschätzt werden, sondern mit eigener Historie und ähnlichen Fällen eingeordnet werden können.
+- Diese Aufgabe ist PRIO B, weil sie Lernfähigkeit und Kalibrierung vorbereitet.
 
 Nächste konkrete Umsetzung:
 
-1. Aus gespeicherten Nutzerentscheidungen Alternativen ableiten: Long, Short, Halten, Beobachten.
-2. Rendite der dokumentierten Entscheidung gegen beste Alternative vergleichen.
-3. Opportunitätskosten speichern und anzeigen.
-4. Keine automatische Orderfunktion einbauen.
+1. Ähnliche Setups aus `trade_history.json`, `forward_tests.json` und `prediction_history.json` zählen.
+2. Trefferquote ähnlicher Setups anzeigen, sobald ausreichend Fälle vorhanden sind.
+3. Unter Mindestdatenmenge transparent `Datenbasis zu klein` anzeigen.
+4. Keine automatische Gewichtungsänderung einbauen.
 5. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -972,6 +973,8 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Streamlit-Community-Cloud-Check erneut durchgeführt: keine lokalen Windows-Pfade in `app.py`, Requirements vollständig, `portfolio.json` im erlaubten Minimalformat, keine Secrets/Brokerdaten gefunden, `.streamlit/config.toml` vorhanden und README um Mobile-Hinweise erweitert.
 - Performance-Tracking für Trade-Journal umgesetzt: Fällige Setups in `trade_history.json` können über die Sidebar mit echten Kursdaten ausgewertet werden; gespeichert werden Rendite, maximale positive/negative Entwicklung, Ziel erreicht, Stop erreicht und Ergebnis.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Trade-History-Auswertung mit gemockten Kursdaten erfolgreich. Live-Test mit Yahoo-Finance-Daten bleibt optional.
+- Erweitertes Decision Tracking umgesetzt: Fällige Entscheidungen in `decision_history.json` können über die Sidebar gegen Long, Short und Halten/Beobachten ausgewertet werden; gespeichert werden Entscheidungsrendite, beste Alternative und Opportunitätskosten.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Decision-Tracking-Auswertung mit gemockten Kursdaten erfolgreich.
 
 ### 2026-06-14
 

@@ -463,6 +463,100 @@ def save_decision_record(record: dict) -> bool:
     return True
 
 
+def decision_exposure(decision: str) -> str:
+    normalized = str(decision).strip().lower()
+    if normalized in {"kaufen", "halten"}:
+        return "Long"
+    if normalized == "verkaufen":
+        return "Short"
+    return "Beobachten"
+
+
+def evaluate_due_decision_history() -> tuple[int, str]:
+    history = load_decision_history()
+    if not history:
+        return 0, "Keine Nutzerentscheidungen gespeichert."
+
+    periods = {"1w": 7, "1m": 30, "3m": 90}
+    now = pd.Timestamp.now(tz=None)
+    updated = 0
+    for record in history:
+        symbol = record.get("symbol")
+        entry_price = value_or_none(record.get("price_at_decision"))
+        created_at_raw = record.get("created_at")
+        decision = str(record.get("decision", "Beobachten"))
+        if not symbol or entry_price is None or not created_at_raw:
+            continue
+        try:
+            created_at = pd.Timestamp(created_at_raw).tz_localize(None)
+        except Exception:
+            continue
+
+        review_after = record.setdefault("review_after", {"1w": None, "1m": None, "3m": None})
+        due_periods = [
+            label for label, days in periods.items()
+            if review_after.get(label) is None and now >= created_at + pd.Timedelta(days=days)
+        ]
+        if not due_periods:
+            continue
+
+        try:
+            data = yf.download(symbol, start=created_at.date(), end=(now + pd.Timedelta(days=1)).date(), interval="1d", auto_adjust=True, progress=False, threads=False)
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.get_level_values(0)
+            data = data.dropna(subset=["Close"]) if not data.empty and "Close" in data else pd.DataFrame()
+        except Exception:
+            data = pd.DataFrame()
+        if data.empty:
+            continue
+
+        closes = data["Close"].astype(float)
+        highs = data["High"].astype(float) if "High" in data else closes
+        lows = data["Low"].astype(float) if "Low" in data else closes
+        current_price = float(closes.iloc[-1])
+        long_return = (current_price - entry_price) / entry_price * 100
+        short_return = -long_return
+        neutral_return = 0.0
+        alternatives = {
+            "Long": long_return,
+            "Short": short_return,
+            "Halten/Beobachten": neutral_return,
+        }
+        exposure = decision_exposure(decision)
+        decision_return = alternatives["Long"] if exposure == "Long" else alternatives["Short"] if exposure == "Short" else neutral_return
+        best_alternative = max(alternatives, key=alternatives.get)
+        best_return = alternatives[best_alternative]
+        opportunity_cost = best_return - decision_return
+        max_positive_long = (float(highs.max()) - entry_price) / entry_price * 100
+        max_negative_long = (float(lows.min()) - entry_price) / entry_price * 100
+
+        for label in due_periods:
+            review_after[label] = {
+                "reviewed_at": now.isoformat(),
+                "current_price": current_price,
+                "decision": decision,
+                "decision_exposure": exposure,
+                "decision_return_pct": round(decision_return, 2),
+                "best_alternative": best_alternative,
+                "best_alternative_return_pct": round(best_return, 2),
+                "opportunity_cost_pct": round(opportunity_cost, 2),
+                "long_return_pct": round(long_return, 2),
+                "short_return_pct": round(short_return, 2),
+                "neutral_return_pct": round(neutral_return, 2),
+                "max_positive_long_pct": round(max_positive_long, 2),
+                "max_negative_long_pct": round(max_negative_long, 2),
+                "note": "Decision-Tracking-Auswertung mit Kursdaten; keine Kauf- oder Verkaufsautomatisierung.",
+            }
+            updated += 1
+
+    if updated:
+        try:
+            DECISION_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            return updated, "Entscheidungen ausgewertet, aber Datei konnte nicht gespeichert werden."
+    return updated, f"{updated} fällige Decision-Tracking-Auswertungen aktualisiert."
+
+
 def load_prediction_history() -> list[dict]:
     if not PREDICTION_HISTORY_PATH.exists():
         return []
@@ -3499,6 +3593,11 @@ def build_decision_record(
             {"name": module.name, "score": module.score, "summary": module.summary}
             for module in research_pack.modules
         ],
+        "review_after": {
+            "1w": None,
+            "1m": None,
+            "3m": None,
+        },
         "note": "Decision Tracking dokumentiert nur eine Nutzerentscheidung. Keine Order, keine Broker-Anbindung.",
     }
 
@@ -4583,6 +4682,14 @@ def main() -> None:
             st.caption(f"Gespeicherte Trading-Setups: {len(trade_setups)}")
             if st.button("Fällige Trading-Setups auswerten", use_container_width=True):
                 updated, message = evaluate_due_trade_history()
+                if updated:
+                    st.success(message)
+                else:
+                    st.info(message)
+            decisions = load_decision_history()
+            st.caption(f"Gespeicherte Nutzerentscheidungen: {len(decisions)}")
+            if st.button("Fällige Entscheidungen auswerten", use_container_width=True):
+                updated, message = evaluate_due_decision_history()
                 if updated:
                     st.success(message)
                 else:

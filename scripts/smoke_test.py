@@ -71,10 +71,15 @@ def run_analysis_flow(symbols: list[str]) -> None:
     import app
 
     for symbol in symbols:
-        data = app.load_price_data(symbol, "1mo", "1d")
-        if data.empty:
-            raise RuntimeError(f"{symbol}: Keine Kursdaten geladen.")
-        df = app.calculate_indicators(data, "1d")
+        chart_data = app.load_price_data(symbol, "1mo", "1d")
+        analysis_data = app.load_price_data(symbol, "max", "1d")
+        if chart_data.empty:
+            raise RuntimeError(f"{symbol}: Keine Chart-Daten geladen.")
+        if analysis_data.empty:
+            raise RuntimeError(f"{symbol}: Keine Analyse-Daten geladen.")
+        if len(analysis_data) < len(chart_data):
+            raise RuntimeError(f"{symbol}: Analyse-Daten sind kürzer als Chart-Daten.")
+        df = app.calculate_indicators(analysis_data, "1d")
         supports = app.local_levels(df["Low"], "support")
         resistances = app.local_levels(df["High"], "resistance")
         latest = df.iloc[-1]

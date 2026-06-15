@@ -35,10 +35,21 @@ PERIOD_OPTIONS = {
     "Heute": "1d",
     "5 Tage": "5d",
     "1 Monat": "1mo",
+    "3 Monate": "3mo",
     "6 Monate": "6mo",
     "1 Jahr": "1y",
     "5 Jahre": "5y",
     "Max": "max",
+}
+
+PERIOD_HISTORY_LABELS = {
+    "1d": "1 Tag",
+    "5d": "5 Tage",
+    "1mo": "1 Monat",
+    "6mo": "6 Monate",
+    "1y": "1 Jahr",
+    "5y": "5 Jahre",
+    "max": "maximale verfügbare Historie",
 }
 
 INTERVAL_OPTIONS = ["1m", "5m", "15m", "1h", "1d", "1wk", "1mo"]
@@ -608,6 +619,21 @@ def load_price_data(symbol: str, period: str, interval: str) -> pd.DataFrame:
     data = data.rename(columns=str.title)
     needed = ["Open", "High", "Low", "Close", "Volume"]
     return data[[col for col in needed if col in data.columns]].dropna(subset=["Close"])
+
+
+def history_label_from_frame(df: pd.DataFrame, fallback: str) -> str:
+    if df.empty:
+        return fallback
+    try:
+        start = pd.Timestamp(df.index.min()).date()
+        end = pd.Timestamp(df.index.max()).date()
+        years = max((end - start).days / 365.25, 0)
+        if years >= 1:
+            return f"{years:.1f} Jahre ({start} bis {end})"
+        days = max((end - start).days, 1)
+        return f"{days} Tage ({start} bis {end})"
+    except Exception:
+        return fallback
 
 
 def calculate_indicators(data: pd.DataFrame, interval: str) -> pd.DataFrame:
@@ -2404,6 +2430,9 @@ def data_quality_check(
     asset_profile: AssetProfile,
     asset_identity: dict,
     df: pd.DataFrame,
+    chart_history_label: str | None = None,
+    analysis_history_label: str | None = None,
+    chart_rows: int | None = None,
 ) -> ResearchModule:
     issues: list[str] = []
     positives: list[str] = []
@@ -2428,6 +2457,10 @@ def data_quality_check(
         issues.append("Kursdaten fehlen.")
     else:
         positives.append(f"Kursdaten vorhanden: {len(df)} Zeilen.")
+    if chart_history_label:
+        positives.append(f"Chart-Historie: {chart_history_label}" + (f" ({chart_rows} Zeilen)." if chart_rows is not None else "."))
+    if analysis_history_label:
+        positives.append(f"Analyse-Historie: {analysis_history_label} ({len(df)} Zeilen).")
     if "Volume" in df and df["Volume"].dropna().sum() > 0:
         positives.append("Volumen verfügbar.")
     else:
@@ -3253,11 +3286,14 @@ def build_research_pack(
     original_currency: str,
     fx_rate: float | None,
     currency_mode: str,
+    chart_history_label: str | None = None,
+    analysis_history_label: str | None = None,
+    chart_rows: int | None = None,
 ) -> ResearchPack:
     latest = df.iloc[-1]
     close = float(latest["Close"])
     info = load_ticker_info(symbol)
-    data_quality = data_quality_check(symbol, asset_profile, asset_identity, df)
+    data_quality = data_quality_check(symbol, asset_profile, asset_identity, df, chart_history_label, analysis_history_label, chart_rows)
     chart = research_chart_score(df, supports, resistances, market_phase)
     momentum = research_momentum_score(df)
     valuation = research_valuation_score(info, asset_profile, df, macro)
@@ -4560,18 +4596,33 @@ def main() -> None:
         if interval in {"1m", "5m", "15m"} and selected_period not in {"1d", "5d", "1mo"}:
             selected_period = "5d"
             st.info("Intraday-Daten sind bei Yahoo Finance nur für kürzere Zeiträume sinnvoll. Der Zeitraum wurde für diesen Abruf auf 5 Tage gesetzt.")
-        with st.spinner(f"Lade Kursdaten für {symbol}..."):
+        chart_history_label = PERIOD_HISTORY_LABELS.get(selected_period, selected_period)
+        with st.spinner(f"Lade Chart-Daten für {symbol}..."):
             try:
-                raw_data = load_price_data(symbol, selected_period, interval)
+                chart_raw_data = load_price_data(symbol, selected_period, interval)
+            except RuntimeError as exc:
+                st.error(str(exc))
+                return
+        with st.spinner(f"Lade langfristige Analyse-Daten für {symbol}..."):
+            try:
+                analysis_raw_data = load_price_data(symbol, "max", "1d")
             except RuntimeError as exc:
                 st.error(str(exc))
                 return
 
-        if raw_data.empty or "Close" not in raw_data:
+        if analysis_raw_data.empty or "Close" not in analysis_raw_data:
             st.error("Für diesen Ticker konnten keine Kursdaten geladen werden. Prüfe das Yahoo-Finance-Symbol oder probiere eine andere Börse.")
             return
+        if chart_raw_data.empty or "Close" not in chart_raw_data:
+            st.warning("Chart-Daten für den gewählten Zeitraum konnten nicht geladen werden. Der Chart nutzt ersatzweise die letzten Analyse-Daten.")
+            chart_raw_data = analysis_raw_data.tail(252)
+            chart_history_label = "letzte Analyse-Daten als Ersatz"
 
-        df = calculate_indicators(raw_data, interval)
+        df = calculate_indicators(analysis_raw_data, "1d")
+        chart_df = calculate_indicators(chart_raw_data, interval)
+        analysis_history_label = history_label_from_frame(analysis_raw_data, "maximale verfügbare Historie")
+        chart_supports = local_levels(chart_df["Low"], "support") if "Low" in chart_df else []
+        chart_resistances = local_levels(chart_df["High"], "resistance") if "High" in chart_df else []
         supports = local_levels(df["Low"], "support")
         resistances = local_levels(df["High"], "resistance")
         score_result = calculate_score_v2(df, supports, resistances)
@@ -4609,6 +4660,9 @@ def main() -> None:
             original_currency,
             fx_rate,
             currency_mode,
+            chart_history_label,
+            analysis_history_label,
+            len(chart_raw_data),
         )
         portfolio_result = evaluate_portfolio(symbol, portfolio_enabled, buy_signal.score, asset_profile)
         data_source_warnings = build_data_source_warnings(
@@ -4640,9 +4694,9 @@ def main() -> None:
             research_pack.confidence,
         )
         score_result.recommendation = action_title
-        display_df = converted_price_frame(df, fx_rate)
-        display_supports = converted_levels(supports, fx_rate)
-        display_resistances = converted_levels(resistances, fx_rate)
+        display_df = converted_price_frame(chart_df, fx_rate)
+        display_chart_supports = converted_levels(chart_supports, fx_rate)
+        display_chart_resistances = converted_levels(chart_resistances, fx_rate)
         quality_label, quality_summary, quality_highlights = data_quality_status(research_pack.data_quality, data_source_warnings)
 
         st.subheader(f"{asset_identity['name']} · technische Analyse")
@@ -4654,6 +4708,7 @@ def main() -> None:
         else:
             st.caption(f"Originalwährung: {original_currency}. Verwendeter Wechselkurs: 1 {original_currency} = {fx_rate:.4f} EUR ({fx_ticker}).")
         st.caption("Portfolio-Modus: AN" if portfolio_result.enabled else "Portfolio-Modus: AUS")
+        st.caption(f"Chart-Historie: {chart_history_label} | Analyse-Historie: {analysis_history_label}")
         if portfolio_result.enabled and not portfolio_result.available:
             st.warning(portfolio_result.summary)
         quality_score_text = "n/a" if research_pack.data_quality.score is None else f"{research_pack.data_quality.score:.1f}/10"
@@ -4785,7 +4840,7 @@ def main() -> None:
                     render_analysis_card(title, meaning, interpretation)
 
         chart_currency = "EUR" if fx_rate is not None else original_currency
-        st.plotly_chart(render_price_chart(display_df, display_supports, display_resistances, chart_currency), use_container_width=True)
+        st.plotly_chart(render_price_chart(display_df, display_chart_supports, display_chart_resistances, chart_currency), use_container_width=True)
 
         with st.expander("Professionelles Research-Modul anzeigen", expanded=True):
             st.markdown("**Datenqualitäts-Check**")
@@ -4942,7 +4997,7 @@ def main() -> None:
 
             info_cols = st.columns(2)
             with info_cols[0]:
-                st.markdown("**Wichtigste Unterstützungen**")
+                st.markdown("**Langfristige Unterstützungen aus Analyse-Historie**")
                 if supports:
                     st.write(
                         pd.DataFrame(
@@ -4954,10 +5009,10 @@ def main() -> None:
                         )
                     )
                 else:
-                    st.write("Keine belastbaren lokalen Unterstützungen im gewählten Zeitraum gefunden.")
+                    st.write("Keine belastbaren langfristigen Unterstützungen in der Analyse-Historie gefunden.")
 
             with info_cols[1]:
-                st.markdown("**Wichtigste Widerstände**")
+                st.markdown("**Langfristige Widerstände aus Analyse-Historie**")
                 if resistances:
                     st.write(
                         pd.DataFrame(
@@ -4969,7 +5024,36 @@ def main() -> None:
                         )
                     )
                 else:
-                    st.write("Keine belastbaren lokalen Widerstände im gewählten Zeitraum gefunden.")
+                    st.write("Keine belastbaren langfristigen Widerstände in der Analyse-Historie gefunden.")
+
+            st.markdown("**Kurzfristige Chart-Ebenen**")
+            chart_level_cols = st.columns(2)
+            with chart_level_cols[0]:
+                if chart_supports:
+                    st.write(
+                        pd.DataFrame(
+                            {
+                                "Zone": ["Chart-Unterstützung 1", "Chart-Unterstützung 2", "Chart-Unterstützung 3"][: len(chart_supports)],
+                                "Kurs": [format_display_money(level, original_currency, fx_rate, currency_mode) for level in chart_supports],
+                                "Abstand": [percent_text((level - close_value) / close_value) for level in chart_supports],
+                            }
+                        )
+                    )
+                else:
+                    st.write("Keine kurzfristige Chart-Unterstützung im angezeigten Chart erkannt.")
+            with chart_level_cols[1]:
+                if chart_resistances:
+                    st.write(
+                        pd.DataFrame(
+                            {
+                                "Zone": ["Chart-Widerstand 1", "Chart-Widerstand 2", "Chart-Widerstand 3"][: len(chart_resistances)],
+                                "Kurs": [format_display_money(level, original_currency, fx_rate, currency_mode) for level in chart_resistances],
+                                "Abstand": [percent_text((level - close_value) / close_value) for level in chart_resistances],
+                            }
+                        )
+                    )
+                else:
+                    st.write("Kein kurzfristiger Chart-Widerstand im angezeigten Chart erkannt.")
 
             st.markdown("**Risiko-Rendite-Bewertung**")
             st.write(
@@ -5034,15 +5118,15 @@ def main() -> None:
         with st.expander("Weitere Charts anzeigen", expanded=False):
             chart_cols = st.columns(2)
             with chart_cols[0]:
-                rsi_fig = render_line_chart(df, ["RSI_14"], "RSI 14")
+                rsi_fig = render_line_chart(chart_df, ["RSI_14"], "RSI 14")
                 rsi_fig.add_hline(y=70, line_dash="dot", line_color="#dc2626")
                 rsi_fig.add_hline(y=30, line_dash="dot", line_color="#16a34a")
                 st.plotly_chart(rsi_fig, use_container_width=True)
 
             with chart_cols[1]:
-                st.plotly_chart(render_line_chart(df, ["MACD", "MACD_Signal"], "MACD und Signal-Linie"), use_container_width=True)
+                st.plotly_chart(render_line_chart(chart_df, ["MACD", "MACD_Signal"], "MACD und Signal-Linie"), use_container_width=True)
 
-            st.plotly_chart(render_volume_chart(df), use_container_width=True)
+            st.plotly_chart(render_volume_chart(chart_df), use_container_width=True)
 
         with st.expander("Rohdaten und Indikatoren anzeigen"):
             st.dataframe(df.tail(250), use_container_width=True)

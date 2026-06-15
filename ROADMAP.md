@@ -95,6 +95,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Sichtbare Empfehlung klar trennen in Asset-Qualität, Kaufsignal, Research-Handlungsempfehlung und Depot-Effekt. Status: umgesetzt am 2026-06-15.
 - Fehlerbehandlung bei Yahoo-Finance-Ausfällen verbessern. Status: umgesetzt am 2026-06-15.
 - Datenqualitäts-Check kompakter und sichtbarer machen. Status: umgesetzt am 2026-06-15.
+- Analyse-Daten vollständig von Chart-Daten entkoppeln. Status: umgesetzt am 2026-06-15; Chart-Zeitraum steuert nur Visualisierung, Analyse nutzt maximal verfügbare Tageshistorie.
 - Suchhistorie in der Sidebar als auswählbare Schnellwahl nutzbar machen. Status: umgesetzt am 2026-06-15.
 - Umlaute und sichtbare deutsche Texte prüfen. Status: umgesetzt am 2026-06-15.
 - App-Start und Analysefluss regelmäßig testen. Status: umgesetzt am 2026-06-15.
@@ -964,6 +965,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Trading-Modus-Basis umgesetzt: Aus Opportunity-Scanner-Kandidaten werden Setups mit Richtung, Chance, Confidence, Zielzone, Stop-Zone, CRV, Zeithorizont, Risiken und Chancen erzeugt; Setups können lokal in `trade_history.json` gespeichert werden und lösen keine Order aus.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Trading-Setup-Direkttest mit `NVDA` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-B-Aufgabe ist Performance-Tracking für gespeicherte Trade-Journal-Setups.
+- Neue PRIO-A-Aufgabe vorgezogen: Analyse-Daten vollständig von Chart-Daten entkoppeln, weil der gewählte Chart-Zeitraum die Analysequalität nicht verschlechtern darf.
+- Entkopplung umgesetzt: Einzelanalyse lädt Chart-Daten separat für die Visualisierung und Analyse-Daten separat mit maximal verfügbarer Tageshistorie; Datenqualitätsbereich zeigt Chart-Historie und Analyse-Historie; langfristige und kurzfristige Unterstützungen/Widerstände werden getrennt angezeigt.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; aktualisierter Smoke-Test prüft getrennte Chart- und Analyse-Daten und lief mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 
 ### 2026-06-14
 

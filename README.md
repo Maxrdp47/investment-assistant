@@ -17,6 +17,7 @@ Die App handelt nicht automatisch, hat keine Broker-Anbindung und gibt keine Fin
 - zentrale Empfehlungsbox mit Kaufsignal, Research-Einordnung, Asset-Qualität, Depot-Effekt und Vertrauensscore
 - klare Warnungen bei eingeschränkten Yahoo-Finance-Datenquellen wie Stammdaten, Wechselkursen, News oder Makro-Proxies
 - technische Analyse mit RSI, MACD, Trend, Volumen, Volatilität, Unterstützungen, Widerständen und CRV
+- entkoppelte Datenbasis: Der gewählte Chart-Zeitraum steuert nur die Visualisierung; die Analyse nutzt unabhängig davon die maximal verfügbare Historie
 - professionelle Research-Ansicht mit Datenqualitäts-Ampel, Modul-Scores, Szenarien, Nachkaufzonen und Fazit
 - Marktphase und Szenario-Wahrscheinlichkeiten
 - Anfänger-Modus mit einfachen Erklärungen
@@ -105,6 +106,19 @@ In der Sidebar kannst du wählen:
 - `Nur EUR`
 
 Wenn kein Wechselkurs geladen werden kann, zeigt die App ehrlich an, dass die EUR-Umrechnung nicht verfügbar ist.
+
+## Chart-Zeitraum und Analyse-Zeitraum
+
+Der in der Sidebar gewählte Zeitraum steuert nur den sichtbaren Chart. Die eigentliche Analyse lädt unabhängig davon die maximal verfügbare Tageshistorie von Yahoo Finance.
+
+Dadurch werden 50er- und 200er-Durchschnitt, Marktphase, Trend, Unterstützungen, Widerstände, Datenqualität und Research-Scores nicht schlechter, nur weil im Chart z. B. ein kurzer Zeitraum gewählt wurde.
+
+Im Datenqualitätsbereich zeigt die App getrennt:
+
+- Chart-Historie
+- Analyse-Historie
+
+Warnungen wie **Weniger als 200 Handelstage vorhanden** oder **200er-Durchschnitt nicht berechenbar** erscheinen nur, wenn die Analyse-Datenquelle wirklich nicht genug Historie liefert.
 
 ## Research-Modul
 

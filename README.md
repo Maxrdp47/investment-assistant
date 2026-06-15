@@ -96,7 +96,7 @@ Enthalten sind:
 - Risiko-Score
 - Liquiditäts-Score
 - Bull-/Base-/Bear-Szenarien mit Wahrscheinlichkeiten, die zusammen 100 % ergeben
-- Nachkaufzonen: aggressiv, fair, sicher und ungültig bei Bruch der Unterstützung
+- Nachkaufzonen: aggressiv, fair, sicher und ungültig bei Bruch der Unterstützung; fehlende Unterstützungen oder Widerstände werden als nicht berechenbar angezeigt
 - Research-Fazit: was für Kauf spricht, was dagegen spricht, was die Analyse verbessern würde, welche Marke entscheidend ist und ein konkreter Plan
 - Analysten-Konsens, sofern Yahoo-Finance-Daten verfügbar sind
 - Earnings-Modul für Aktien, sofern Quartalsdaten verfügbar sind

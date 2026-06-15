@@ -2110,17 +2110,39 @@ def build_buy_zones(
     currency_mode: str,
 ) -> list[dict]:
     sma_50 = value_or_none(latest.get("SMA_50"))
-    support = supports[0] if supports else None
-    resistance = resistances[0] if resistances else None
+    valid_supports = [level for level in supports if level < close]
+    valid_resistances = [level for level in resistances if level > close]
+    support = valid_supports[0] if valid_supports else None
+    resistance = valid_resistances[0] if valid_resistances else None
     aggressive = close
     fair = support
-    safe = resistance if resistance else sma_50
+    safe = resistance if resistance else sma_50 if sma_50 is not None and sma_50 > close else None
     invalid = support * 0.98 if support else None
     return [
-        {"Zone": "Aggressive Kaufzone", "Marke": format_display_money(aggressive, original_currency, fx_rate, currency_mode), "Bedeutung": "Nur sinnvoll, wenn Kaufsignal stark ist und man bewusst in kleiner Tranche startet."},
-        {"Zone": "Faire Kaufzone", "Marke": format_display_money(fair, original_currency, fx_rate, currency_mode) if fair else "Daten nicht verfügbar", "Bedeutung": "Nahe erster Unterstützung; Chance-Risiko ist meist besser als mitten im Anstieg."},
-        {"Zone": "Sicherheits-Kaufzone", "Marke": format_display_money(safe, original_currency, fx_rate, currency_mode) if safe else "Daten nicht verfügbar", "Bedeutung": "Nach bestätigter Trendwende oder Ausbruch über den wichtigsten Widerstand."},
-        {"Zone": "Ungültig, wenn Unterstützung bricht", "Marke": format_display_money(invalid, original_currency, fx_rate, currency_mode) if invalid else "Daten nicht verfügbar", "Bedeutung": "Unter dieser Zone ist die technische Idee beschädigt; dann neu bewerten."},
+        {
+            "Zone": "Aggressive Kaufzone",
+            "Marke": format_display_money(aggressive, original_currency, fx_rate, currency_mode),
+            "Status": "Aktueller Kurs",
+            "Bedeutung": "Nur sinnvoll, wenn Kaufsignal stark ist und man bewusst in kleiner Tranche startet.",
+        },
+        {
+            "Zone": "Faire Kaufzone",
+            "Marke": format_display_money(fair, original_currency, fx_rate, currency_mode) if fair else "Daten nicht verfügbar",
+            "Status": "Berechenbar" if fair else "Keine klare Unterstützung",
+            "Bedeutung": "Nahe erster Unterstützung; wenn keine Unterstützung erkannt wird, wird keine faire Kaufzone erfunden.",
+        },
+        {
+            "Zone": "Sicherheits-Kaufzone",
+            "Marke": format_display_money(safe, original_currency, fx_rate, currency_mode) if safe else "Daten nicht verfügbar",
+            "Status": "Berechenbar" if safe else "Keine klare Bestätigungsmarke",
+            "Bedeutung": "Nach bestätigter Trendwende oder Ausbruch über den wichtigsten Widerstand; ohne passende Marke lieber beobachten.",
+        },
+        {
+            "Zone": "Ungültig, wenn Unterstützung bricht",
+            "Marke": format_display_money(invalid, original_currency, fx_rate, currency_mode) if invalid else "Daten nicht verfügbar",
+            "Status": "Berechenbar" if invalid else "Keine klare Ungültigkeitsmarke",
+            "Bedeutung": "Unter dieser Zone ist die technische Idee beschädigt; ohne Marke muss die Position manuell neu bewertet werden.",
+        },
     ]
 
 

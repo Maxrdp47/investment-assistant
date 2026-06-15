@@ -106,7 +106,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Asset-Qualität je Asset-Typ verbessern. Status: umgesetzt am 2026-06-15.
 - Kaufsignal weiter von Asset-Qualität abgrenzen. Status: umgesetzt am 2026-06-15.
 - Research-Scores stärker erklären: Was bedeutet hoch, mittel oder niedrig? Status: umgesetzt am 2026-06-15.
-- Nachkaufzonen robuster machen, wenn keine klaren Kurszonen erkannt werden.
+- Nachkaufzonen robuster machen, wenn keine klaren Kurszonen erkannt werden. Status: umgesetzt am 2026-06-15.
 - Bull/Base/Bear-Szenarien stärker aus Trend, Volatilität, Unterstützungen und Widerständen ableiten.
 
 ### Priorität 3: Profi-Research
@@ -119,6 +119,94 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Makro-Modul erweitern: Inflation, Realzinsen, Liquidität, Risikoappetit.
 - Geopolitik-Modul prüfen, ohne Daten zu erfinden.
 - Risiko- und Liquiditätsmodul verfeinern.
+
+### PRIO A: Marktregime-, Innovations-, Blasen- und Makro-Wirkungsmodul
+
+Ziel: Die App soll nicht nur Daten anzeigen, sondern nachvollziehbar erklären, in welchem Marktumfeld ein Asset analysiert wird und wie Makrofaktoren verschiedene Asset-Klassen beeinflussen. Dieses Modul ist PRIO A, weil es zur Grundfähigkeit der Analyse gehört.
+
+Marktregime-Modul:
+
+- Liquiditätsboom
+- Liquiditätsentzug
+- Risk-On
+- Risk-Off
+- Rezessionsangst
+- Wachstumsphase
+- Defensivphase
+- Technologie-Hype
+- KI-Hype
+- Spekulationsphase
+
+Für jedes erkannte Marktregime anzeigen:
+
+- erkannte Hinweise aus verfügbaren Daten
+- Gegenargumente und Unsicherheiten
+- betroffene Asset-Klassen
+- praktische Bedeutung für Aktien, ETFs, Krypto und Rohstoffe
+- Vertrauensgrad der Einordnung
+
+Innovations-Modul:
+
+- echte Innovationsführer erkennen, wenn belastbare Hinweise auf Marktführerschaft, Wachstum, Margen, Produktvorsprung oder strukturelle Nachfrage vorhanden sind
+- indirekte Profiteure erkennen, wenn Unternehmen über Infrastruktur, Zulieferung, Plattformen, Energie, Rechenzentren, Halbleiter, Software oder Finanzierung vom Trend profitieren
+- reine Hype-Aktien erkennen, wenn Kurs, Medieninteresse oder Story stark sind, aber Fundamentaldaten, Cashflows oder Wettbewerbsvorteile nicht belastbar belegt sind
+- fehlende Belege immer als `Daten nicht verfügbar` kennzeichnen
+
+Blasenrisiko-Modul:
+
+- Bewertung
+- Medienaufmerksamkeit
+- Zuflüsse
+- Momentum
+- Sentiment
+
+Ausgabe:
+
+- Blasenrisiko 0-10
+- kurze Begründung je Teilfaktor
+- Datenqualität je Teilfaktor
+- Warnhinweis, wenn der Score wegen fehlender Daten nur eingeschränkt belastbar ist
+
+Makro-Wirkungsmodul:
+
+- Zinsen erklären
+- Inflation erklären
+- Realzinsen erklären
+- Dollar erklären
+- Liquidität erklären
+
+Auswirkungen erklären auf:
+
+- Aktien
+- ETFs
+- Krypto
+- Rohstoffe
+
+Rohstoff-Modul:
+
+- Öl
+- Gas
+- Kupfer
+- Gold
+- Uran
+
+Für Rohstoffe berücksichtigen:
+
+- Angebots- und Nachfragesignale, sofern Daten verfügbar sind
+- Konjunkturabhängigkeit
+- geopolitische Risiken
+- Dollar- und Realzinswirkung
+- Inflations- und Liquiditätsumfeld
+- asset-spezifische Besonderheiten, z. B. Kupfer als Wachstumsindikator, Gold als Realzins- und Sicherheitsasset, Öl und Gas als Energie- und Geopolitik-Sensitivität, Uran als struktureller Energie- und Angebotsmarkt
+
+Transparenzregeln:
+
+- Keine Daten erfinden.
+- Zusammenhänge erklären.
+- Korrelationen nicht als sichere Kausalitäten darstellen.
+- Makro-Wirkungen als Wahrscheinlichkeiten, Belastungen oder Rückenwind formulieren, nicht als Garantien.
+- Bei fehlenden Makro-, Flow-, Sentiment- oder Rohstoffdaten sichtbar `Daten nicht verfügbar` anzeigen.
+- Datenquellen, Proxies und Unsicherheiten offenlegen.
 
 ### Priorität 4: Krypto-Modul
 
@@ -383,19 +471,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Nachkaufzonen robuster machen, wenn keine klaren Kurszonen erkannt werden.
+1. Bull/Base/Bear-Szenarien stärker aus Trend, Volatilität, Unterstützungen und Widerständen ableiten.
 
 Warum diese Aufgabe zuerst:
 
-- Research-Scores sind jetzt klarer erklärt.
-- Der nächste größte Nutzen liegt in robusteren Kaufzonen, weil konkrete Marken stark von Unterstützungen und Widerständen abhängen.
-- Diese Aufgabe ist PRIO A, weil unklare Kurszonen sonst zu scheinbarer Präzision führen könnten.
+- Nachkaufzonen sind jetzt robuster gegen fehlende Marken.
+- Der nächste größte Nutzen liegt in besseren Szenarien, weil sie den Research-Plan und die Wahrscheinlichkeiten direkt verständlicher machen.
+- Diese Aufgabe ist PRIO A, weil Bull/Base/Bear-Szenarien zentrale Entscheidungsgrundlagen sind.
 
 Nächste konkrete Umsetzung:
 
-1. Nachkaufzonen bei fehlenden Unterstützungen/Widerständen prüfen.
-2. Keine Marken erfinden, wenn sie nicht berechenbar sind.
-3. Fallback-Texte und Ungültigkeitsmarken robuster machen.
+1. Szenario-Logik prüfen.
+2. Wahrscheinlichkeiten stärker an Trend, Volatilität, Unterstützungen, Widerständen und CRV koppeln.
+3. Kursziele bei fehlenden Marken ehrlich als `Daten nicht verfügbar` belassen.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -433,6 +521,19 @@ Akzeptanzkriterien für Research-Module:
 - Bull/Base/Bear-Wahrscheinlichkeiten ergeben zusammen 100 %.
 - Nachkaufzonen zeigen keine erfundenen Marken.
 - Wenn keine Marke berechenbar ist, wird `Daten nicht verfügbar` angezeigt.
+
+Akzeptanzkriterien für Marktregime-, Innovations-, Blasen- und Makro-Wirkungsmodule:
+
+- Marktregime werden nur aus vorhandenen Daten, Proxies oder klar gekennzeichneten qualitativen Hinweisen abgeleitet.
+- Jede Marktregime-Einordnung nennt Hinweise, Gegenargumente, Unsicherheiten und einen Vertrauensgrad.
+- Innovationsführer, indirekte Profiteure und Hype-Aktien werden getrennt ausgewiesen.
+- Das Blasenrisiko wird als Score 0-10 angezeigt und nach Bewertung, Medienaufmerksamkeit, Zuflüssen, Momentum und Sentiment begründet.
+- Fehlende Bewertungs-, Flow-, Medien- oder Sentimentdaten senken die Belastbarkeit und werden nicht geschätzt.
+- Das Makro-Wirkungsmodul erklärt Zinsen, Inflation, Realzinsen, Dollar und Liquidität verständlich.
+- Auswirkungen auf Aktien, ETFs, Krypto und Rohstoffe werden getrennt erklärt.
+- Öl, Gas, Kupfer, Gold und Uran werden als eigene Rohstoffgruppen berücksichtigt, sofern Daten verfügbar sind.
+- Korrelationen werden nicht als sichere Kausalitäten dargestellt.
+- Jede Makro-Aussage enthält einen Hinweis auf Unsicherheit, Datenlage oder mögliche Gegenbewegungen.
 
 Akzeptanzkriterien für Portfolio-Modus:
 
@@ -550,6 +651,11 @@ Immer höchste Priorität:
 - Fundamentaldaten
 - Krypto-Analyse
 - Makro
+- Marktregime
+- Makro-Wirkungsanalyse
+- Innovationsanalyse
+- Blasenrisiko
+- Rohstoffe
 - News
 - Geopolitik
 - Risikoanalyse
@@ -759,6 +865,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-06-15
 
+- ROADMAP um PRIO-A-Paket für Marktregime-, Innovations-, Blasenrisiko-, Makro-Wirkungs- und Rohstoffanalyse erweitert.
+- Neue Analyseziele dokumentiert: Marktregime wie Liquiditätsboom, Liquiditätsentzug, Risk-On, Risk-Off, Rezessionsangst, Wachstumsphase, Defensivphase, Technologie-Hype, KI-Hype und Spekulationsphase sollen nachvollziehbar erklärt werden.
+- Innovations-Modul geplant: Trennung zwischen echten Innovationsführern, indirekten Profiteuren und reinen Hype-Aktien.
+- Blasenrisiko-Modul geplant: Score 0-10 auf Basis von Bewertung, Medienaufmerksamkeit, Zuflüssen, Momentum und Sentiment, ohne fehlende Daten zu schätzen.
+- Makro-Wirkungsmodul geplant: Erklärung von Zinsen, Inflation, Realzinsen, Dollar und Liquidität sowie deren Auswirkungen auf Aktien, ETFs, Krypto und Rohstoffe.
+- Rohstoff-Modul geplant: Öl, Gas, Kupfer, Gold und Uran mit Konjunktur-, Dollar-, Realzins-, Liquiditäts- und geopolitischer Sensitivität.
 - Prioritätsentscheidung nach dynamischer Logik: PRIO A vorgezogen, weil widersprüchliche Empfehlungen direkt Analysequalität und Verständlichkeit beeinträchtigen.
 - Haupt-Dashboard und Research-Modul vereinheitlicht: zentrale Empfehlungsbox zeigt Kaufsignal, Research-Einordnung, Asset-Qualität, Depot-Effekt, Vertrauensscore, Marktphase, CRV und Wahrscheinlichkeiten.
 - Separate obere `Research-Handlungsempfehlung` entfernt, damit keine zweite Empfehlung neben der zentralen Entscheidung konkurriert.
@@ -785,6 +897,9 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Research-Scores stärker erklärt: Modul- und institutionelle Tabellen zeigen jetzt Score-Bänder (`stark`, `konstruktiv`, `gemischt`, `schwach`, `kritisch`, `Daten nicht verfügbar`) plus praktische Bedeutung; Anfänger-Modus nutzt dieselbe Interpretation.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
 - Priorität angepasst: Nächste PRIO-A-Aufgabe sind robustere Nachkaufzonen, damit fehlende Kurszonen nicht als präzise Kaufmarken missverstanden werden.
+- Nachkaufzonen robuster gemacht: faire Kaufzone nutzt nur Unterstützungen unter dem Kurs, Sicherheits-Kaufzone nur Widerstand oder SMA50 oberhalb des Kurses; fehlende Marken erhalten Statushinweise statt erfundener Kursziele.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Smoke-Test mit Netzwerkfreigabe erfolgreich für `BTC-EUR`, `NVDA` und `1810.HK`.
+- Priorität angepasst: Nächste PRIO-A-Aufgabe sind stärkere Bull/Base/Bear-Szenarien aus Trend, Volatilität, Unterstützungen, Widerständen und CRV.
 
 ### 2026-06-14
 

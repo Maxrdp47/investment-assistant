@@ -976,6 +976,14 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Erweitertes Decision Tracking umgesetzt: Fällige Entscheidungen in `decision_history.json` können über die Sidebar gegen Long, Short und Halten/Beobachten ausgewertet werden; gespeichert werden Entscheidungsrendite, beste Alternative und Opportunitätskosten.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Decision-Tracking-Auswertung mit gemockten Kursdaten erfolgreich.
 
+### 2026-06-24
+
+- Professionellere Kauf-/Nichtkauf-Entscheidung umgesetzt: Die App trennt Asset-Qualität, Zukunftspotenzial, Bewertung, eingepreiste Erwartungen, Blasenrisiko, technischen Einstieg und Expected Value, damit starke Qualitätsaktien nicht nur wegen unperfektem Timing pauschal abgelehnt werden.
+- Bewertungsmodul für Aktien erweitert: KGV, Forward-KGV, PEG, KUV, EV/EBIT-Näherung, EV/FCF, Kurs/Buchwert, Free-Cashflow-Rendite, Wachstum, Margen, Verschuldung, historische Bewertung und Branchenvergleich werden berücksichtigt oder explizit als `Daten nicht verfügbar` angezeigt; KGV wird nicht isoliert verwendet.
+- Neues Expected-Value-Modul ergänzt: Bull-/Base-/Bear-Case, Wahrscheinlichkeiten, erwartete Rendite, erwarteter Verlustbeitrag und Expected-Value-Score fließen in die Entscheidung ein.
+- Ablehnungslogik erweitert: Vorsichtige oder negative Empfehlungen zeigen Hauptgrund und Nicht-Hauptgrund, z. B. ob es nicht an der Unternehmensqualität, sondern an Bewertung, Timing, CRV, Blasenrisiko, Makro oder Datenlage liegt.
+- Forward-Testing vorbereitet: Empfehlungen werden lokal automatisch einmal pro Symbol, Empfehlung und Tag für spätere Auswertung gespeichert; es gibt weiterhin keine Broker-Anbindung und keine automatische Orderfunktion.
+
 ### 2026-06-14
 
 - Repository für GitHub-Datenschutz vorbereitet: lokale Suchhistorie und Secrets werden ignoriert, Beispiel-Dateien ergänzt, README aktualisiert.

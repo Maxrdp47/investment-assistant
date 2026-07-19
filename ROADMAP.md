@@ -220,9 +220,9 @@ Transparenzregeln:
 
 ### Priorität 5: Backtesting
 
-- Backtesting-Modul planen.
-- Historische Signale speichern.
-- Trefferquoten berechnen.
+- Backtesting-Modul planen. Status: Basis umgesetzt am 2026-07-20.
+- Historische Signale speichern. Status: erste In-App-Auswertung historischer Kaufsignal-Buckets umgesetzt am 2026-07-20; dauerhafte Speicherung bleibt offen.
+- Trefferquoten berechnen. Status: Basis umgesetzt am 2026-07-20 für Kaufsignal-Buckets über 1, 3, 6 und 12 Monate.
 - Renditeanalyse durchführen.
 - Drawdown-Analyse ergänzen.
 - Verschiedene Signal-Kombinationen vergleichen.
@@ -488,20 +488,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Backtesting-Basis vorbereiten.
+1. Backtesting nach Asset-Typ und Marktphase verfeinern.
 
 Warum diese Aufgabe zuerst:
 
 - Das Confidence-System zählt jetzt ähnliche historische Setups und zeigt Trefferquote erst ab ausreichender Datenbasis.
-- Forward-, Prognose-, Decision- und Trade-Tracking unterstützen jetzt 1 Woche, 1 Monat, 3 Monate, 6 Monate und 12 Monate.
-- Der nächste Nutzen liegt darin, historische Signale systematisch zu testen, damit die Analysequalität nicht nur durch gespeicherte Live-Fälle, sondern auch durch Backtests messbar wird.
+- Die Backtesting-Basis testet historische Kaufsignal-Buckets gegen spätere Kursentwicklungen.
+- Der nächste Nutzen liegt darin, diese Backtests nach Marktphase und Asset-Typ aufzuschlüsseln, damit sichtbar wird, wo Signale historisch besser oder schlechter funktioniert haben.
 - Diese Aufgabe bleibt PRIO B, weil sie Messung der Analysequalität und spätere Kalibrierung verbessert.
 
 Nächste konkrete Umsetzung:
 
-1. Backtesting-Datenstruktur definieren.
-2. Erste einfache historische Signaltests für Kaufsignal-Buckets vorbereiten.
-3. Ergebnisse lokal speichern oder als Tabelle anzeigen, ohne Prognosen zu erfinden.
+1. Backtest-Gruppen um Marktphase erweitern.
+2. Asset-Typ-Kontext in Backtest-Ausgabe einbeziehen.
+3. Optional Drawdown je Backtest-Gruppe ergänzen.
 4. Keine automatische Gewichtungsänderung einbauen.
 5. Tests ausführen und ROADMAP aktualisieren.
 
@@ -985,6 +985,11 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-20
 
+- Backtesting-Basis umgesetzt: Im Analyse-Detailbereich werden historische Kaufsignal-Buckets gegen spätere Kursentwicklungen über 1, 3, 6 und 12 Monate getestet.
+- Backtest-Regeln dokumentiert: Es handelt sich um einen Signaltest, keine Strategieoptimierung, keine automatische Gewichtungsänderung und keine Kauf-/Verkaufsautomatisierung.
+- README aktualisiert: Backtesting-Basis beschrieben.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; Mock-Tests für Backtest mit ausreichender und zu kurzer Historie erfolgreich.
+- Nächste Priorität angepasst: Backtesting nach Asset-Typ und Marktphase verfeinern.
 - Tracking-Zeiträume erweitert: Trade-Journal, Forward-Tests, Prognosen und Decision-Tracking nutzen jetzt zentral `1w`, `1m`, `3m`, `6m` und `12m`.
 - Alte Historien bleiben kompatibel: fehlende `6m`- und `12m`-Felder werden beim Auswerten ergänzt, ohne bestehende Review-Ergebnisse zu überschreiben.
 - Neue gespeicherte Analysen, Entscheidungen, Prognosen und Trading-Setups erhalten direkt den vollständigen Review-Plan.

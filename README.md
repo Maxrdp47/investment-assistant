@@ -180,6 +180,7 @@ Die ROADMAP sieht zusätzliche Module vor, die nicht nur neue Features liefern s
 - Prognose-Tracking: Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken können lokal in `prediction_history.json` gespeichert werden. Fällige Prognosen können in der Sidebar nach 1 Woche, 1 Monat, 3 Monaten, 6 Monaten und 12 Monaten mit echten Kursdaten ausgewertet werden.
 - Confidence-System: Chancen werden zusätzlich mit ähnlichen lokalen historischen Fällen eingeordnet. Unter 20 ausgewerteten Fällen zeigt die App bewusst `Datenbasis zu klein`; danach werden Trefferquoten ähnlicher Setups nur als Kontext angezeigt und verändern keine Scores automatisch.
 - Signalbasierte Kalibrierung: Neue gespeicherte Analysen enthalten eine `signal_snapshot` mit RSI-, MACD-, Volatilitäts-, CRV-, News- und Makro-Einordnung. Ähnliche Setups werden nach diesen Signalen aufgeschlüsselt, fehlende historische Signalwerte bleiben `Daten nicht verfügbar`.
+- Backtesting-Basis: Im Analyse-Detailbereich testet die App historische Kaufsignal-Buckets gegen spätere Kursentwicklungen für 1, 3, 6 und 12 Monate. Das ist ein Signaltest, keine Strategieoptimierung und keine automatische Kauf-/Verkaufsfunktion.
 - Kalibrierungs- und Lernmodul: Häufige Fehlprognosen sollen zeigen, welche Module verbessert werden müssen.
 
 Diese Module dürfen keine Käufe oder Verkäufe ausführen. Sie dienen nur dazu, Chancen zu finden, Vorschläge zu dokumentieren, Trefferquoten zu messen, Fehlerquellen zu erkennen und Verbesserungsbedarf transparent zu machen.

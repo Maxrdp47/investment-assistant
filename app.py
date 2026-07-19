@@ -1061,6 +1061,105 @@ def segmented_learning_rows(
     return status, rows
 
 
+def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[str, list[dict[str, str]]]:
+    required_columns = {"Close", "Low", "High"}
+    if df.empty or not required_columns.issubset(df.columns):
+        return "Backtest nicht möglich: Kursdaten unvollständig.", [
+            {
+                "Zeithorizont": "Daten nicht verfügbar",
+                "Kaufsignal-Bucket": "Daten nicht verfügbar",
+                "Fälle": "0",
+                "Trefferquote": "Datenbasis zu klein",
+                "Durchschnittsrendite": "Datenbasis zu klein",
+                "Bedeutung": "Für einen Backtest werden historische Close-, Low- und High-Daten benötigt.",
+            }
+        ]
+
+    clean = df.dropna(subset=["Close"]).copy()
+    horizons = {"1m": 20, "3m": 60, "6m": 120, "12m": 240}
+    min_history = 220
+    if len(clean) < min_history + 20:
+        return "Backtest nicht möglich: weniger als 240 Handelstage verfügbar.", [
+            {
+                "Zeithorizont": "Daten nicht verfügbar",
+                "Kaufsignal-Bucket": "Daten nicht verfügbar",
+                "Fälle": "0",
+                "Trefferquote": "Datenbasis zu klein",
+                "Durchschnittsrendite": "Datenbasis zu klein",
+                "Bedeutung": "Die App benötigt genug Historie, damit 50er/200er-Durchschnitt und spätere Kursfolgen ohne Schätzung berechnet werden können.",
+            }
+        ]
+
+    last_entry_index = len(clean) - 21
+    step = max(5, (last_entry_index - min_history) // 80) if last_entry_index > min_history else 5
+    grouped: dict[tuple[str, str], list[float]] = {}
+    tested_points = 0
+
+    for idx in range(min_history, last_entry_index + 1, step):
+        history = clean.iloc[: idx + 1].copy()
+        latest = history.iloc[-1]
+        close = value_or_none(latest.get("Close"))
+        if close is None or close <= 0:
+            continue
+        supports = local_levels(history["Low"], "support") if "Low" in history else []
+        resistances = local_levels(history["High"], "resistance") if "High" in history else []
+        score_result = calculate_score_v2(history, supports, resistances)
+        market_phase = detect_market_phase(history)
+        risk_reward = calculate_risk_reward(float(close), supports, resistances)
+        buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
+        bucket = score_bucket(buy_signal.score)
+        tested_points += 1
+
+        for label, days in horizons.items():
+            future_idx = idx + days
+            if future_idx >= len(clean):
+                continue
+            future_close = value_or_none(clean.iloc[future_idx].get("Close"))
+            if future_close is None:
+                continue
+            grouped.setdefault((label, bucket), []).append((float(future_close) - float(close)) / float(close) * 100)
+
+    if not grouped:
+        return "Backtest nicht möglich: keine vollständigen historischen Einstiegs- und Ausstiegspunkte gefunden.", [
+            {
+                "Zeithorizont": "Daten nicht verfügbar",
+                "Kaufsignal-Bucket": "Daten nicht verfügbar",
+                "Fälle": "0",
+                "Trefferquote": "Datenbasis zu klein",
+                "Durchschnittsrendite": "Datenbasis zu klein",
+                "Bedeutung": "Es wurden keine vollständigen Kursfolgen gefunden; fehlende Daten werden nicht geschätzt.",
+            }
+        ]
+
+    rows: list[dict[str, str]] = []
+    for label in horizons:
+        for bucket in ["hoch", "mittel", "niedrig"]:
+            values = grouped.get((label, bucket), [])
+            if not values:
+                continue
+            count = len(values)
+            hit_rate = sum(1 for value in values if value > 0) / count * 100
+            avg_return = float(np.mean(values))
+            permission, meaning = calibration_permission(count)
+            rows.append(
+                {
+                    "Zeithorizont": label,
+                    "Kaufsignal-Bucket": bucket,
+                    "Fälle": str(count),
+                    "Trefferquote": "Datenbasis zu klein" if count < 20 else f"{hit_rate:.1f}%",
+                    "Durchschnittsrendite": "Datenbasis zu klein" if count < 20 else f"{avg_return:+.2f}%",
+                    "Status": permission,
+                    "Bedeutung": f"{meaning} Backtest nutzt nur historische Kursdaten und ändert keine Gewichtungen automatisch.",
+                }
+            )
+
+    status = (
+        f"Backtest-Basis aus {tested_points} historischen Analysepunkten. "
+        "Ergebnis ist ein Signaltest, keine Handelsstrategie und keine Kauf-/Verkaufsautomatisierung."
+    )
+    return status, rows
+
+
 def similar_setup_rows(
     asset_profile: AssetProfile,
     market_phase: MarketPhase,
@@ -5682,6 +5781,7 @@ def main() -> None:
             decision_history,
             prediction_history,
         )
+        backtest_status, backtest_table = backtest_signal_buckets(df, asset_profile)
         historical_confidence_status, historical_confidence_table = historical_confidence_rows(
             trade_history,
             forward_history,
@@ -6046,6 +6146,13 @@ def main() -> None:
             st.write(segmented_learning_status)
             st.dataframe(
                 pd.DataFrame(segmented_learning_table),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Backtesting-Basis: historische Kaufsignal-Buckets**")
+            st.write(backtest_status)
+            st.dataframe(
+                pd.DataFrame(backtest_table),
                 use_container_width=True,
                 hide_index=True,
             )

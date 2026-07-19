@@ -62,6 +62,27 @@ REFRESH_OPTIONS = {
     "5 Minuten": 300,
 }
 DEFAULT_SCANNER_WATCHLIST = "BTC-EUR, NVDA, PLTR, 1810.HK, EUNL.DE"
+TRACKING_PERIODS = {
+    "1w": 7,
+    "1m": 30,
+    "3m": 90,
+    "6m": 180,
+    "12m": 365,
+}
+
+
+def empty_review_schedule() -> dict[str, None]:
+    return {label: None for label in TRACKING_PERIODS}
+
+
+def ensure_review_schedule(record: dict) -> dict:
+    review_after = record.get("review_after")
+    if not isinstance(review_after, dict):
+        review_after = {}
+        record["review_after"] = review_after
+    for label in TRACKING_PERIODS:
+        review_after.setdefault(label, None)
+    return review_after
 
 KNOWN_TICKERS = {
     "xiaomi": ["1810.HK", "3CP.F", "3CP.DE", "XIACY"],
@@ -346,7 +367,6 @@ def evaluate_due_trade_history() -> tuple[int, str]:
     if not history:
         return 0, "Keine Trading-Setups gespeichert."
 
-    periods = {"1w": 7, "1m": 30, "3m": 90}
     now = pd.Timestamp.now(tz=None)
     updated = 0
     for record in history:
@@ -363,9 +383,9 @@ def evaluate_due_trade_history() -> tuple[int, str]:
         except Exception:
             continue
 
-        review_after = record.setdefault("review_after", {"1w": None, "1m": None, "3m": None})
+        review_after = ensure_review_schedule(record)
         due_periods = [
-            label for label, days in periods.items()
+            label for label, days in TRACKING_PERIODS.items()
             if review_after.get(label) is None and now >= created_at + pd.Timedelta(days=days)
         ]
         if not due_periods:
@@ -480,7 +500,6 @@ def evaluate_due_decision_history() -> tuple[int, str]:
     if not history:
         return 0, "Keine Nutzerentscheidungen gespeichert."
 
-    periods = {"1w": 7, "1m": 30, "3m": 90}
     now = pd.Timestamp.now(tz=None)
     updated = 0
     for record in history:
@@ -495,9 +514,9 @@ def evaluate_due_decision_history() -> tuple[int, str]:
         except Exception:
             continue
 
-        review_after = record.setdefault("review_after", {"1w": None, "1m": None, "3m": None})
+        review_after = ensure_review_schedule(record)
         due_periods = [
-            label for label, days in periods.items()
+            label for label, days in TRACKING_PERIODS.items()
             if review_after.get(label) is None and now >= created_at + pd.Timedelta(days=days)
         ]
         if not due_periods:
@@ -587,7 +606,6 @@ def evaluate_due_predictions() -> tuple[int, str]:
     if not history:
         return 0, "Keine Prognosen gespeichert."
 
-    periods = {"1w": 7, "1m": 30, "3m": 90}
     now = pd.Timestamp.now(tz=None)
     updated = 0
     for record in history:
@@ -600,9 +618,9 @@ def evaluate_due_predictions() -> tuple[int, str]:
             created_at = pd.Timestamp(created_at_raw).tz_localize(None)
         except Exception:
             continue
-        review_after = record.setdefault("review_after", {"1w": None, "1m": None, "3m": None})
+        review_after = ensure_review_schedule(record)
         due_periods = [
-            label for label, days in periods.items()
+            label for label, days in TRACKING_PERIODS.items()
             if review_after.get(label) is None and now >= created_at + pd.Timedelta(days=days)
         ]
         if not due_periods:
@@ -650,7 +668,6 @@ def evaluate_due_forward_tests() -> tuple[int, str]:
     if not history:
         return 0, "Keine Forward-Tests gespeichert."
 
-    periods = {"1w": 7, "1m": 30, "3m": 90}
     now = pd.Timestamp.now(tz=None)
     updated = 0
     for record in history:
@@ -663,9 +680,9 @@ def evaluate_due_forward_tests() -> tuple[int, str]:
             created_at = pd.Timestamp(created_at_raw).tz_localize(None)
         except Exception:
             continue
-        review_after = record.setdefault("review_after", {"1w": None, "1m": None, "3m": None})
+        review_after = ensure_review_schedule(record)
         due_periods = [
-            label for label, days in periods.items()
+            label for label, days in TRACKING_PERIODS.items()
             if review_after.get(label) is None and now >= created_at + pd.Timedelta(days=days)
         ]
         if not due_periods:
@@ -2352,11 +2369,7 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
             "Risiken": risks[:3],
             "Chancen": chances[:3],
             "Begründung": f"{setup_label}: Kaufsignal {buy_signal.score:.1f}/10, Confidence {confidence:.1f}/10, Marktphase {market_phase.phase}.",
-            "review_after": {
-                "1w": None,
-                "1m": None,
-                "3m": None,
-            },
+            "review_after": empty_review_schedule(),
             "Hinweis": "Nur Analyse und Dokumentation. Keine automatische Kauf- oder Verkaufsfunktion.",
         }, None
     except Exception as exc:
@@ -4293,11 +4306,7 @@ def build_forward_test_record(
             {"name": module.name, "score": module.score, "summary": module.summary}
             for module in research_pack.modules
         ],
-        "review_after": {
-            "1w": None,
-            "1m": None,
-            "3m": None,
-        },
+        "review_after": empty_review_schedule(),
         "note": "Forward-Test speichert nur die Analyse. Keine Kauf- oder Verkaufsautomatisierung.",
     }
 
@@ -4333,11 +4342,7 @@ def build_decision_record(
             {"name": module.name, "score": module.score, "summary": module.summary}
             for module in research_pack.modules
         ],
-        "review_after": {
-            "1w": None,
-            "1m": None,
-            "3m": None,
-        },
+        "review_after": empty_review_schedule(),
         "note": "Decision Tracking dokumentiert nur eine Nutzerentscheidung. Keine Order, keine Broker-Anbindung.",
     }
 
@@ -4366,11 +4371,7 @@ def build_prediction_record(
         "scenarios": research_pack.scenarios,
         "decisive_mark": research_pack.conclusion.get("Welche Marke ist entscheidend?"),
         "invalidation_or_buy_zones": research_pack.buy_zones,
-        "review_after": {
-            "1w": None,
-            "1m": None,
-            "3m": None,
-        },
+        "review_after": empty_review_schedule(),
         "note": "Prognose-Tracking speichert nur Szenarien zur späteren Auswertung. Keine Order, keine Broker-Anbindung.",
     }
 

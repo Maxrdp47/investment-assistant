@@ -242,6 +242,7 @@ Transparenzregeln:
 - Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken speichern.
 - Nach festgelegten Zeiträumen prüfen: 1 Woche, 1 Monat, 3 Monate, 6 Monate und 12 Monate.
   - Status: Basis umgesetzt am 2026-06-15 für 1 Woche, 1 Monat und 3 Monate.
+  - Status: Erweiterte Zeiträume umgesetzt am 2026-07-20 für 6 Monate und 12 Monate; alte Historien bleiben kompatibel.
 - Tatsächliche Kursentwicklung, maximalen Drawdown, maximale positive Bewegung und Treffer der Szenarien auswerten.
 - Keine Performance-Werte erfinden, wenn Kursdaten fehlen.
 - Ergebnisse getrennt nach Asset-Typ, Marktphase und Signalart ausweisen.
@@ -263,6 +264,7 @@ Transparenzregeln:
 - Kursziele, Wahrscheinlichkeiten, Zeithorizont und entscheidende Widerlegungsmarken erfassen.
 - Später prüfen, welches Szenario am besten getroffen hat.
   - Status: Basis umgesetzt am 2026-06-15 für 1 Woche, 1 Monat und 3 Monate.
+  - Status: Erweiterte Zeiträume umgesetzt am 2026-07-20 für 6 Monate und 12 Monate; alte Prognosehistorien werden beim Auswerten ergänzt.
 - Trefferquote je Modul, Signalart, Asset-Typ und Marktphase berechnen.
 - Fehlprognosen sichtbar machen und Ursachen kategorisieren.
 - Nur echte nachträgliche Kursdaten verwenden; fehlende Daten als `Daten nicht verfügbar` kennzeichnen.
@@ -373,9 +375,6 @@ Für jeden vorgeschlagenen Trade prüfen:
 - nach 1 Woche
 - nach 1 Monat
 - nach 3 Monaten
-
-Optional später:
-
 - nach 6 Monaten
 - nach 12 Monaten
 
@@ -388,6 +387,7 @@ Bewerten:
 - Stop erreicht?
 - beste Alternative?
 - Status: Basis umgesetzt am 2026-06-15. Gespeicherte Trading-Setups werden nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten ausgewertet; Ziel/Stop, Rendite sowie maximale positive und negative Entwicklung werden gespeichert.
+- Status: Erweiterte Zeiträume umgesetzt am 2026-07-20. Trade-Journal, Forward-Tests, Prognosen und Entscheidungen unterstützen 6- und 12-Monats-Reviews kompatibel zu alten Historien.
 
 ### PRIO B: Erweitertes Decision Tracking
 
@@ -488,20 +488,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Längere Auswertungszeiträume für Forward-, Prognose-, Decision- und Trade-Tracking vorbereiten.
+1. Backtesting-Basis vorbereiten.
 
 Warum diese Aufgabe zuerst:
 
 - Das Confidence-System zählt jetzt ähnliche historische Setups und zeigt Trefferquote erst ab ausreichender Datenbasis.
-- Die erste signalbasierte Kalibrierung und Segment-Auswertung nach Asset-Typ, Marktphase und Zeithorizont sind umgesetzt.
-- Der nächste Nutzen liegt darin, die bisher kurzfristigen Reviews um längere Zeiträume vorzubereiten, damit 6- und 12-Monats-Trefferquoten später messbar werden.
-- Diese Aufgabe bleibt PRIO B, weil sie Lernfähigkeit und Kalibrierung vorbereitet.
+- Forward-, Prognose-, Decision- und Trade-Tracking unterstützen jetzt 1 Woche, 1 Monat, 3 Monate, 6 Monate und 12 Monate.
+- Der nächste Nutzen liegt darin, historische Signale systematisch zu testen, damit die Analysequalität nicht nur durch gespeicherte Live-Fälle, sondern auch durch Backtests messbar wird.
+- Diese Aufgabe bleibt PRIO B, weil sie Messung der Analysequalität und spätere Kalibrierung verbessert.
 
 Nächste konkrete Umsetzung:
 
-1. Review-Strukturen für 6 Monate und 12 Monate ergänzen, ohne alte Historien zu beschädigen.
-2. Auswertungsfunktionen so erweitern, dass alte und neue Review-Felder kompatibel bleiben.
-3. README und ROADMAP um längere Auswertungszeiträume ergänzen.
+1. Backtesting-Datenstruktur definieren.
+2. Erste einfache historische Signaltests für Kaufsignal-Buckets vorbereiten.
+3. Ergebnisse lokal speichern oder als Tabelle anzeigen, ohne Prognosen zu erfinden.
 4. Keine automatische Gewichtungsänderung einbauen.
 5. Tests ausführen und ROADMAP aktualisieren.
 
@@ -982,6 +982,15 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Decision-Tracking-Auswertung mit gemockten Kursdaten erfolgreich.
 - Confidence-System erweitert: Im Research-Modul zeigt die App ähnliche lokale Historienfälle nach Asset-Typ oder Marktphase, historische Trefferquote erst ab ausreichender Datenbasis und die Regel, dass keine automatische Gewichtungsänderung erfolgt.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
+
+### 2026-07-20
+
+- Tracking-Zeiträume erweitert: Trade-Journal, Forward-Tests, Prognosen und Decision-Tracking nutzen jetzt zentral `1w`, `1m`, `3m`, `6m` und `12m`.
+- Alte Historien bleiben kompatibel: fehlende `6m`- und `12m`-Felder werden beim Auswerten ergänzt, ohne bestehende Review-Ergebnisse zu überschreiben.
+- Neue gespeicherte Analysen, Entscheidungen, Prognosen und Trading-Setups erhalten direkt den vollständigen Review-Plan.
+- README aktualisiert: Performance-Tracking und Prognose-Tracking nennen jetzt 6- und 12-Monats-Auswertungen.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Mock-Test mit alten Historien für Trade, Decision, Prognose und Forward erfolgreich.
+- Nächste Priorität angepasst: Backtesting-Basis vorbereiten.
 
 ### 2026-07-19
 

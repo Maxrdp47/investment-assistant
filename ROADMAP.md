@@ -274,6 +274,7 @@ Transparenzregeln:
 - Häufige Fehlerquellen erkennen, z. B. schwache Marktphasen-Erkennung, schlechte Krypto-Bewertung, unbrauchbare News-Signale oder übergewichtete technische Signale.
 - Kalibrierungsbericht anzeigen: Was funktioniert gut? Was funktioniert schlecht? Welche Module brauchen Verbesserung?
   - Status: Basis umgesetzt am 2026-06-15: lokaler Kalibrierungsstatus zählt Forward-Tests, Entscheidungen, Prognosen und ausgewertete Zeiträume.
+  - Status: Signalbasierte Kalibrierung umgesetzt am 2026-07-19: ähnliche Setups werden nach RSI, MACD, Marktphase, Volatilität, News, Makro und CRV aufgeschlüsselt; Hinweise bleiben ab Mindestfallzahlen transparent und verändern keine Gewichtungen automatisch.
 - Lernlogik transparent machen und keine Blackbox-Entscheidungen treffen.
 - Änderungen an Bewertungslogik erst nach Dokumentation und Tests übernehmen.
 
@@ -445,6 +446,7 @@ Auswerten, welche Signale historisch nützlich waren:
 - Opportunity Score
 - Confidence Score
   - Status: Basis umgesetzt am 2026-06-15: Signalanalyse zählt ausgewertete Forward-Tests und Prognosen und zeigt Trefferquoten nach Asset-Typ erst ab ausreichender Datenbasis.
+  - Status: Signal-Snapshots umgesetzt am 2026-07-19: neue Historieneinträge speichern RSI-, MACD-, Volatilitäts-, News-, Makro- und CRV-Buckets; fehlende alte Signalwerte bleiben `Daten nicht verfügbar`.
 
 ### PRIO B: Kalibrierungsvorschläge
 
@@ -468,6 +470,7 @@ Mindestdatenmenge:
 - Unter 20 Fällen: `Datenbasis zu klein`
 - 20-50 Fälle: vorsichtige Hinweise
 - Über 50 Fälle: Kalibrierungsvorschläge erlaubt
+  - Status: Basis umgesetzt am 2026-07-19: ähnliche Setups zeigen Signal-Buckets, Fallzahl, Trefferquote, Durchschnittsrendite und ob nur gezählt, vorsichtig hingewiesen oder ein manueller Vorschlag erlaubt ist.
 
 Langfristig soll der Bot erkennen:
 
@@ -484,19 +487,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Kalibrierungsvorschläge aus ähnlichen historischen Setups weiter ausbauen.
+1. Trefferquoten und Signalwirkung nach Asset-Typ, Marktphase und Zeithorizont feiner auswerten.
 
 Warum diese Aufgabe zuerst:
 
 - Das Confidence-System zählt jetzt ähnliche historische Setups und zeigt Trefferquote erst ab ausreichender Datenbasis.
-- Der nächste Nutzen liegt darin, aus diesen ähnlichen Fällen vorsichtige, transparente Verbesserungsvorschläge nach Signalbestandteilen abzuleiten, ohne Gewichtungen automatisch zu ändern.
+- Die erste signalbasierte Kalibrierung ist umgesetzt; neue Historien speichern Signal-Snapshots für RSI, MACD, Volatilität, News, Makro und CRV.
+- Der nächste Nutzen liegt darin, Trefferquoten nicht nur global, sondern nach Asset-Typ, Marktphase und Auswertungszeitraum zu vergleichen.
 - Diese Aufgabe bleibt PRIO B, weil sie Lernfähigkeit und Kalibrierung vorbereitet.
 
 Nächste konkrete Umsetzung:
 
-1. Ähnliche-Setup-Auswertung nach Signalbestandteilen wie RSI, MACD, Marktphase, Volatilität, News, Makro und CRV feiner aufschlüsseln.
-2. Ab 20 bis 50 Fällen nur vorsichtige Hinweise anzeigen.
-3. Ab 50 Fällen konkrete Kalibrierungsvorschläge formulieren.
+1. Ausgewertete Historien nach Asset-Typ, Marktphase und Zeitraum gruppieren.
+2. Trefferquote, Durchschnittsrendite und Fallzahl je Gruppe anzeigen.
+3. Gruppen unter 20 Fällen als `Datenbasis zu klein` kennzeichnen.
 4. Keine automatische Gewichtungsänderung einbauen.
 5. Tests ausführen und ROADMAP aktualisieren.
 
@@ -980,10 +984,14 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-19
 
+- Signalbasierte Kalibrierung umgesetzt: neue Historieneinträge speichern eine `signal_snapshot` für RSI, MACD, Volatilität, News, Makro und CRV; ältere Einträge bleiben kompatibel und zeigen fehlende Signalwerte als `Daten nicht verfügbar`.
+- Ähnliche historische Setups werden zusätzlich nach Signalbestandteilen aufgeschlüsselt und zeigen je Signal Fallzahl, Trefferquote, Durchschnittsrendite und Kalibrierungsstatus ab den definierten Mindestfallzahlen.
+- README aktualisiert: Lernsystem, Signal-Snapshots und Kalibrierungsregeln dokumentiert.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Mock-Tests für signalbasierte Kalibrierung mit 20+ und 50+ Fällen erfolgreich.
+- Nächste Priorität angepasst: Trefferquoten und Signalwirkung nach Asset-Typ, Marktphase und Zeithorizont feiner auswerten.
 - Technische Bereinigung im Confidence-/Lernmodul umgesetzt: doppelte Funktionsnamen für historische Auswertungen getrennt, damit die Ähnliche-Setup-Auswertung und die allgemeine Confidence-Historie jeweils die richtige Datenstruktur verwenden.
 - ROADMAP-Bereinigung fortgeführt: Konfliktmarker und doppelte Änderungsprotokoll-Blöcke entfernt.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; Mock-Tests für Ähnliche-Setup-Trefferquote und historische Confidence-Auswertung erfolgreich.
-- Nächste Priorität bleibt: Kalibrierungsvorschläge aus ähnlichen Setups feiner nach Signalbestandteilen ableiten, ohne Gewichtungen automatisch zu verändern.
 
 ### 2026-06-30
 

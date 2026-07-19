@@ -179,6 +179,7 @@ Die ROADMAP sieht zusätzliche Module vor, die nicht nur neue Features liefern s
 - Decision-Tracking: Nutzerentscheidungen wie gekauft, gehalten, verkauft oder beobachtet können optional lokal in `decision_history.json` protokolliert und später gegen Long, Short und Beobachten verglichen werden. Es wird keine Order ausgeführt.
 - Prognose-Tracking: Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken können lokal in `prediction_history.json` gespeichert werden. Fällige Prognosen können in der Sidebar mit echten Kursdaten ausgewertet werden.
 - Confidence-System: Chancen werden zusätzlich mit ähnlichen lokalen historischen Fällen eingeordnet. Unter 20 ausgewerteten Fällen zeigt die App bewusst `Datenbasis zu klein`; danach werden Trefferquoten ähnlicher Setups nur als Kontext angezeigt und verändern keine Scores automatisch.
+- Signalbasierte Kalibrierung: Neue gespeicherte Analysen enthalten eine `signal_snapshot` mit RSI-, MACD-, Volatilitäts-, CRV-, News- und Makro-Einordnung. Ähnliche Setups werden nach diesen Signalen aufgeschlüsselt, fehlende historische Signalwerte bleiben `Daten nicht verfügbar`.
 - Kalibrierungs- und Lernmodul: Häufige Fehlprognosen sollen zeigen, welche Module verbessert werden müssen.
 
 Diese Module dürfen keine Käufe oder Verkäufe ausführen. Sie dienen nur dazu, Chancen zu finden, Vorschläge zu dokumentieren, Trefferquoten zu messen, Fehlerquellen zu erkennen und Verbesserungsbedarf transparent zu machen.
@@ -266,7 +267,7 @@ Die App zeigt im Bereich **Analyse-Details anzeigen** einen Kalibrierungsstatus.
 
 Der Kalibrierungsstatus zählt lokale Trade-, Forward-Test-, Decision- und Prognosehistorien. Diese Dateien können persönliche Entscheidungen enthalten und werden nicht versioniert.
 
-Die Signalanalyse wertet nur lokal bereits ausgewertete Forward-Tests und Prognosen aus. Unter 20 Fällen zeigt sie nur den Sammelstand; Gewichtungen werden nie automatisch geändert.
+Die Signalanalyse wertet nur lokal bereits ausgewertete Forward-Tests, Trade-Journal-Setups, Entscheidungen und Prognosen aus. Neue Einträge speichern zusätzlich eine kompakte `signal_snapshot` für RSI, MACD, Volatilität, News, Makro und CRV. Unter 20 ähnlichen Fällen zeigt sie nur den Sammelstand; zwischen 20 und 50 Fällen nur vorsichtige Hinweise; ab über 50 Fällen dürfen transparente Kalibrierungsvorschläge angezeigt werden. Gewichtungen werden nie automatisch geändert.
 
 ### Depot-Effekt
 

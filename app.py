@@ -724,6 +724,125 @@ def score_bucket(value: object) -> str:
     return "niedrig"
 
 
+def rsi_bucket(value: object) -> str:
+    rsi = value_or_none(value)
+    if rsi is None:
+        return "Daten nicht verfügbar"
+    if rsi < 30:
+        return "überverkauft"
+    if rsi > 70:
+        return "überhitzt"
+    if rsi >= 55:
+        return "positiv"
+    if rsi <= 45:
+        return "schwach"
+    return "neutral"
+
+
+def macd_bucket(macd_value: object, signal_value: object) -> str:
+    macd = value_or_none(macd_value)
+    signal = value_or_none(signal_value)
+    if macd is None or signal is None:
+        return "Daten nicht verfügbar"
+    spread = abs(macd - signal)
+    scale = max(abs(macd), abs(signal), 1.0)
+    if spread / scale < 0.01:
+        return "neutral"
+    return "positiv" if macd > signal else "negativ"
+
+
+def volatility_bucket(value: object) -> str:
+    volatility = value_or_none(value)
+    if volatility is None:
+        return "Daten nicht verfügbar"
+    if volatility >= 0.75:
+        return "sehr hoch"
+    if volatility >= 0.45:
+        return "erhöht"
+    if volatility <= 0.22:
+        return "ruhig"
+    return "normal"
+
+
+def crv_bucket(value: object) -> str:
+    ratio = value_or_none(value)
+    if ratio is None:
+        return "Daten nicht verfügbar"
+    if ratio >= 2.5:
+        return "stark"
+    if ratio >= 1.5:
+        return "positiv"
+    if ratio >= 1.0:
+        return "knapp"
+    return "schwach"
+
+
+def module_score_from_record(record: dict, *needles: str) -> float | None:
+    modules = record.get("module_scores", [])
+    if not isinstance(modules, list):
+        return None
+    normalized_needles = [needle.lower() for needle in needles]
+    for module in modules:
+        if not isinstance(module, dict):
+            continue
+        name = str(module.get("name", "")).lower()
+        if any(needle in name for needle in normalized_needles):
+            score = value_or_none(module.get("score"))
+            if score is not None:
+                return float(score)
+    return None
+
+
+def build_signal_snapshot(latest: pd.Series, risk_reward: RiskReward, modules: list[ResearchModule] | None = None) -> dict:
+    modules = modules or []
+    module_scores = {module.name: module.score for module in modules}
+    news_score = next((score for name, score in module_scores.items() if "News" in name), None)
+    macro_score = next((score for name, score in module_scores.items() if "Makro" in name), None)
+    return {
+        "RSI": rsi_bucket(latest.get("RSI_14")),
+        "MACD": macd_bucket(latest.get("MACD"), latest.get("MACD_Signal")),
+        "Volatilität": volatility_bucket(latest.get("Volatility")),
+        "CRV": crv_bucket(risk_reward.ratio),
+        "News": score_bucket(news_score),
+        "Makro": score_bucket(macro_score),
+    }
+
+
+def snapshot_signal_value(snapshot: dict, signal_name: str) -> str | None:
+    if not isinstance(snapshot, dict):
+        return None
+    aliases = {
+        "RSI": ["RSI", "rsi"],
+        "MACD": ["MACD", "macd"],
+        "Marktphase": ["Marktphase", "market_phase"],
+        "Volatilität": ["Volatilität", "Volatilitaet", "Volatility"],
+        "News": ["News", "news"],
+        "Makro": ["Makro", "Macro", "macro"],
+        "CRV": ["CRV", "crv", "risk_reward"],
+    }
+    for key in aliases.get(signal_name, [signal_name]):
+        value = snapshot.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def signal_bucket_from_record(record: dict, signal_name: str) -> str:
+    snapshot = record.get("signal_snapshot", {})
+    snapshot_value = snapshot_signal_value(snapshot, signal_name)
+    if snapshot_value:
+        return snapshot_value
+    if signal_name == "Marktphase":
+        return str(record.get("market_phase") or record.get("Marktphase") or "Daten nicht verfügbar")
+    if signal_name == "CRV":
+        return crv_bucket(record.get("risk_reward_ratio") or record.get("CRV"))
+    if signal_name == "News":
+        return score_bucket(module_score_from_record(record, "news"))
+    if signal_name == "Makro":
+        return score_bucket(module_score_from_record(record, "makro"))
+    return "Daten nicht verfügbar"
+
+
 def action_family(action: object) -> str:
     text = str(action or "").lower()
     if any(token in text for token in ["stark kaufen", "gestaffelt", "kleine tranche", "kaufen", "nachkauf", "long", "halten"]):
@@ -788,9 +907,67 @@ def evaluated_history_cases(histories: list[list[dict]]) -> list[dict]:
                         "quality_bucket": score_bucket(record.get("asset_quality") or record.get("Asset-Qualität")),
                         "return_pct": return_pct,
                         "hit": action_hit(action, return_pct),
+                        "signals": {
+                            name: signal_bucket_from_record(record, name)
+                            for name in ["RSI", "MACD", "Marktphase", "Volatilität", "News", "Makro", "CRV"]
+                        },
                     }
                 )
     return cases
+
+
+def calibration_permission(count: int) -> tuple[str, str]:
+    if count < 20:
+        return "Datenbasis zu klein", "Noch keine Kalibrierung. Signal wird nur gezählt."
+    if count <= 50:
+        return "Vorsichtiger Hinweis", "Nur Beobachtung: Signal auffällig, aber noch keine robuste Anpassung."
+    return "Kalibrierungsvorschlag erlaubt", "Manueller Vorschlag möglich; Gewichtungen werden nicht automatisch geändert."
+
+
+def signal_calibration_rows(similar: list[dict]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for signal_name in ["RSI", "MACD", "Marktphase", "Volatilität", "News", "Makro", "CRV"]:
+        grouped: dict[str, list[dict]] = {}
+        for case in similar:
+            bucket = case.get("signals", {}).get(signal_name, "Daten nicht verfügbar")
+            if bucket in {"Daten nicht verfügbar", "unbekannt", ""}:
+                continue
+            grouped.setdefault(str(bucket), []).append(case)
+
+        if not grouped:
+            rows.append(
+                {
+                    "Messpunkt": f"Signal {signal_name}",
+                    "Wert": "Daten nicht verfügbar",
+                    "Bedeutung": f"Für {signal_name} liegen in ähnlichen historischen Setups noch keine gespeicherten Signalwerte vor.",
+                }
+            )
+            continue
+
+        best_bucket, best_cases = max(
+            grouped.items(),
+            key=lambda item: (
+                sum(1 for case in item[1] if case["hit"]) / len(item[1]),
+                len(item[1]),
+            ),
+        )
+        count = len(best_cases)
+        hit_rate = sum(1 for case in best_cases if case["hit"]) / count * 100
+        avg_return = float(np.mean([case["return_pct"] for case in best_cases]))
+        permission, meaning = calibration_permission(count)
+        display_value = (
+            f"{best_bucket}: {count} Fälle, {hit_rate:.1f}% Treffer, {avg_return:+.2f}% Ø"
+            if count >= 20
+            else f"{best_bucket}: {count} Fälle"
+        )
+        rows.append(
+            {
+                "Messpunkt": f"Signal {signal_name}",
+                "Wert": display_value,
+                "Bedeutung": f"{permission}. {meaning}",
+            }
+        )
+    return rows
 
 
 def similar_setup_rows(
@@ -845,6 +1022,7 @@ def similar_setup_rows(
         {"Messpunkt": "Mindestdatenmenge", "Wert": "20 ähnliche Setups", "Bedeutung": "Unter 20 ähnlichen Fällen bleibt die Aussage rein explorativ."},
         {"Messpunkt": "Kalibrierungsregel", "Wert": permission, "Bedeutung": "Version 1 ändert Score-Gewichtungen niemals automatisch."},
     ]
+    rows.extend(signal_calibration_rows(similar))
     return status, rows
 
 
@@ -2096,6 +2274,7 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
             "Marktphase": market_phase.phase,
             "Kaufsignal": buy_signal.score,
             "Asset-Qualität": asset_quality.score,
+            "signal_snapshot": build_signal_snapshot(latest, risk_reward, []),
             "Risiken": risks[:3],
             "Chancen": chances[:3],
             "Begründung": f"{setup_label}: Kaufsignal {buy_signal.score:.1f}/10, Confidence {confidence:.1f}/10, Marktphase {market_phase.phase}.",
@@ -4033,6 +4212,7 @@ def build_forward_test_record(
         "portfolio_score": portfolio_result.score,
         "action": research_pack.action,
         "professional_decision": research_pack.decision,
+        "signal_snapshot": build_signal_snapshot(latest, risk_reward, research_pack.modules),
         "scenarios": research_pack.scenarios,
         "buy_zones": research_pack.buy_zones,
         "module_scores": [
@@ -4074,6 +4254,7 @@ def build_decision_record(
         "buy_signal": buy_signal.score,
         "confidence": research_pack.confidence.score,
         "market_phase": market_phase.phase,
+        "signal_snapshot": build_signal_snapshot(latest, RiskReward(None, None, None, 5.0, "CRV für Nutzerentscheidung nicht separat berechnet."), research_pack.modules),
         "module_scores": [
             {"name": module.name, "score": module.score, "summary": module.summary}
             for module in research_pack.modules
@@ -4106,6 +4287,7 @@ def build_prediction_record(
         "confidence": research_pack.confidence.score,
         "risk_reward_score": risk_reward.score,
         "risk_reward_ratio": risk_reward.ratio,
+        "signal_snapshot": build_signal_snapshot(latest, risk_reward, research_pack.modules),
         "professional_decision": research_pack.decision,
         "scenarios": research_pack.scenarios,
         "decisive_mark": research_pack.conclusion.get("Welche Marke ist entscheidend?"),

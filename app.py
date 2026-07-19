@@ -4,6 +4,7 @@ import json
 import math
 import difflib
 import tempfile
+import base64
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -18,6 +19,7 @@ import yfinance as yf
 APP_TITLE = "Investment-Assistent"
 DISCLAIMER = "Dies ist keine Finanzberatung, sondern eine technische Analysehilfe."
 YFINANCE_CACHE_DIR = Path(__file__).resolve().parent / ".yfinance-cache"
+BONEZ_LOGO_PATH = Path(__file__).resolve().parent / "assets" / "bonez_mc_logo.svg"
 PORTFOLIO_PATH = Path(__file__).resolve().parent / "portfolio.json"
 SEARCH_HISTORY_PATH = Path(__file__).resolve().parent / "search_history.json"
 TRADE_HISTORY_PATH = Path(__file__).resolve().parent / "trade_history.json"
@@ -159,6 +161,7 @@ class ResearchPack:
     scenarios: list[dict]
     buy_zones: list[dict]
     action: str
+    decision: dict[str, str]
     conclusion: dict[str, str | list[str]]
 
 
@@ -710,6 +713,141 @@ def count_completed_reviews(history: list[dict]) -> int:
     return count
 
 
+def score_bucket(value: object) -> str:
+    score = value_or_none(value)
+    if score is None:
+        return "unbekannt"
+    if score >= 7:
+        return "hoch"
+    if score >= 5:
+        return "mittel"
+    return "niedrig"
+
+
+def action_family(action: object) -> str:
+    text = str(action or "").lower()
+    if any(token in text for token in ["stark kaufen", "gestaffelt", "kleine tranche", "kaufen", "nachkauf", "long", "halten"]):
+        return "Long/Kaufen"
+    if any(token in text for token in ["verkaufen", "short", "absicherung"]):
+        return "Short/Verkaufen"
+    if any(token in text for token in ["nicht kaufen", "abwarten", "beobachten", "risiko zu hoch"]):
+        return "Abwarten/Beobachten"
+    return "Unbekannt"
+
+
+def record_action(record: dict) -> str:
+    professional = record.get("professional_decision")
+    if isinstance(professional, dict) and professional.get("Titel"):
+        return str(professional["Titel"])
+    for key in ["app_action", "action", "Richtung", "direction", "decision"]:
+        if record.get(key):
+            return str(record[key])
+    return "Unbekannt"
+
+
+def record_return_for_review(record: dict, review: dict) -> float | None:
+    for key in ["decision_return_pct", "return_pct"]:
+        value = value_or_none(review.get(key))
+        if value is not None:
+            return float(value)
+    return None
+
+
+def action_hit(action: str, return_pct: float) -> bool:
+    family = action_family(action)
+    if family == "Short/Verkaufen":
+        return return_pct > 0
+    if family == "Abwarten/Beobachten":
+        return return_pct <= 0
+    return return_pct > 0
+
+
+def evaluated_history_cases(histories: list[list[dict]]) -> list[dict]:
+    cases: list[dict] = []
+    for history in histories:
+        for record in history:
+            review_after = record.get("review_after", {})
+            if not isinstance(review_after, dict):
+                continue
+            for period, review in review_after.items():
+                if not isinstance(review, dict):
+                    continue
+                return_pct = record_return_for_review(record, review)
+                if return_pct is None:
+                    continue
+                action = record_action(record)
+                cases.append(
+                    {
+                        "period": period,
+                        "record": record,
+                        "action": action,
+                        "action_family": action_family(action),
+                        "asset_type": str(record.get("asset_type") or record.get("Asset-Typ") or "Unbekannt"),
+                        "market_phase": str(record.get("market_phase") or record.get("Marktphase") or "Unbekannt"),
+                        "buy_signal_bucket": score_bucket(record.get("buy_signal") or record.get("Kaufsignal")),
+                        "quality_bucket": score_bucket(record.get("asset_quality") or record.get("Asset-Qualität")),
+                        "return_pct": return_pct,
+                        "hit": action_hit(action, return_pct),
+                    }
+                )
+    return cases
+
+
+def similar_setup_rows(
+    asset_profile: AssetProfile,
+    market_phase: MarketPhase,
+    action: str,
+    asset_quality: ModuleScore,
+    buy_signal: ModuleScore,
+    trade_history: list[dict],
+    forward_tests: list[dict],
+    decisions: list[dict],
+    predictions: list[dict],
+) -> tuple[str, list[dict[str, str]]]:
+    cases = evaluated_history_cases([trade_history, forward_tests, decisions, predictions])
+    target_family = action_family(action)
+    target_buy_bucket = score_bucket(buy_signal.score)
+    target_quality_bucket = score_bucket(asset_quality.score)
+    similar: list[dict] = []
+    for case in cases:
+        similarity_points = 0
+        if case["asset_type"] == asset_profile.asset_type:
+            similarity_points += 2
+        if case["action_family"] == target_family:
+            similarity_points += 2
+        if case["market_phase"] == market_phase.phase:
+            similarity_points += 1
+        if case["buy_signal_bucket"] == target_buy_bucket:
+            similarity_points += 1
+        if case["quality_bucket"] == target_quality_bucket:
+            similarity_points += 1
+        if similarity_points >= 4:
+            similar.append(case)
+
+    count = len(similar)
+    if count < 20:
+        status = "Datenbasis zu klein. Ähnliche historische Setups werden gezählt, aber noch nicht zur Kalibrierung verwendet."
+        permission = "Keine Kalibrierung"
+    elif count <= 50:
+        status = "Vorsichtige Hinweise aus ähnlichen Setups möglich. Gewichtungen bleiben unverändert."
+        permission = "Nur Hinweis"
+    else:
+        status = "Ausreichend ähnliche Setups für belastbarere Hinweise. Gewichtungen werden trotzdem nicht automatisch geändert."
+        permission = "Vorschläge möglich"
+
+    hit_rate = None if count == 0 else sum(1 for case in similar if case["hit"]) / count * 100
+    avg_return = None if count == 0 else float(np.mean([case["return_pct"] for case in similar]))
+    rows = [
+        {"Messpunkt": "Alle ausgewerteten Historienfälle", "Wert": str(len(cases)), "Bedeutung": "Basis aus Trade-Journal, Forward-Tests, Entscheidungen und Prognosen."},
+        {"Messpunkt": "Ähnliche Setups", "Wert": str(count), "Bedeutung": f"Ähnlichkeit nach Asset-Typ, Aktion, Marktphase, Kaufsignal und Asset-Qualität. {status}"},
+        {"Messpunkt": "Trefferquote ähnlicher Setups", "Wert": "Datenbasis zu klein" if hit_rate is None or count < 20 else f"{hit_rate:.1f}%", "Bedeutung": "Treffer wird gegen die damalige Empfehlung gemessen; keine automatische Gewichtungsänderung."},
+        {"Messpunkt": "Durchschnittsrendite ähnlicher Setups", "Wert": "Datenbasis zu klein" if avg_return is None or count < 20 else f"{avg_return:+.2f}%", "Bedeutung": "Nur echte ausgewertete Kursdaten; keine fehlenden Renditen geschätzt."},
+        {"Messpunkt": "Mindestdatenmenge", "Wert": "20 ähnliche Setups", "Bedeutung": "Unter 20 ähnlichen Fällen bleibt die Aussage rein explorativ."},
+        {"Messpunkt": "Kalibrierungsregel", "Wert": permission, "Bedeutung": "Version 1 ändert Score-Gewichtungen niemals automatisch."},
+    ]
+    return status, rows
+
+
 def calibration_status_rows(
     trade_history: list[dict],
     forward_tests: list[dict] | None = None,
@@ -784,6 +922,71 @@ def signal_learning_rows(forward_tests: list[dict], predictions: list[dict]) -> 
                     "Hinweis": f"{len(values)} ausgewertete Fälle; nur Hinweis, keine automatische Gewichtung.",
                 }
             )
+    return status, rows
+
+
+def evaluated_basic_history_cases(trade_history: list[dict], forward_tests: list[dict], predictions: list[dict]) -> list[dict]:
+    cases: list[dict] = []
+    for source, items in [("Trade Journal", trade_history), ("Forward-Test", forward_tests), ("Prognose", predictions)]:
+        for item in items:
+            review_after = item.get("review_after", {})
+            if not isinstance(review_after, dict):
+                continue
+            for period, result in review_after.items():
+                if isinstance(result, dict):
+                    cases.append({"source": source, "period": period, "record": item, "result": result})
+    return cases
+
+
+def case_is_positive(case: dict) -> bool | None:
+    result = case.get("result", {})
+    if not isinstance(result, dict):
+        return None
+    if "target_hit" in result and result.get("target_hit") is True:
+        return True
+    if str(result.get("result", "")).lower() in {"treffer", "positiv", "positiv offen"}:
+        return True
+    return_pct = value_or_none(result.get("return_pct") or result.get("decision_return_pct"))
+    if return_pct is None:
+        return None
+    return float(return_pct) > 0
+
+
+def historical_confidence_rows(
+    trade_history: list[dict],
+    forward_tests: list[dict],
+    predictions: list[dict],
+    asset_profile: AssetProfile,
+    market_phase: MarketPhase,
+) -> tuple[str, list[dict[str, str]]]:
+    cases = evaluated_basic_history_cases(trade_history, forward_tests, predictions)
+    similar = [
+        case for case in cases
+        if str(case["record"].get("asset_type") or case["record"].get("Asset-Typ") or "").lower() == asset_profile.asset_type.lower()
+        or str(case["record"].get("market_phase") or case["record"].get("Marktphase") or "") == market_phase.phase
+    ]
+    positives = [case for case in similar if case_is_positive(case) is True]
+    evaluated = [case for case in similar if case_is_positive(case) is not None]
+    count = len(evaluated)
+
+    if count < 20:
+        status = "Datenbasis zu klein. Confidence bleibt primär signalbasiert; historische Trefferquote wird noch nicht belastbar ausgewiesen."
+        hit_rate_text = "Datenbasis zu klein"
+    elif count <= 50:
+        hit_rate = len(positives) / count * 100
+        status = "Vorsichtige historische Einordnung möglich. Keine automatische Gewichtungsänderung."
+        hit_rate_text = f"{hit_rate:.1f}%"
+    else:
+        hit_rate = len(positives) / count * 100
+        status = "Historische Einordnung verfügbar. Gewichtungen bleiben trotzdem manuell und testpflichtig."
+        hit_rate_text = f"{hit_rate:.1f}%"
+
+    rows = [
+        {"Kennzahl": "Ähnliche ausgewertete Setups", "Wert": str(count), "Bedeutung": "Gleicher Asset-Typ oder gleiche Marktphase aus lokaler Historie."},
+        {"Kennzahl": "Historische Trefferquote", "Wert": hit_rate_text, "Bedeutung": status},
+        {"Kennzahl": "Mindestdatenmenge", "Wert": "20 Fälle", "Bedeutung": "Darunter zeigt die App bewusst keine belastbare Trefferquote."},
+        {"Kennzahl": "Automatische Gewichtung", "Wert": "Nein", "Bedeutung": "Historie erklärt Confidence, verändert aber keine Scores automatisch."},
+    ]
     return status, rows
 
 
@@ -2827,11 +3030,22 @@ def research_valuation_score(info: dict, profile: AssetProfile, df: pd.DataFrame
 
     trailing_pe = value_or_none(info.get("trailingPE"))
     forward_pe = value_or_none(info.get("forwardPE"))
+    peg_ratio = value_or_none(info.get("pegRatio"))
     price_to_sales = value_or_none(info.get("priceToSalesTrailing12Months"))
+    enterprise_to_ebitda = value_or_none(info.get("enterpriseToEbitda"))
+    enterprise_value = value_or_none(info.get("enterpriseValue"))
+    free_cashflow = value_or_none(info.get("freeCashflow"))
+    price_to_book = value_or_none(info.get("priceToBook"))
+    market_cap = value_or_none(info.get("marketCap"))
+    revenue_growth = value_or_none(info.get("revenueGrowth"))
+    earnings_growth = value_or_none(info.get("earningsGrowth"))
+    operating_margin = value_or_none(info.get("operatingMargins"))
+    profit_margin = value_or_none(info.get("profitMargins"))
+    debt_to_equity = value_or_none(info.get("debtToEquity"))
     if trailing_pe is not None:
         score = 8.0 if trailing_pe <= 18 else 6.0 if trailing_pe <= 30 else 4.0 if trailing_pe <= 50 else 2.5
         points.append(score)
-        details.append(f"KGV: {trailing_pe:.1f} -> {score:.1f}/10.")
+        details.append(f"KGV: {trailing_pe:.1f} -> {score:.1f}/10; KGV wird nicht isoliert verwendet.")
     else:
         details.append(data_missing("KGV"))
     if forward_pe is not None:
@@ -2840,12 +3054,67 @@ def research_valuation_score(info: dict, profile: AssetProfile, df: pd.DataFrame
         details.append(f"Forward-KGV: {forward_pe:.1f} -> {score:.1f}/10.")
     else:
         details.append(data_missing("Forward-KGV"))
+    if peg_ratio is not None and peg_ratio > 0:
+        score = 8.0 if peg_ratio <= 1.2 else 6.5 if peg_ratio <= 2.0 else 4.5 if peg_ratio <= 3.5 else 2.5
+        points.append(score)
+        details.append(f"PEG-Ratio: {peg_ratio:.2f} -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("PEG-Ratio"))
     if price_to_sales is not None:
         score = 8.0 if price_to_sales <= 3 else 6.0 if price_to_sales <= 8 else 4.0 if price_to_sales <= 15 else 2.5
         points.append(score)
         details.append(f"Kurs-Umsatz-Verhältnis: {price_to_sales:.1f} -> {score:.1f}/10.")
     else:
         details.append(data_missing("Kurs-Umsatz-Verhältnis"))
+    if enterprise_to_ebitda is not None and enterprise_to_ebitda > 0:
+        score = 8.0 if enterprise_to_ebitda <= 12 else 6.5 if enterprise_to_ebitda <= 20 else 4.5 if enterprise_to_ebitda <= 35 else 2.5
+        points.append(score)
+        details.append(f"EV/EBITDA als EV/EBIT-Näherung: {enterprise_to_ebitda:.1f} -> {score:.1f}/10.")
+    else:
+        details.append("EV/EBIT: Daten nicht verfügbar.")
+    if enterprise_value is not None and free_cashflow is not None and free_cashflow > 0:
+        ev_fcf = enterprise_value / free_cashflow
+        score = 8.0 if ev_fcf <= 18 else 6.5 if ev_fcf <= 30 else 4.5 if ev_fcf <= 50 else 2.5
+        points.append(score)
+        details.append(f"EV/FCF: {ev_fcf:.1f} -> {score:.1f}/10.")
+    else:
+        details.append("EV/FCF: Daten nicht verfügbar.")
+    if price_to_book is not None and price_to_book > 0:
+        score = 8.0 if price_to_book <= 2 else 6.0 if price_to_book <= 6 else 4.0 if price_to_book <= 12 else 2.5
+        points.append(score)
+        details.append(f"Kurs/Buchwert: {price_to_book:.1f} -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("Kurs/Buchwert"))
+    if market_cap is not None and free_cashflow is not None and market_cap > 0:
+        fcf_yield = free_cashflow / market_cap
+        score = 8.0 if fcf_yield >= 0.06 else 6.5 if fcf_yield >= 0.035 else 4.5 if fcf_yield >= 0.015 else 2.5
+        points.append(score)
+        details.append(f"Free-Cashflow-Rendite: {fcf_yield * 100:.1f}% -> {score:.1f}/10.")
+    else:
+        details.append("Free-Cashflow-Rendite: Daten nicht verfügbar.")
+    if revenue_growth is not None:
+        details.append(f"Umsatzwachstum: {revenue_growth * 100:.1f}%.")
+    else:
+        details.append(data_missing("Umsatzwachstum"))
+    if earnings_growth is not None:
+        details.append(f"Gewinnwachstum: {earnings_growth * 100:.1f}%.")
+    else:
+        details.append(data_missing("Gewinnwachstum"))
+    if operating_margin is not None or profit_margin is not None:
+        margin_text = []
+        if operating_margin is not None:
+            margin_text.append(f"operative Marge {operating_margin * 100:.1f}%")
+        if profit_margin is not None:
+            margin_text.append(f"Nettomarge {profit_margin * 100:.1f}%")
+        details.append("Margen: " + ", ".join(margin_text) + ".")
+    else:
+        details.append(data_missing("Margen"))
+    if debt_to_equity is not None:
+        details.append(f"Verschuldung Debt/Equity: {debt_to_equity:.1f}.")
+    else:
+        details.append(data_missing("Verschuldung / Debt-to-Equity"))
+    details.append("Historische Bewertung: Daten nicht verfügbar.")
+    details.append("Branchenvergleich: Daten nicht verfügbar.")
     if profile.asset_type == "ETF":
         details.append("ETF-Bewertung über Index-KGV/Region: Daten nicht verfügbar.")
     score = score_from_optional(points)
@@ -2861,6 +3130,121 @@ def research_fundamental_module(asset_quality: ModuleScore, profile: AssetProfil
         else "Fundamentaldaten zeigen, ob das Unternehmen oder der ETF langfristig solide wirkt."
     )
     return ResearchModule(name, asset_quality.score, asset_quality.summary, asset_quality.details, beginner)
+
+
+def research_future_potential(info: dict, profile: AssetProfile, asset_quality: ModuleScore, news: ModuleScore) -> ResearchModule:
+    details: list[str] = []
+    points: list[float] = [asset_quality.score]
+    revenue_growth = value_or_none(info.get("revenueGrowth"))
+    earnings_growth = value_or_none(info.get("earningsGrowth"))
+    operating_margin = value_or_none(info.get("operatingMargins"))
+    if revenue_growth is not None:
+        score = clamp(5 + revenue_growth * 18)
+        points.append(score)
+        details.append(f"Umsatzwachstum: {revenue_growth * 100:.1f}% -> Zukunftspotenzial {score:.1f}/10.")
+    else:
+        details.append(data_missing("Umsatzwachstum"))
+    if earnings_growth is not None:
+        score = clamp(5 + earnings_growth * 16)
+        points.append(score)
+        details.append(f"Gewinnwachstum: {earnings_growth * 100:.1f}% -> Zukunftspotenzial {score:.1f}/10.")
+    else:
+        details.append(data_missing("Gewinnwachstum"))
+    if operating_margin is not None:
+        score = score_profitability_metric(operating_margin)
+        points.append(score)
+        details.append(f"Operative Marge: {operating_margin * 100:.1f}% -> Skalierbarkeit {score:.1f}/10.")
+    else:
+        details.append(data_missing("operative Marge"))
+    if profile.asset_type == "Aktie":
+        details.append("Langfristige Produkt-/KI-/Software-Chance: nur indirekt über Wachstum, Margen und News ableitbar; Spezialdaten nicht verfügbar.")
+    elif profile.asset_type == "Krypto":
+        details.append("Netzwerk-/Adoptionsdaten: Daten nicht verfügbar.")
+    if news.score >= 6.5:
+        points.append(6.5)
+        details.append("News-Sentiment stützt das Zukunftsnarrativ moderat.")
+    elif news.score <= 4:
+        points.append(4.0)
+        details.append("News-Sentiment belastet das Zukunftsnarrativ.")
+    score = score_from_optional(points)
+    summary = f"Zukunftspotenzial {score}/10 aus Qualität, Wachstum, Margen und verfügbarem Sentiment."
+    beginner = "Zukunftspotenzial fragt, ob das Asset langfristig wachsen kann. Fehlende Spezialdaten werden nicht erfunden."
+    return ResearchModule("Zukunftspotenzial", score, summary, details, beginner)
+
+
+def research_priced_expectations(info: dict, profile: AssetProfile, valuation: ResearchModule, momentum: ResearchModule, news: ModuleScore) -> ResearchModule:
+    details: list[str] = []
+    points: list[float] = []
+    valuation_score = valuation.score
+    if valuation_score is not None:
+        risk = clamp(10 - valuation_score)
+        points.append(risk)
+        details.append(f"Bewertungsniveau: Bewertungsscore {valuation_score:.1f}/10 -> eingepreiste Erwartungen {risk:.1f}/10.")
+    else:
+        details.append("Bewertungsniveau: Daten nicht verfügbar.")
+    if momentum.score is not None:
+        risk = 7.0 if momentum.score >= 7.5 else 5.5 if momentum.score >= 6 else 4.0 if momentum.score >= 4 else 3.0
+        points.append(risk)
+        details.append(f"Momentum: {momentum.score:.1f}/10 -> Optimismus-/Momentum-Anteil {risk:.1f}/10.")
+    else:
+        details.append("Momentum: Daten nicht verfügbar.")
+    if news.score >= 7:
+        points.append(6.5)
+        details.append("Medien-/News-Sentiment sehr positiv -> höhere eingepreiste Erwartungen.")
+    elif news.score <= 4:
+        points.append(3.5)
+        details.append("Medien-/News-Sentiment schwach -> weniger Euphorie eingepreist.")
+    else:
+        points.append(4.8)
+        details.append("Medien-/News-Sentiment neutral bis gemischt.")
+    recommendation_key = str(info.get("recommendationKey", "") or "").replace("_", " ").strip()
+    if recommendation_key:
+        details.append(f"Analysteneuphorie/Yahoo-Empfehlung: {recommendation_key}.")
+    else:
+        details.append("Analysteneuphorie: Daten nicht verfügbar.")
+    details.extend(
+        [
+            "IPO-Hype: Daten nicht verfügbar.",
+            "KI-Hype: Daten nicht verfügbar.",
+            "Kapitalzuflüsse: Daten nicht verfügbar.",
+            "Sentiment-Spezialdaten: Daten nicht verfügbar.",
+        ]
+    )
+    score = score_from_optional(points)
+    summary = f"Eingepreiste Erwartungen {score}/10. Hoher Wert bedeutet: viel Optimismus ist bereits im Kurs enthalten."
+    beginner = "Dieses Modul warnt, wenn ein fantastisches Unternehmen bereits sehr optimistisch bewertet ist."
+    return ResearchModule("Eingepreiste Erwartungen", score, summary, details, beginner)
+
+
+def research_expected_value(
+    close: float,
+    supports: list[float],
+    resistances: list[float],
+    buy_signal: ModuleScore,
+    asset_quality: ModuleScore,
+    risk_reward: RiskReward,
+    market_phase: MarketPhase,
+    latest: pd.Series,
+) -> ResearchModule:
+    bull_p, base_p, bear_p = scenario_probabilities(buy_signal, asset_quality, risk_reward, market_phase, close, supports, resistances, latest)
+    valid_resistances = [level for level in resistances if level > close]
+    valid_supports = [level for level in supports if level < close]
+    bull_return = ((valid_resistances[1] if len(valid_resistances) > 1 else valid_resistances[0]) - close) / close if valid_resistances else 0.12
+    base_return = ((valid_resistances[0] - close) / close * 0.45) if valid_resistances else 0.03
+    bear_return = ((valid_supports[1] if len(valid_supports) > 1 else valid_supports[0]) - close) / close if valid_supports else -0.10
+    expected_return = bull_return * bull_p / 100 + base_return * base_p / 100 + bear_return * bear_p / 100
+    expected_loss = abs(min(bear_return, 0)) * bear_p / 100
+    score = clamp(5 + expected_return * 25 - expected_loss * 10)
+    details = [
+        f"Bull-Case: {bull_return * 100:+.1f}% mit {bull_p}% Wahrscheinlichkeit.",
+        f"Base-Case: {base_return * 100:+.1f}% mit {base_p}% Wahrscheinlichkeit.",
+        f"Bear-Case: {bear_return * 100:+.1f}% mit {bear_p}% Wahrscheinlichkeit.",
+        f"Erwartete Rendite: {expected_return * 100:+.1f}%.",
+        f"Erwarteter Verlustbeitrag: {expected_loss * 100:.1f}%.",
+    ]
+    summary = f"Expected-Value-Score {score:.1f}/10. Erwartungswert {expected_return * 100:+.1f}% statt perfektem Einstieg."
+    beginner = "Expected Value fragt, ob Chance und Wahrscheinlichkeit höher wiegen als das Risiko. Ein perfekter Einstieg ist nicht zwingend nötig."
+    return ResearchModule("Expected Value", round(score, 1), summary, details, beginner)
 
 
 def module_from_existing(name: str, module: ModuleScore, beginner: str) -> ResearchModule:
@@ -3420,6 +3804,101 @@ def research_action(buy_signal: ModuleScore, risk_reward: RiskReward, supports: 
     return "Nachkauf nur bei Bestätigung"
 
 
+def professional_decision(
+    asset_quality: ModuleScore,
+    future_potential: ResearchModule,
+    valuation: ResearchModule,
+    priced_expectations: ResearchModule,
+    bubble_risk: ResearchModule,
+    buy_signal: ModuleScore,
+    expected_value: ResearchModule,
+    macro: ModuleScore,
+    market_phase: MarketPhase,
+    confidence: ResearchModule | None = None,
+) -> dict[str, str]:
+    quality = asset_quality.score
+    future = future_potential.score if future_potential.score is not None else 5.0
+    valuation_score = valuation.score if valuation.score is not None else 5.0
+    expectations = priced_expectations.score if priced_expectations.score is not None else 5.0
+    bubble = bubble_risk.score if bubble_risk.score is not None else 5.0
+    entry = buy_signal.score
+    ev = expected_value.score if expected_value.score is not None else 5.0
+    confidence_score = confidence.score if confidence and confidence.score is not None else 5.0
+
+    positive_quality = quality >= 7.0 and future >= 6.0
+    valuation_ok = valuation_score >= 5.2 and bubble < 7.8 and expectations < 7.8
+    chance_positive = ev >= 5.8
+    entry_acceptable = entry >= 4.8
+
+    if quality <= 3.5 and entry <= 3.8:
+        title = "Verkaufen / Risiko reduzieren"
+    elif valuation_score <= 3.2 or bubble >= 8.2 or expectations >= 8.4:
+        title = "Nicht kaufen"
+    elif positive_quality and valuation_ok and chance_positive and entry >= 7.4:
+        title = "Kaufen"
+    elif positive_quality and valuation_ok and chance_positive and entry_acceptable:
+        title = "Gestaffelt kaufen"
+    elif positive_quality and valuation_ok and ev >= 5.2:
+        title = "Kleine Tranche"
+    elif ev >= 5.2 and entry >= 5.0 and valuation_score >= 4.5:
+        title = "Beobachten"
+    else:
+        title = "Abwarten"
+
+    if title == "Kaufen" and all([quality >= 8.0, valuation_score >= 6.5, entry >= 7.5, ev >= 7.0, bubble <= 5.5]):
+        title = "Stark kaufen"
+
+    reasons = {
+        "Unternehmensqualität schwach": quality < 4.5,
+        "Bewertung zu hoch": valuation_score < 4.2,
+        "Blasenrisiko zu hoch": bubble >= 7.5 or expectations >= 7.5,
+        "Makro schlecht": macro.score < 4.0 or market_phase.phase == "Bärenmarkt",
+        "Trend klar negativ": entry < 4.0,
+        "Einstieg technisch unattraktiv": entry < 5.0,
+        "CRV schlecht": ev < 4.8,
+        "Datenlage zu schwach": confidence_score < 4.5,
+    }
+    main_reason = "Kein klarer Ablehnungsgrund; Chance und Risiko werden abgewogen."
+    if title in {"Nicht kaufen", "Abwarten", "Beobachten", "Verkaufen / Risiko reduzieren"}:
+        main_reason = next((reason for reason, active in reasons.items() if active), "Signal noch nicht eindeutig genug.")
+
+    not_main = []
+    if quality >= 7.0 and main_reason != "Unternehmensqualität schwach":
+        not_main.append("nicht wegen Unternehmensqualität")
+    if valuation_score >= 5.2 and main_reason != "Bewertung zu hoch":
+        not_main.append("nicht wegen Bewertung")
+    if entry >= 5.0 and main_reason != "Einstieg technisch unattraktiv":
+        not_main.append("nicht wegen Timing")
+    not_main_reason = ", sondern wegen " + main_reason.lower() + "." if not_main else "Daten nicht eindeutig genug."
+    if not_main:
+        not_main_reason = f"{', '.join(not_main).capitalize()}{not_main_reason}"
+
+    if title == "Stark kaufen":
+        summary = "Außergewöhnlich attraktive Chance: Qualität, Bewertung, Einstieg und Expected Value passen selten gut zusammen."
+    elif title == "Gestaffelt kaufen":
+        summary = "Starkes Asset und positives CRV; der Einstieg muss nicht perfekt sein, daher eher in Tranchen statt alles sofort."
+    elif title == "Kleine Tranche":
+        summary = "Langfristig interessant, aber kurzfristige Unsicherheit ist erhöht; kleine Startposition statt voller Kauf."
+    elif title == "Nicht kaufen":
+        summary = "Gutes Unternehmen kann trotzdem ein schlechtes Investment sein, wenn Bewertung, Hype oder CRV dagegen sprechen."
+    else:
+        summary = "Die Entscheidung trennt Qualität, Bewertung, Timing und Expected Value statt pauschal vorsichtig oder bullisch zu sein."
+
+    return {
+        "Titel": title,
+        "Asset-Qualität": f"{quality:.1f}/10",
+        "Zukunftspotenzial": f"{future:.1f}/10",
+        "Bewertung": "Daten nicht verfügbar" if valuation.score is None else f"{valuation_score:.1f}/10",
+        "Eingepreiste Erwartungen": "Daten nicht verfügbar" if priced_expectations.score is None else f"{expectations:.1f}/10",
+        "Blasenrisiko": "Daten nicht verfügbar" if bubble_risk.score is None else f"{bubble:.1f}/10",
+        "Technischer Einstieg": f"{entry:.1f}/10",
+        "Expected Value": "Daten nicht verfügbar" if expected_value.score is None else f"{ev:.1f}/10",
+        "Gesamtfazit": summary,
+        "Hauptgrund der Ablehnung": main_reason,
+        "Nicht der Hauptgrund": not_main_reason,
+    }
+
+
 def build_research_conclusion(
     action: str,
     modules: list[ResearchModule],
@@ -3494,10 +3973,12 @@ def build_research_pack(
     momentum = research_momentum_score(df)
     valuation = research_valuation_score(info, asset_profile, df, macro)
     fundamentals = research_fundamental_module(asset_quality, asset_profile)
+    future_potential = research_future_potential(info, asset_profile, asset_quality, news)
     market_regime = research_market_regime(df, market_phase, macro)
     macro_impact = research_macro_impact(asset_profile, macro)
     commodity_context = research_commodity_context(asset_profile)
     bubble_risk = research_bubble_risk(info, df, valuation, momentum, news)
+    priced_expectations = research_priced_expectations(info, asset_profile, valuation, momentum, news)
     innovation = research_innovation_context(info, asset_profile, asset_quality, bubble_risk, news)
     crypto_cycle = research_crypto_cycle(symbol, asset_profile, df)
     macro_module = module_from_existing("Makro-Score", macro, "Der Makro-Score bewertet Zinsen, Nasdaq, Dollar und Inflationsumfeld. Hoch heißt: Das Umfeld hilft eher.")
@@ -3508,17 +3989,19 @@ def build_research_pack(
     earnings = research_earnings_module(symbol, info, asset_profile)
     event_risk = research_event_risk_module(info, asset_profile, macro)
     institutional = research_institutional_data(info, asset_profile)
-    modules = [chart, momentum, valuation, fundamentals, innovation, bubble_risk, market_regime, macro_impact, commodity_context, macro_module, news_module, risk, liquidity]
+    expected_value = research_expected_value(close, supports, resistances, buy_signal, asset_quality, risk_reward, market_phase, latest)
+    modules = [fundamentals, future_potential, valuation, priced_expectations, bubble_risk, chart, momentum, expected_value, innovation, market_regime, macro_impact, commodity_context, macro_module, news_module, risk, liquidity]
     if asset_profile.asset_type == "Krypto":
-        modules.insert(4, crypto_cycle)
+        modules.insert(5, crypto_cycle)
     institutional_modules = [analyst, earnings, event_risk, institutional]
     confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules)
     uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)
     scenarios = build_scenarios(close, supports, resistances, buy_signal, asset_quality, risk_reward, market_phase, latest, original_currency, fx_rate, currency_mode)
     buy_zones = build_buy_zones(close, supports, resistances, latest, original_currency, fx_rate, currency_mode)
-    action = research_action(buy_signal, risk_reward, supports, close)
+    decision = professional_decision(asset_quality, future_potential, valuation, priced_expectations, bubble_risk, buy_signal, expected_value, macro, market_phase, confidence)
+    action = decision["Titel"]
     conclusion = build_research_conclusion(action, modules, buy_signal, asset_quality, risk_reward, supports, resistances, latest, original_currency, fx_rate, currency_mode)
-    return ResearchPack(data_quality, modules, institutional_modules, confidence, uncertainty_factors, scenarios, buy_zones, action, conclusion)
+    return ResearchPack(data_quality, modules, institutional_modules, confidence, uncertainty_factors, scenarios, buy_zones, action, decision, conclusion)
 
 
 def build_forward_test_record(
@@ -3549,6 +4032,7 @@ def build_forward_test_record(
         "portfolio_mode": portfolio_result.enabled,
         "portfolio_score": portfolio_result.score,
         "action": research_pack.action,
+        "professional_decision": research_pack.decision,
         "scenarios": research_pack.scenarios,
         "buy_zones": research_pack.buy_zones,
         "module_scores": [
@@ -3585,6 +4069,7 @@ def build_decision_record(
         "decision": decision,
         "user_note": user_note.strip(),
         "app_action": research_pack.action,
+        "professional_decision": research_pack.decision,
         "asset_quality": asset_quality.score,
         "buy_signal": buy_signal.score,
         "confidence": research_pack.confidence.score,
@@ -3621,6 +4106,7 @@ def build_prediction_record(
         "confidence": research_pack.confidence.score,
         "risk_reward_score": risk_reward.score,
         "risk_reward_ratio": risk_reward.ratio,
+        "professional_decision": research_pack.decision,
         "scenarios": research_pack.scenarios,
         "decisive_mark": research_pack.conclusion.get("Welche Marke ist entscheidend?"),
         "invalidation_or_buy_zones": research_pack.buy_zones,
@@ -3728,18 +4214,9 @@ def final_recommendation_v2(
     risk_reward: RiskReward,
     research_action_text: str,
     confidence: ResearchModule,
+    decision: dict[str, str],
 ) -> tuple[str, str]:
-    score = buy_signal.score
-    if score >= 8:
-        title = "Kleine Tranche möglich"
-    elif score >= 6.5:
-        title = "Nachkauf nur bei Bestätigung"
-    elif score >= 5:
-        title = "Beobachten"
-    elif score >= 3.5:
-        title = "Heute nicht kaufen"
-    else:
-        title = "Risiko zu hoch"
+    title = decision.get("Titel", research_action_text)
 
     context = f"Asset-Qualität: {asset_quality.score}/10. Kaufsignal: {buy_signal.score}/10."
     if asset_quality.score >= 7 and buy_signal.score < 6.5:
@@ -3774,6 +4251,11 @@ def final_recommendation_v2(
     <div class="decision-box">
         <div class="recommendation-label">Zentrale Einschätzung</div>
         <div class="decision-title">{title}</div>
+        <div class="decision-section"><strong>Professionelle Entscheidung:</strong> {decision.get("Gesamtfazit", buy_signal.summary)}</div>
+        <div class="decision-section"><strong>Asset-Qualität:</strong> {decision.get("Asset-Qualität", "Daten nicht verfügbar")} · <strong>Zukunftspotenzial:</strong> {decision.get("Zukunftspotenzial", "Daten nicht verfügbar")} · <strong>Bewertung:</strong> {decision.get("Bewertung", "Daten nicht verfügbar")}</div>
+        <div class="decision-section"><strong>Eingepreiste Erwartungen:</strong> {decision.get("Eingepreiste Erwartungen", "Daten nicht verfügbar")} · <strong>Blasenrisiko:</strong> {decision.get("Blasenrisiko", "Daten nicht verfügbar")} · <strong>Technischer Einstieg:</strong> {decision.get("Technischer Einstieg", "Daten nicht verfügbar")} · <strong>Expected Value:</strong> {decision.get("Expected Value", "Daten nicht verfügbar")}</div>
+        <div class="decision-section"><strong>Hauptgrund der Ablehnung/Vorsicht:</strong> {decision.get("Hauptgrund der Ablehnung", "Kein klarer Ablehnungsgrund.")}</div>
+        <div class="decision-section"><strong>Nicht der Hauptgrund:</strong> {decision.get("Nicht der Hauptgrund", "Daten nicht verfügbar.")}</div>
         <div class="decision-section"><strong>Primär nach Kaufsignal:</strong> {buy_signal.summary}</div>
         <div class="decision-section"><strong>Research-Einordnung:</strong> {research_text}</div>
         <div class="decision-section"><strong>Langfristiger Kontext:</strong> {context}</div>
@@ -4588,6 +5070,12 @@ def render_analysis_card(title: str, status: str, explanation: str) -> None:
     )
 
 
+@st.cache_data
+def load_logo_data_uri(path: str) -> str:
+    encoded_logo = base64.b64encode(Path(path).read_bytes()).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded_logo}"
+
+
 def main() -> None:
     st.set_page_config(page_title=APP_TITLE, page_icon="📈", layout="wide")
 
@@ -4655,12 +5143,42 @@ def main() -> None:
             margin-top: 10px;
             color: #e5e7eb;
         }
+        .app-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0.1rem 0 1.2rem;
+            text-align: center;
+        }
+        .app-header-title {
+            margin: 0.25rem 0 0;
+            font-size: clamp(2.2rem, 5vw, 3.6rem);
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .hero-logo-svg {
+            width: min(86vw, 520px);
+            height: auto;
+            display: block;
+            filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.45));
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    st.title(APP_TITLE)
+    bonez_logo_data_uri = load_logo_data_uri(str(BONEZ_LOGO_PATH))
+    st.markdown(
+        f"""
+        <div class="app-header">
+            <img class="hero-logo-svg" src="{bonez_logo_data_uri}" alt="Bonez MC Logo" />
+            <h1 class="app-header-title">{APP_TITLE}</h1>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.warning(DISCLAIMER)
     st.caption("Keine Broker-Anbindung. Keine Kauf- oder Verkaufsautomatisierung. Die letzte Entscheidung trifft immer der Nutzer.")
 
@@ -4901,6 +5419,13 @@ def main() -> None:
             prediction_history,
         )
         signal_learning_status, signal_learning_table = signal_learning_rows(forward_history, prediction_history)
+        historical_confidence_status, historical_confidence_table = historical_confidence_rows(
+            trade_history,
+            forward_history,
+            prediction_history,
+            asset_profile,
+            market_phase,
+        )
         action_title, action_html = final_recommendation_v2(
             asset_quality,
             buy_signal,
@@ -4909,6 +5434,18 @@ def main() -> None:
             risk_reward,
             research_pack.action,
             research_pack.confidence,
+            research_pack.decision,
+        )
+        similar_setup_status, similar_setup_table = similar_setup_rows(
+            asset_profile,
+            market_phase,
+            action_title,
+            asset_quality,
+            buy_signal,
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
         )
         score_result.recommendation = action_title
         display_df = converted_price_frame(chart_df, fx_rate)
@@ -4946,6 +5483,24 @@ def main() -> None:
                 for warning in data_source_warnings:
                     st.write(f"- {warning}")
         st.markdown(action_html, unsafe_allow_html=True)
+        auto_forward_key = f"auto_forward_{symbol}_{action_title}_{pd.Timestamp.now().date().isoformat()}"
+        if auto_forward_key not in st.session_state:
+            auto_record = build_forward_test_record(
+                symbol,
+                asset_identity,
+                asset_profile,
+                latest,
+                asset_quality,
+                buy_signal,
+                market_phase,
+                risk_reward,
+                research_pack,
+                portfolio_result,
+            )
+            auto_record["auto_saved"] = True
+            auto_record["note"] = "Automatisch gespeicherte Empfehlung für späteres Forward-Testing. Keine Order, keine Broker-Anbindung."
+            if save_forward_test(auto_record):
+                st.session_state[auto_forward_key] = True
         if st.button("Analyse als Forward-Test speichern", use_container_width=True):
             record = build_forward_test_record(
                 symbol,
@@ -4966,7 +5521,7 @@ def main() -> None:
         with st.expander("Eigene Entscheidung dokumentieren", expanded=False):
             decision_choice = st.selectbox(
                 "Was machst du mit dieser Analyse?",
-                ["Beobachten", "Nicht kaufen", "Kaufen", "Halten", "Verkaufen"],
+                ["Beobachten", "Kleine Tranche", "Gestaffelt kaufen", "Kaufen", "Nicht kaufen", "Halten", "Verkaufen"],
                 index=0,
                 key=f"decision_choice_{symbol}",
             )
@@ -5087,6 +5642,19 @@ def main() -> None:
                 hide_index=True,
             )
 
+            st.markdown("**Professionelle Kauf-/Nichtkauf-Entscheidung**")
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {"Bereich": key, "Einordnung": value}
+                        for key, value in research_pack.decision.items()
+                        if key != "Titel"
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+
             if beginner_mode:
                 st.markdown("**Einfache Erklärung der Research-Scores**")
                 for module in research_pack.modules:
@@ -5124,6 +5692,13 @@ def main() -> None:
             )
             for detail in research_pack.confidence.details:
                 st.write(f"- {detail}")
+            st.markdown("**Historische Confidence aus lokaler Historie**")
+            st.write(historical_confidence_status)
+            st.dataframe(pd.DataFrame(historical_confidence_table), use_container_width=True, hide_index=True)
+
+            st.markdown("**Ähnliche historische Setups**")
+            st.write(similar_setup_status)
+            st.dataframe(pd.DataFrame(similar_setup_table), use_container_width=True, hide_index=True)
 
             st.markdown("**Was könnte diese Analyse widerlegen?**")
             for factor in research_pack.uncertainty_factors[:5]:
@@ -5163,6 +5738,11 @@ def main() -> None:
             transparency_rows = [
                 {"Bereich": "Asset-Qualität", "Score": f"{asset_quality.score:.1f}/10", "Was wird bewertet?": "Langfristige Qualität des Assets", "Begründung": asset_quality.summary},
                 {"Bereich": "Kaufsignal", "Score": f"{buy_signal.score:.1f}/10", "Was wird bewertet?": "Ob jetzt ein guter Einstieg sein könnte", "Begründung": buy_signal.summary},
+                {"Bereich": "Zukunftspotenzial", "Score": research_pack.decision.get("Zukunftspotenzial", "Daten nicht verfügbar"), "Was wird bewertet?": "Langfristige Wachstumschance", "Begründung": "Separat von Bewertung und Timing."},
+                {"Bereich": "Bewertung", "Score": research_pack.decision.get("Bewertung", "Daten nicht verfügbar"), "Was wird bewertet?": "Preis im Verhältnis zu Gewinn, Umsatz, Cashflow und Wachstum", "Begründung": "KGV wird nicht isoliert verwendet."},
+                {"Bereich": "Eingepreiste Erwartungen", "Score": research_pack.decision.get("Eingepreiste Erwartungen", "Daten nicht verfügbar"), "Was wird bewertet?": "Wie viel Optimismus bereits im Kurs steckt", "Begründung": "Hoher Wert ist ein Warnsignal."},
+                {"Bereich": "Blasenrisiko", "Score": research_pack.decision.get("Blasenrisiko", "Daten nicht verfügbar"), "Was wird bewertet?": "Überhitzung durch Bewertung, Momentum und Sentiment", "Begründung": "Hoher Wert spricht gegen blindes Kaufen."},
+                {"Bereich": "Expected Value", "Score": research_pack.decision.get("Expected Value", "Daten nicht verfügbar"), "Was wird bewertet?": "Erwartete Rendite versus erwarteter Verlust", "Begründung": "Prüft guten statt perfekten Einstieg."},
             ]
             if portfolio_result.enabled:
                 transparency_rows.append(
@@ -5196,6 +5776,13 @@ def main() -> None:
             st.write(signal_learning_status)
             st.dataframe(
                 pd.DataFrame(signal_learning_table),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Confidence-System: ähnliche Setups**")
+            st.write(similar_setup_status)
+            st.dataframe(
+                pd.DataFrame(similar_setup_table),
                 use_container_width=True,
                 hide_index=True,
             )

@@ -138,10 +138,13 @@ Enthalten sind:
 - Datenqualitäts-Check: Ticker, Asset-Typ, Börse, Währung, Kursdaten, Volumen, 200 Handelstage sowie 50er/200er-Durchschnitt
 - Charttechnik-Score
 - Momentum-Score
-- Bewertungsscore oder bei Krypto Zyklus-/On-Chain-Score
+- Bewertungsscore oder bei Krypto Zyklus-/On-Chain-Score; bei Aktien werden KGV, Forward-KGV, PEG, KUV, EV/EBIT-Näherung, EV/FCF, Kurs/Buchwert, Free-Cashflow-Rendite, Wachstum, Margen, Verschuldung, historische Bewertung und Branchenvergleich getrennt ausgewiesen, sofern verfügbar
 - Fundamentaldaten-Score oder bei Krypto Netzwerk-/Adoptionsscore
+- Zukunftspotenzial: Wachstum, Margen, Qualität und verfügbares Sentiment, ohne fehlende Daten zu erfinden
+- Eingepreiste Erwartungen: Bewertungsniveau, Momentum, News-/Analysten-Euphorie, IPO-/KI-Hype, Zuflüsse und Sentiment; hoher Wert bedeutet, dass bereits viel Optimismus im Kurs stecken kann
 - Innovation / Hype: Hinweise auf Wachstum, Margen, Cashflow, Marktstellung, Technologiebezug und Hype-Risiko
 - Blasenrisiko: Bewertung, Momentum, 3M-Kursanstieg, Volatilität und News-Sentiment; hoher Wert ist ein Warnsignal
+- Expected Value: Bull-/Base-/Bear-Case, Wahrscheinlichkeiten, erwartete Rendite, erwarteter Verlustbeitrag und Expected-Value-Score
 - Makro-Score
 - Marktregime mit Hinweisen, Gegenargumenten, Unsicherheiten, betroffenen Asset-Klassen und Vertrauensgrad
 - Makro-Wirkung: Zinsen, Dollar, Risikoappetit und Inflations-/Realzinsproxy mit praktischer Wirkung auf Aktien, ETFs, Krypto und Rohstoffe
@@ -153,11 +156,13 @@ Enthalten sind:
 - Bull-/Base-/Bear-Szenarien mit Wahrscheinlichkeiten, die zusammen 100 % ergeben; Trend, Volatilität, Unterstützungen, Widerstände und CRV werden als Treiber ausgewiesen
 - Nachkaufzonen: aggressiv, fair, sicher und ungültig bei Bruch der Unterstützung; fehlende Unterstützungen oder Widerstände werden als nicht berechenbar angezeigt
 - Research-Fazit: was für Kauf spricht, was dagegen spricht, was die Analyse verbessern würde, welche Marke entscheidend ist und ein konkreter Plan
+- Professionelle Kauf-/Nichtkauf-Entscheidung: trennt Asset-Qualität, Zukunftspotenzial, Bewertung, eingepreiste Erwartungen, Blasenrisiko, technischen Einstieg, Expected Value und Gesamtfazit. Bei vorsichtigen oder negativen Empfehlungen werden Hauptgrund und Nicht-Hauptgrund angezeigt.
 - Analysten-Konsens, sofern Yahoo-Finance-Daten verfügbar sind
 - Earnings-Modul für Aktien, sofern Quartalsdaten verfügbar sind
 - Event-Risiko-Modul für bekannte oder verfügbare Ereignisdaten
 - Institutionelle Daten wie Beteiligungen und Short Interest, sofern verfügbar
 - Vertrauensscore zur Einschätzung, wie belastbar die Analyse aktuell ist
+- Confidence-System für ähnliche historische Setups: zählt ausgewertete Fälle aus Trade-Journal, Forward-Tests, Decision-Tracking und Prognosen, zeigt Trefferquote erst ab mindestens 20 ähnlichen Fällen und ändert Gewichtungen niemals automatisch
 - Unsicherheitsfaktoren: Was könnte diese Analyse widerlegen?
 
 Wenn Daten fehlen, zeigt die App **Daten nicht verfügbar** oder **Datenqualität eingeschränkt**. Fehlende Kennzahlen werden nicht erfunden.
@@ -170,10 +175,10 @@ Die ROADMAP sieht zusätzliche Module vor, die nicht nur neue Features liefern s
 - Trading-Modus: Es werden nur Kandidaten aus dem Opportunity Scanner analysiert. Für jedes Setup werden Richtung, Chance, Confidence, Zielzone, Stop-Zone, Zeithorizont, CRV, Risiken und Chancen angezeigt.
 - Trade Journal: Trading-Setups können lokal in `trade_history.json` dokumentiert werden, ohne eine Order auszuführen.
 - Performance Tracking: Gespeicherte Trading-Setups können nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten überprüft werden. Erfasst werden Treffer/Fehlschlag, Rendite, maximale positive Entwicklung, maximale negative Entwicklung sowie Ziel- und Stop-Berührung.
-- Forward-Testing: Eine angezeigte Analyse kann optional lokal in `forward_tests.json` gespeichert werden. Fällige Tests können in der Sidebar ausgewertet werden; gespeichert werden Rendite, maximale positive und negative Entwicklung. Die Datei wird nicht versioniert und löst niemals eine Order aus.
+- Forward-Testing: Eine angezeigte Analyse wird für die spätere Auswertung automatisch einmal pro Symbol/Empfehlung/Tag lokal in `forward_tests.json` vorgemerkt und kann zusätzlich manuell gespeichert werden. Fällige Tests können in der Sidebar ausgewertet werden; gespeichert werden Rendite, maximale positive und negative Entwicklung. Die Datei wird nicht versioniert und löst niemals eine Order aus.
 - Decision-Tracking: Nutzerentscheidungen wie gekauft, gehalten, verkauft oder beobachtet können optional lokal in `decision_history.json` protokolliert und später gegen Long, Short und Beobachten verglichen werden. Es wird keine Order ausgeführt.
 - Prognose-Tracking: Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken können lokal in `prediction_history.json` gespeichert werden. Fällige Prognosen können in der Sidebar mit echten Kursdaten ausgewertet werden.
-- Confidence-System: Chancen sollen zusätzlich mit ähnlichen historischen Fällen und Trefferquoten eingeordnet werden.
+- Confidence-System: Chancen werden zusätzlich mit ähnlichen lokalen historischen Fällen eingeordnet. Unter 20 ausgewerteten Fällen zeigt die App bewusst `Datenbasis zu klein`; danach werden Trefferquoten ähnlicher Setups nur als Kontext angezeigt und verändern keine Scores automatisch.
 - Kalibrierungs- und Lernmodul: Häufige Fehlprognosen sollen zeigen, welche Module verbessert werden müssen.
 
 Diese Module dürfen keine Käufe oder Verkäufe ausführen. Sie dienen nur dazu, Chancen zu finden, Vorschläge zu dokumentieren, Trefferquoten zu messen, Fehlerquellen zu erkennen und Verbesserungsbedarf transparent zu machen.

@@ -427,6 +427,7 @@ Der Confidence Score soll berücksichtigen:
 - Stabilität der Signale
 - Klarheit der Marktphase
 - Liquidität und Volatilität
+- Status: Basis umgesetzt am 2026-06-15. Die App zählt ähnliche lokale Historienfälle nach Asset-Typ oder Marktphase und zeigt Trefferquote erst ab ausreichender Datenbasis.
 
 ### PRIO B: Signalanalyse
 
@@ -483,20 +484,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Confidence-System erweitern: ähnliche historische Setups und Trefferquote aus lokaler Historie anzeigen.
+1. Kalibrierungsvorschläge aus ähnlichen historischen Setups weiter ausbauen.
 
 Warum diese Aufgabe zuerst:
 
-- Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Signalanalyse, Opportunity Scanner und Trading-Modus sind als Basis umgesetzt.
-- Der nächste größte Nutzen liegt im Confidence-System, weil Chancen dann nicht nur geschätzt werden, sondern mit eigener Historie und ähnlichen Fällen eingeordnet werden können.
-- Diese Aufgabe ist PRIO B, weil sie Lernfähigkeit und Kalibrierung vorbereitet.
+- Das Confidence-System zählt jetzt ähnliche historische Setups und zeigt Trefferquote erst ab ausreichender Datenbasis.
+- Der nächste Nutzen liegt darin, aus diesen ähnlichen Fällen vorsichtige, transparente Verbesserungsvorschläge nach Signalbestandteilen abzuleiten, ohne Gewichtungen automatisch zu ändern.
+- Diese Aufgabe bleibt PRIO B, weil sie Lernfähigkeit und Kalibrierung vorbereitet.
 
 Nächste konkrete Umsetzung:
 
-1. Ähnliche Setups aus `trade_history.json`, `forward_tests.json` und `prediction_history.json` zählen.
-2. Trefferquote ähnlicher Setups anzeigen, sobald ausreichend Fälle vorhanden sind.
-3. Unter Mindestdatenmenge transparent `Datenbasis zu klein` anzeigen.
+1. Ähnliche-Setup-Auswertung nach Signalbestandteilen wie RSI, MACD, Marktphase, Volatilität, News, Makro und CRV feiner aufschlüsseln.
+2. Ab 20 bis 50 Fällen nur vorsichtige Hinweise anzeigen.
+3. Ab 50 Fällen konkrete Kalibrierungsvorschläge formulieren.
 4. Keine automatische Gewichtungsänderung einbauen.
 5. Tests ausführen und ROADMAP aktualisieren.
 
@@ -975,6 +975,31 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Trade-History-Auswertung mit gemockten Kursdaten erfolgreich. Live-Test mit Yahoo-Finance-Daten bleibt optional.
 - Erweitertes Decision Tracking umgesetzt: Fällige Entscheidungen in `decision_history.json` können über die Sidebar gegen Long, Short und Halten/Beobachten ausgewertet werden; gespeichert werden Entscheidungsrendite, beste Alternative und Opportunitätskosten.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Decision-Tracking-Auswertung mit gemockten Kursdaten erfolgreich.
+- Confidence-System erweitert: Im Research-Modul zeigt die App ähnliche lokale Historienfälle nach Asset-Typ oder Marktphase, historische Trefferquote erst ab ausreichender Datenbasis und die Regel, dass keine automatische Gewichtungsänderung erfolgt.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
+
+### 2026-07-19
+
+- Technische Bereinigung im Confidence-/Lernmodul umgesetzt: doppelte Funktionsnamen für historische Auswertungen getrennt, damit die Ähnliche-Setup-Auswertung und die allgemeine Confidence-Historie jeweils die richtige Datenstruktur verwenden.
+- ROADMAP-Bereinigung fortgeführt: Konfliktmarker und doppelte Änderungsprotokoll-Blöcke entfernt.
+- Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; Mock-Tests für Ähnliche-Setup-Trefferquote und historische Confidence-Auswertung erfolgreich.
+- Nächste Priorität bleibt: Kalibrierungsvorschläge aus ähnlichen Setups feiner nach Signalbestandteilen ableiten, ohne Gewichtungen automatisch zu verändern.
+
+### 2026-06-30
+
+- Confidence-System erweitert: Die App zählt ähnliche historische Setups aus `trade_history.json`, `forward_tests.json`, `decision_history.json` und `prediction_history.json` nach Asset-Typ, Empfehlung/Aktionsfamilie, Marktphase, Kaufsignal-Bucket und Asset-Qualitäts-Bucket.
+- Trefferquote und Durchschnittsrendite ähnlicher Setups werden erst ab mindestens 20 ähnlichen ausgewerteten Fällen angezeigt; darunter steht transparent `Datenbasis zu klein`.
+- Die Auswertung nutzt nur tatsächlich gespeicherte Review-Ergebnisse und erfindet keine fehlenden Renditen.
+- Gewichtungen werden weiterhin nicht automatisch geändert; die Ausgabe dient nur als Confidence- und Kalibrierungshinweis.
+- Nächste Priorität angepasst: Kalibrierungsvorschläge aus den ähnlichen Setups feiner nach Signalbestandteilen ableiten.
+
+### 2026-06-24
+
+- Professionellere Kauf-/Nichtkauf-Entscheidung umgesetzt: Die App trennt Asset-Qualität, Zukunftspotenzial, Bewertung, eingepreiste Erwartungen, Blasenrisiko, technischen Einstieg und Expected Value, damit starke Qualitätsaktien nicht nur wegen unperfektem Timing pauschal abgelehnt werden.
+- Bewertungsmodul für Aktien erweitert: KGV, Forward-KGV, PEG, KUV, EV/EBIT-Näherung, EV/FCF, Kurs/Buchwert, Free-Cashflow-Rendite, Wachstum, Margen, Verschuldung, historische Bewertung und Branchenvergleich werden berücksichtigt oder explizit als `Daten nicht verfügbar` angezeigt; KGV wird nicht isoliert verwendet.
+- Neues Expected-Value-Modul ergänzt: Bull-/Base-/Bear-Case, Wahrscheinlichkeiten, erwartete Rendite, erwarteter Verlustbeitrag und Expected-Value-Score fließen in die Entscheidung ein.
+- Ablehnungslogik erweitert: Vorsichtige oder negative Empfehlungen zeigen Hauptgrund und Nicht-Hauptgrund, z. B. ob es nicht an der Unternehmensqualität, sondern an Bewertung, Timing, CRV, Blasenrisiko, Makro oder Datenlage liegt.
+- Forward-Testing vorbereitet: Empfehlungen werden lokal automatisch einmal pro Symbol, Empfehlung und Tag für spätere Auswertung gespeichert; es gibt weiterhin keine Broker-Anbindung und keine automatische Orderfunktion.
 
 ### 2026-06-14
 

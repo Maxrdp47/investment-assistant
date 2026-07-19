@@ -447,6 +447,7 @@ Auswerten, welche Signale historisch nützlich waren:
 - Confidence Score
   - Status: Basis umgesetzt am 2026-06-15: Signalanalyse zählt ausgewertete Forward-Tests und Prognosen und zeigt Trefferquoten nach Asset-Typ erst ab ausreichender Datenbasis.
   - Status: Signal-Snapshots umgesetzt am 2026-07-19: neue Historieneinträge speichern RSI-, MACD-, Volatilitäts-, News-, Makro- und CRV-Buckets; fehlende alte Signalwerte bleiben `Daten nicht verfügbar`.
+  - Status: Segment-Auswertung umgesetzt am 2026-07-19: Trefferquote, Durchschnittsrendite und Fallzahl werden nach Asset-Typ, Marktphase und Zeithorizont gruppiert; unter 20 Fällen bleibt die Aussage `Datenbasis zu klein`.
 
 ### PRIO B: Kalibrierungsvorschläge
 
@@ -487,20 +488,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Trefferquoten und Signalwirkung nach Asset-Typ, Marktphase und Zeithorizont feiner auswerten.
+1. Längere Auswertungszeiträume für Forward-, Prognose-, Decision- und Trade-Tracking vorbereiten.
 
 Warum diese Aufgabe zuerst:
 
 - Das Confidence-System zählt jetzt ähnliche historische Setups und zeigt Trefferquote erst ab ausreichender Datenbasis.
-- Die erste signalbasierte Kalibrierung ist umgesetzt; neue Historien speichern Signal-Snapshots für RSI, MACD, Volatilität, News, Makro und CRV.
-- Der nächste Nutzen liegt darin, Trefferquoten nicht nur global, sondern nach Asset-Typ, Marktphase und Auswertungszeitraum zu vergleichen.
+- Die erste signalbasierte Kalibrierung und Segment-Auswertung nach Asset-Typ, Marktphase und Zeithorizont sind umgesetzt.
+- Der nächste Nutzen liegt darin, die bisher kurzfristigen Reviews um längere Zeiträume vorzubereiten, damit 6- und 12-Monats-Trefferquoten später messbar werden.
 - Diese Aufgabe bleibt PRIO B, weil sie Lernfähigkeit und Kalibrierung vorbereitet.
 
 Nächste konkrete Umsetzung:
 
-1. Ausgewertete Historien nach Asset-Typ, Marktphase und Zeitraum gruppieren.
-2. Trefferquote, Durchschnittsrendite und Fallzahl je Gruppe anzeigen.
-3. Gruppen unter 20 Fällen als `Datenbasis zu klein` kennzeichnen.
+1. Review-Strukturen für 6 Monate und 12 Monate ergänzen, ohne alte Historien zu beschädigen.
+2. Auswertungsfunktionen so erweitern, dass alte und neue Review-Felder kompatibel bleiben.
+3. README und ROADMAP um längere Auswertungszeiträume ergänzen.
 4. Keine automatische Gewichtungsänderung einbauen.
 5. Tests ausführen und ROADMAP aktualisieren.
 
@@ -984,6 +985,11 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-19
 
+- Segmentierte Lernanalyse umgesetzt: Die App zeigt im Analyse-Detailbereich Trefferquote, Durchschnittsrendite und Fallzahl nach Asset-Typ, Marktphase und Zeithorizont.
+- Mindestdatenlogik beibehalten: Gruppen unter 20 Fällen bleiben `Datenbasis zu klein`; 20 bis 50 Fälle liefern nur vorsichtige Hinweise; ab über 50 Fällen sind manuelle Kalibrierungsvorschläge erlaubt.
+- README aktualisiert: Segment-Trefferquoten nach Asset-Typ, Marktphase und Zeithorizont dokumentiert.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Mock-Tests für Segment-Auswertung mit 20+ und kleiner Datenbasis erfolgreich.
+- Nächste Priorität angepasst: längere Auswertungszeiträume für Forward-, Prognose-, Decision- und Trade-Tracking vorbereiten.
 - Signalbasierte Kalibrierung umgesetzt: neue Historieneinträge speichern eine `signal_snapshot` für RSI, MACD, Volatilität, News, Makro und CRV; ältere Einträge bleiben kompatibel und zeigen fehlende Signalwerte als `Daten nicht verfügbar`.
 - Ähnliche historische Setups werden zusätzlich nach Signalbestandteilen aufgeschlüsselt und zeigen je Signal Fallzahl, Trefferquote, Durchschnittsrendite und Kalibrierungsstatus ab den definierten Mindestfallzahlen.
 - README aktualisiert: Lernsystem, Signal-Snapshots und Kalibrierungsregeln dokumentiert.

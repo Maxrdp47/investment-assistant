@@ -267,7 +267,7 @@ Die App zeigt im Bereich **Analyse-Details anzeigen** einen Kalibrierungsstatus.
 
 Der Kalibrierungsstatus zählt lokale Trade-, Forward-Test-, Decision- und Prognosehistorien. Diese Dateien können persönliche Entscheidungen enthalten und werden nicht versioniert.
 
-Die Signalanalyse wertet nur lokal bereits ausgewertete Forward-Tests, Trade-Journal-Setups, Entscheidungen und Prognosen aus. Neue Einträge speichern zusätzlich eine kompakte `signal_snapshot` für RSI, MACD, Volatilität, News, Makro und CRV. Unter 20 ähnlichen Fällen zeigt sie nur den Sammelstand; zwischen 20 und 50 Fällen nur vorsichtige Hinweise; ab über 50 Fällen dürfen transparente Kalibrierungsvorschläge angezeigt werden. Gewichtungen werden nie automatisch geändert.
+Die Signalanalyse wertet nur lokal bereits ausgewertete Forward-Tests, Trade-Journal-Setups, Entscheidungen und Prognosen aus. Neue Einträge speichern zusätzlich eine kompakte `signal_snapshot` für RSI, MACD, Volatilität, News, Makro und CRV. Unter 20 ähnlichen Fällen zeigt sie nur den Sammelstand; zwischen 20 und 50 Fällen nur vorsichtige Hinweise; ab über 50 Fällen dürfen transparente Kalibrierungsvorschläge angezeigt werden. Zusätzlich zeigt die App Trefferquoten nach Asset-Typ, Marktphase und Zeithorizont, damit sichtbar wird, wo die Analyse historisch stärker oder schwächer war. Gewichtungen werden nie automatisch geändert.
 
 ### Depot-Effekt
 

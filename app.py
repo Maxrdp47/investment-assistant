@@ -970,6 +970,80 @@ def signal_calibration_rows(similar: list[dict]) -> list[dict[str, str]]:
     return rows
 
 
+def segmented_learning_rows(
+    trade_history: list[dict],
+    forward_tests: list[dict],
+    decisions: list[dict],
+    predictions: list[dict],
+) -> tuple[str, list[dict[str, str]]]:
+    cases = evaluated_history_cases([trade_history, forward_tests, decisions, predictions])
+    if not cases:
+        return "Keine ausgewerteten Historienfälle vorhanden.", [
+            {
+                "Dimension": "Gesamt",
+                "Gruppe": "Daten nicht verfügbar",
+                "Fälle": "0",
+                "Trefferquote": "Datenbasis zu klein",
+                "Durchschnittsrendite": "Datenbasis zu klein",
+                "Status": "Keine Kalibrierung",
+                "Bedeutung": "Es gibt noch keine ausgewerteten Trade-, Forward-, Decision- oder Prognosefälle.",
+            }
+        ]
+
+    if len(cases) < 20:
+        status = "Datenbasis zu klein. Segment-Trefferquoten werden gezählt, aber noch nicht belastbar interpretiert."
+    elif len(cases) <= 50:
+        status = "Vorsichtige Segment-Hinweise möglich. Gewichtungen bleiben unverändert."
+    else:
+        status = "Ausreichend Historie für Segment-Vorschläge. Gewichtungen werden trotzdem nicht automatisch geändert."
+
+    dimensions = [
+        ("Asset-Typ", lambda case: case.get("asset_type") or "Unbekannt"),
+        ("Marktphase", lambda case: case.get("market_phase") or "Unbekannt"),
+        ("Zeithorizont", lambda case: case.get("period") or "Unbekannt"),
+    ]
+    rows: list[dict[str, str]] = []
+    for dimension, getter in dimensions:
+        grouped: dict[str, list[dict]] = {}
+        for case in cases:
+            group = str(getter(case))
+            if not group or group.lower() in {"unbekannt", "none"}:
+                continue
+            grouped.setdefault(group, []).append(case)
+
+        if not grouped:
+            rows.append(
+                {
+                    "Dimension": dimension,
+                    "Gruppe": "Daten nicht verfügbar",
+                    "Fälle": "0",
+                    "Trefferquote": "Datenbasis zu klein",
+                    "Durchschnittsrendite": "Datenbasis zu klein",
+                    "Status": "Keine Kalibrierung",
+                    "Bedeutung": f"Für {dimension} liegen noch keine verwertbaren historischen Gruppen vor.",
+                }
+            )
+            continue
+
+        for group, group_cases in sorted(grouped.items(), key=lambda item: len(item[1]), reverse=True)[:8]:
+            count = len(group_cases)
+            hit_rate = sum(1 for case in group_cases if case["hit"]) / count * 100
+            avg_return = float(np.mean([case["return_pct"] for case in group_cases]))
+            permission, meaning = calibration_permission(count)
+            rows.append(
+                {
+                    "Dimension": dimension,
+                    "Gruppe": group,
+                    "Fälle": str(count),
+                    "Trefferquote": "Datenbasis zu klein" if count < 20 else f"{hit_rate:.1f}%",
+                    "Durchschnittsrendite": "Datenbasis zu klein" if count < 20 else f"{avg_return:+.2f}%",
+                    "Status": permission,
+                    "Bedeutung": meaning,
+                }
+            )
+    return status, rows
+
+
 def similar_setup_rows(
     asset_profile: AssetProfile,
     market_phase: MarketPhase,
@@ -5601,6 +5675,12 @@ def main() -> None:
             prediction_history,
         )
         signal_learning_status, signal_learning_table = signal_learning_rows(forward_history, prediction_history)
+        segmented_learning_status, segmented_learning_table = segmented_learning_rows(
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
+        )
         historical_confidence_status, historical_confidence_table = historical_confidence_rows(
             trade_history,
             forward_history,
@@ -5958,6 +6038,13 @@ def main() -> None:
             st.write(signal_learning_status)
             st.dataframe(
                 pd.DataFrame(signal_learning_table),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Trefferquoten nach Segmenten**")
+            st.write(segmented_learning_status)
+            st.dataframe(
+                pd.DataFrame(segmented_learning_table),
                 use_container_width=True,
                 hide_index=True,
             )

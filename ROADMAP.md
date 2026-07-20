@@ -223,9 +223,10 @@ Transparenzregeln:
 - Backtesting-Modul planen. Status: Basis umgesetzt am 2026-07-20.
 - Historische Signale speichern. Status: erste In-App-Auswertung historischer Kaufsignal-Buckets umgesetzt am 2026-07-20; lokale Speicherung in `backtest_history.json` umgesetzt am 2026-07-20.
 - Trefferquoten berechnen. Status: Basis umgesetzt am 2026-07-20 für Kaufsignal-Buckets über 1, 3, 6 und 12 Monate.
-- Renditeanalyse durchführen.
+- Renditeanalyse durchführen. Status: Basis umgesetzt am 2026-07-20 über Durchschnittsrendite und Kompaktansicht.
 - Drawdown-Analyse ergänzen. Status: Basis umgesetzt am 2026-07-20 als maximaler Drawdown je Backtest-Gruppe.
 - Verschiedene Signal-Kombinationen vergleichen. Status: Basis umgesetzt am 2026-07-20 für Kaufsignal, RSI, MACD und CRV.
+- Backtesting-Tabelle verdichten und interpretieren. Status: umgesetzt am 2026-07-20 mit Kompaktansicht für beste Trefferquote, schwächste Rendite, größten Drawdown und größte Datenbasis.
 
 ### Priorität 6: Prognose-Tracking
 
@@ -488,22 +489,22 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Backtesting-Tabelle besser verdichten und interpretieren.
+1. Backtest-Historie in Lern- und Kalibrierungsübersicht integrieren.
 
 Warum diese Aufgabe zuerst:
 
-- Das Confidence-System zählt jetzt ähnliche historische Setups und zeigt Trefferquote erst ab ausreichender Datenbasis.
-- Backtests vergleichen jetzt Kombinationen aus Kaufsignal, Marktphase, RSI, MACD und CRV.
-- Der nächste Nutzen liegt darin, die wachsende Backtest-Tabelle besser zu verdichten, damit Nutzer nicht in zu vielen Kleingruppen untergehen.
+- Backtesting ist jetzt verdichtet und zeigt die wichtigsten Gruppen ohne Tabellenüberforderung.
+- Die gespeicherte Backtest-Historie liegt lokal vor, wird aber noch nicht sichtbar in die Lern- und Kalibrierungsübersicht einbezogen.
+- Der nächste Nutzen liegt darin, gemessene Backtest-Ergebnisse stärker mit dem transparenten Lernsystem zu verbinden.
 - Diese Aufgabe bleibt PRIO B, weil sie Messung der Analysequalität und spätere Kalibrierung verbessert.
 
 Nächste konkrete Umsetzung:
 
-1. Kompaktansicht für beste und schwächste Backtest-Gruppen ergänzen.
-2. Gruppen nach Fallzahl und Trefferquote sortierbar/lesbarer machen.
+1. `backtest_history.json` lesen und in der Lern-/Kalibrierungsübersicht zusammenfassen.
+2. Backtest-Fallzahlen, Trefferquote, Rendite und Drawdown als Lernkontext anzeigen.
 3. Unter 20 Fällen weiterhin `Datenbasis zu klein` anzeigen.
 4. Keine automatische Gewichtungsänderung einbauen.
-5. Tests ausführen und ROADMAP aktualisieren.
+5. README, Tests und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
 
@@ -985,6 +986,11 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-20
 
+- Backtesting-Kompaktansicht umgesetzt: Der Analyse-Detailbereich zeigt jetzt beste Trefferquote, schwächste Rendite, größten Drawdown und größte Datenbasis oberhalb der vollständigen Backtest-Tabelle.
+- Backtest-Verdichtung bleibt konservativ: Gruppen unter 20 Fällen werden nicht als belastbar interpretiert.
+- README aktualisiert: Backtesting-Basis beschreibt nun die Kompaktansicht.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Mock-Tests für Backtesting-Kompaktansicht und kleine Datenbasis erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich.
+- Nächste Priorität angepasst: Backtest-Historie in Lern- und Kalibrierungsübersicht integrieren.
 - Backtesting-Signal-Kombinationen umgesetzt: Die Backtest-Tabelle vergleicht jetzt Kaufsignal-Bucket, RSI-Bucket, MACD-Bucket und CRV-Bucket gemeinsam.
 - Die Backtest-Ausgabe zeigt weiterhin Asset-Typ, damalige Marktphase, Zeithorizont, Trefferquote, Durchschnittsrendite und maximalen Drawdown; unter 20 Fällen bleibt `Datenbasis zu klein`.
 - README und UI-Überschrift aktualisiert: Backtesting wird nun als historische Signal-Kombinationsauswertung beschrieben.

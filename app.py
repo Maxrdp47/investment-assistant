@@ -1226,6 +1226,95 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
     return status, rows
 
 
+def percent_value(text: str) -> float | None:
+    if not isinstance(text, str):
+        return None
+    cleaned = text.replace("%", "").replace("+", "").replace(",", ".").strip()
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def row_value(row: dict[str, str], *keys: str) -> str | None:
+    for key in keys:
+        value = row.get(key)
+        if value is not None:
+            return str(value)
+    for key, value in row.items():
+        normalized = str(key).lower()
+        if any(alias.lower() in normalized for alias in keys):
+            return str(value)
+    return None
+
+
+def backtest_compact_rows(backtest_rows: list[dict[str, str]]) -> tuple[str, list[dict[str, str]]]:
+    valid: list[dict] = []
+    for row in backtest_rows:
+        count = value_or_none(row_value(row, "Fälle", "Faelle", "Falle"))
+        hit_rate = percent_value(row_value(row, "Trefferquote") or "")
+        avg_return = percent_value(row_value(row, "Durchschnittsrendite") or "")
+        drawdown = percent_value(row_value(row, "Max. Drawdown", "Drawdown") or "")
+        if count is None or count < 20 or hit_rate is None or avg_return is None or drawdown is None:
+            continue
+        valid.append(
+            {
+                "row": row,
+                "count": int(count),
+                "hit_rate": hit_rate,
+                "avg_return": avg_return,
+                "drawdown": drawdown,
+            }
+        )
+
+    if not valid:
+        return "Kompaktansicht nicht verfügbar: keine Backtest-Gruppe mit mindestens 20 Fällen.", [
+            {
+                "Einordnung": "Datenbasis zu klein",
+                "Gruppe": "Daten nicht verfügbar",
+                "Fälle": "0",
+                "Trefferquote": "Datenbasis zu klein",
+                "Durchschnittsrendite": "Datenbasis zu klein",
+                "Max. Drawdown": "Datenbasis zu klein",
+                "Bedeutung": "Die App verdichtet Backtests erst ab mindestens 20 Fällen pro Gruppe.",
+            }
+        ]
+
+    def group_label(item: dict) -> str:
+        row = item["row"]
+        return (
+            f"{row.get('Zeithorizont')} | {row.get('Marktphase')} | "
+            f"Kauf {row.get('Kaufsignal-Bucket')} | RSI {row.get('RSI-Bucket')} | "
+            f"MACD {row.get('MACD-Bucket')} | CRV {row.get('CRV-Bucket')}"
+        )
+
+    best = max(valid, key=lambda item: (item["hit_rate"], item["avg_return"], item["count"]))
+    weakest = min(valid, key=lambda item: (item["avg_return"], item["hit_rate"]))
+    drawdown_risk = min(valid, key=lambda item: (item["drawdown"], item["avg_return"]))
+    largest = max(valid, key=lambda item: item["count"])
+    summary_items = [
+        ("Beste Trefferquote", best, "Diese Gruppe hatte historisch die höchste Trefferquote unter den belastbaren Gruppen."),
+        ("Schwächste Rendite", weakest, "Diese Gruppe hatte historisch die schwächste Durchschnittsrendite und sollte vorsichtig interpretiert werden."),
+        ("Größter Drawdown", drawdown_risk, "Diese Gruppe hatte historisch den stärksten zwischenzeitlichen Rückgang."),
+        ("Größte Datenbasis", largest, "Diese Gruppe hat die meisten historischen Fälle und ist deshalb statistisch am wenigsten dünn."),
+    ]
+    rows = []
+    for title, item, meaning in summary_items:
+        row = item["row"]
+        rows.append(
+            {
+                "Einordnung": title,
+                "Gruppe": group_label(item),
+                "Fälle": str(item["count"]),
+                "Trefferquote": row.get("Trefferquote", "Datenbasis zu klein"),
+                "Durchschnittsrendite": row.get("Durchschnittsrendite", "Datenbasis zu klein"),
+                "Max. Drawdown": row.get("Max. Drawdown", "Datenbasis zu klein"),
+                "Bedeutung": meaning,
+            }
+        )
+    return f"Kompaktansicht aus {len(valid)} belastbaren Backtest-Gruppen.", rows
+
+
 def build_backtest_record(
     symbol: str,
     asset_identity: dict,
@@ -5868,6 +5957,7 @@ def main() -> None:
             prediction_history,
         )
         backtest_status, backtest_table = backtest_signal_buckets(df, asset_profile)
+        backtest_compact_status, backtest_compact_table = backtest_compact_rows(backtest_table)
         historical_confidence_status, historical_confidence_table = historical_confidence_rows(
             trade_history,
             forward_history,
@@ -6237,6 +6327,12 @@ def main() -> None:
             )
             st.markdown("**Backtesting-Basis: historische Signal-Kombinationen**")
             st.write(backtest_status)
+            st.write(backtest_compact_status)
+            st.dataframe(
+                pd.DataFrame(backtest_compact_table),
+                use_container_width=True,
+                hide_index=True,
+            )
             st.dataframe(
                 pd.DataFrame(backtest_table),
                 use_container_width=True,

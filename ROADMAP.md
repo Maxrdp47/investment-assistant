@@ -225,7 +225,7 @@ Transparenzregeln:
 - Trefferquoten berechnen. Status: Basis umgesetzt am 2026-07-20 für Kaufsignal-Buckets über 1, 3, 6 und 12 Monate.
 - Renditeanalyse durchführen.
 - Drawdown-Analyse ergänzen. Status: Basis umgesetzt am 2026-07-20 als maximaler Drawdown je Backtest-Gruppe.
-- Verschiedene Signal-Kombinationen vergleichen.
+- Verschiedene Signal-Kombinationen vergleichen. Status: Basis umgesetzt am 2026-07-20 für Kaufsignal, RSI, MACD und CRV.
 
 ### Priorität 6: Prognose-Tracking
 
@@ -488,19 +488,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Backtesting-Signal-Kombinationen vergleichen.
+1. Backtesting-Tabelle besser verdichten und interpretieren.
 
 Warum diese Aufgabe zuerst:
 
 - Das Confidence-System zählt jetzt ähnliche historische Setups und zeigt Trefferquote erst ab ausreichender Datenbasis.
-- Backtest-Ergebnisse können jetzt lokal gespeichert werden und stehen späteren Lernmodulen als reproduzierbare Historie zur Verfügung.
-- Der nächste Nutzen liegt darin, nicht nur Kaufsignal-Buckets, sondern Kombinationen aus Kaufsignal, Marktphase, RSI/MACD und CRV zu vergleichen.
+- Backtests vergleichen jetzt Kombinationen aus Kaufsignal, Marktphase, RSI, MACD und CRV.
+- Der nächste Nutzen liegt darin, die wachsende Backtest-Tabelle besser zu verdichten, damit Nutzer nicht in zu vielen Kleingruppen untergehen.
 - Diese Aufgabe bleibt PRIO B, weil sie Messung der Analysequalität und spätere Kalibrierung verbessert.
 
 Nächste konkrete Umsetzung:
 
-1. Backtest-Gruppen um RSI-, MACD- und CRV-Buckets erweitern.
-2. Trefferquote, Durchschnittsrendite und Drawdown für Signal-Kombinationen anzeigen.
+1. Kompaktansicht für beste und schwächste Backtest-Gruppen ergänzen.
+2. Gruppen nach Fallzahl und Trefferquote sortierbar/lesbarer machen.
 3. Unter 20 Fällen weiterhin `Datenbasis zu klein` anzeigen.
 4. Keine automatische Gewichtungsänderung einbauen.
 5. Tests ausführen und ROADMAP aktualisieren.
@@ -985,6 +985,11 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-20
 
+- Backtesting-Signal-Kombinationen umgesetzt: Die Backtest-Tabelle vergleicht jetzt Kaufsignal-Bucket, RSI-Bucket, MACD-Bucket und CRV-Bucket gemeinsam.
+- Die Backtest-Ausgabe zeigt weiterhin Asset-Typ, damalige Marktphase, Zeithorizont, Trefferquote, Durchschnittsrendite und maximalen Drawdown; unter 20 Fällen bleibt `Datenbasis zu klein`.
+- README und UI-Überschrift aktualisiert: Backtesting wird nun als historische Signal-Kombinationsauswertung beschrieben.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Mock-Tests für Signal-Kombinationen und kurze Historie erfolgreich.
+- Nächste Priorität angepasst: Backtesting-Tabelle besser verdichten und interpretieren.
 - Backtest-Ergebnisse dauerhaft nutzbar gemacht: Die aktuelle Backtest-Tabelle kann lokal in `backtest_history.json` gespeichert werden.
 - Datenschutz umgesetzt: `backtest_history.json` ist in `.gitignore` aufgenommen und enthält nur Analyse-/Backtestdaten, keine Depot-, Broker- oder Zugangsdaten.
 - README aktualisiert: lokale Backtest-Historie und Datenschutzliste ergänzt.

@@ -1093,6 +1093,9 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
                 "Asset-Typ": profile.asset_type,
                 "Marktphase": "Daten nicht verfügbar",
                 "Kaufsignal-Bucket": "Daten nicht verfügbar",
+                "RSI-Bucket": "Daten nicht verfügbar",
+                "MACD-Bucket": "Daten nicht verfügbar",
+                "CRV-Bucket": "Daten nicht verfügbar",
                 "Fälle": "0",
                 "Trefferquote": "Datenbasis zu klein",
                 "Durchschnittsrendite": "Datenbasis zu klein",
@@ -1111,6 +1114,9 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
                 "Asset-Typ": profile.asset_type,
                 "Marktphase": "Daten nicht verfügbar",
                 "Kaufsignal-Bucket": "Daten nicht verfügbar",
+                "RSI-Bucket": "Daten nicht verfügbar",
+                "MACD-Bucket": "Daten nicht verfügbar",
+                "CRV-Bucket": "Daten nicht verfügbar",
                 "Fälle": "0",
                 "Trefferquote": "Datenbasis zu klein",
                 "Durchschnittsrendite": "Datenbasis zu klein",
@@ -1121,7 +1127,7 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
 
     last_entry_index = len(clean) - 21
     step = max(5, (last_entry_index - min_history) // 80) if last_entry_index > min_history else 5
-    grouped: dict[tuple[str, str, str], list[dict[str, float]]] = {}
+    grouped: dict[tuple[str, str, str, str, str, str], list[dict[str, float]]] = {}
     tested_points = 0
 
     for idx in range(min_history, last_entry_index + 1, step):
@@ -1138,6 +1144,9 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
         buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
         bucket = score_bucket(buy_signal.score)
         phase = market_phase.phase
+        rsi_signal = rsi_bucket(latest.get("RSI_14"))
+        macd_signal = macd_bucket(latest.get("MACD"), latest.get("MACD_Signal"))
+        crv_signal = crv_bucket(risk_reward.ratio)
         tested_points += 1
 
         for label, days in horizons.items():
@@ -1150,7 +1159,7 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
             future_window = clean.iloc[idx + 1 : future_idx + 1]
             future_low = value_or_none(future_window["Low"].min()) if "Low" in future_window else None
             max_drawdown = None if future_low is None else (float(future_low) - float(close)) / float(close) * 100
-            grouped.setdefault((label, phase, bucket), []).append(
+            grouped.setdefault((label, phase, bucket, rsi_signal, macd_signal, crv_signal), []).append(
                 {
                     "return_pct": (float(future_close) - float(close)) / float(close) * 100,
                     "drawdown_pct": max_drawdown if max_drawdown is not None else 0.0,
@@ -1164,6 +1173,9 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
                 "Asset-Typ": profile.asset_type,
                 "Marktphase": "Daten nicht verfügbar",
                 "Kaufsignal-Bucket": "Daten nicht verfügbar",
+                "RSI-Bucket": "Daten nicht verfügbar",
+                "MACD-Bucket": "Daten nicht verfügbar",
+                "CRV-Bucket": "Daten nicht verfügbar",
                 "Fälle": "0",
                 "Trefferquote": "Datenbasis zu klein",
                 "Durchschnittsrendite": "Datenbasis zu klein",
@@ -1178,8 +1190,8 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
             [key for key in grouped if key[0] == label],
             key=lambda key: (key[1], {"hoch": 0, "mittel": 1, "niedrig": 2}.get(key[2], 3)),
         )
-        for _, phase, bucket in grouped_keys:
-            values = grouped.get((label, phase, bucket), [])
+        for _, phase, bucket, rsi_signal, macd_signal, crv_signal in grouped_keys:
+            values = grouped.get((label, phase, bucket, rsi_signal, macd_signal, crv_signal), [])
             if not values:
                 continue
             count = len(values)
@@ -1195,6 +1207,9 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
                     "Asset-Typ": profile.asset_type,
                     "Marktphase": phase,
                     "Kaufsignal-Bucket": bucket,
+                    "RSI-Bucket": rsi_signal,
+                    "MACD-Bucket": macd_signal,
+                    "CRV-Bucket": crv_signal,
                     "Fälle": str(count),
                     "Trefferquote": "Datenbasis zu klein" if count < 20 else f"{hit_rate:.1f}%",
                     "Durchschnittsrendite": "Datenbasis zu klein" if count < 20 else f"{avg_return:+.2f}%",
@@ -6220,7 +6235,7 @@ def main() -> None:
                 use_container_width=True,
                 hide_index=True,
             )
-            st.markdown("**Backtesting-Basis: historische Kaufsignal-Buckets**")
+            st.markdown("**Backtesting-Basis: historische Signal-Kombinationen**")
             st.write(backtest_status)
             st.dataframe(
                 pd.DataFrame(backtest_table),

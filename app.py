@@ -1315,6 +1315,140 @@ def backtest_compact_rows(backtest_rows: list[dict[str, str]]) -> tuple[str, lis
     return f"Kompaktansicht aus {len(valid)} belastbaren Backtest-Gruppen.", rows
 
 
+def backtest_group_label(record: dict, row: dict[str, str]) -> str:
+    symbol = str(record.get("symbol") or "Unbekannt")
+    horizon = row_value(row, "Zeithorizont") or "Unbekannt"
+    phase = row_value(row, "Marktphase") or "Unbekannt"
+    buy_bucket = row_value(row, "Kaufsignal-Bucket") or "Unbekannt"
+    rsi_signal = row_value(row, "RSI-Bucket") or "Unbekannt"
+    macd_signal = row_value(row, "MACD-Bucket") or "Unbekannt"
+    crv_signal = row_value(row, "CRV-Bucket") or "Unbekannt"
+    return f"{symbol} | {horizon} | {phase} | Kauf {buy_bucket} | RSI {rsi_signal} | MACD {macd_signal} | CRV {crv_signal}"
+
+
+def backtest_history_learning_rows(history: list[dict]) -> tuple[str, list[dict[str, str]]]:
+    groups: list[dict] = []
+    for record in history:
+        rows = record.get("rows", [])
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            count = value_or_none(row_value(row, "Fälle", "Faelle", "Falle"))
+            hit_rate = percent_value(row_value(row, "Trefferquote") or "")
+            avg_return = percent_value(row_value(row, "Durchschnittsrendite") or "")
+            drawdown = percent_value(row_value(row, "Max. Drawdown", "Drawdown") or "")
+            if count is None or count < 20 or hit_rate is None or avg_return is None or drawdown is None:
+                continue
+            groups.append(
+                {
+                    "record": record,
+                    "row": row,
+                    "count": int(count),
+                    "hit_rate": hit_rate,
+                    "avg_return": avg_return,
+                    "drawdown": drawdown,
+                }
+            )
+
+    if not history:
+        return "Keine gespeicherte Backtest-Historie vorhanden.", [
+            {
+                "Messpunkt": "Gespeicherte Backtests",
+                "Wert": "0",
+                "Bedeutung": "Speichere zuerst ein Backtest-Ergebnis im Analyse-Detailbereich. Es wird keine Order ausgelöst.",
+            },
+            {
+                "Messpunkt": "Kalibrierungsregel",
+                "Wert": "Keine Kalibrierung",
+                "Bedeutung": "Ohne gespeicherte Backtests bleibt dieser Lernkontext leer.",
+            },
+        ]
+
+    if not groups:
+        return "Backtest-Historie vorhanden, aber noch keine belastbare Gruppe mit mindestens 20 Fällen.", [
+            {
+                "Messpunkt": "Gespeicherte Backtests",
+                "Wert": str(len(history)),
+                "Bedeutung": "Die gespeicherten Tabellen enthalten noch keine Gruppe mit mindestens 20 Fällen und vollständig berechenbaren Kennzahlen.",
+            },
+            {
+                "Messpunkt": "Belastbare Gruppen",
+                "Wert": "0",
+                "Bedeutung": "Unter 20 Fällen bleibt die App bewusst bei `Datenbasis zu klein`.",
+            },
+            {
+                "Messpunkt": "Kalibrierungsregel",
+                "Wert": "Keine Kalibrierung",
+                "Bedeutung": "Backtests werden nur angezeigt; Score-Gewichtungen ändern sich nie automatisch.",
+            },
+        ]
+
+    total_cases = sum(group["count"] for group in groups)
+    weighted_hit_rate = sum(group["hit_rate"] * group["count"] for group in groups) / total_cases
+    weighted_return = sum(group["avg_return"] * group["count"] for group in groups) / total_cases
+    worst_drawdown = min(group["drawdown"] for group in groups)
+    best = max(groups, key=lambda group: (group["hit_rate"], group["avg_return"], group["count"]))
+    weakest = min(groups, key=lambda group: (group["avg_return"], group["hit_rate"]))
+    permission, meaning = calibration_permission(total_cases)
+    if total_cases < 20:
+        status = "Datenbasis zu klein. Backtest-Historie wird nur gezählt."
+    elif total_cases <= 50:
+        status = "Vorsichtiger Backtest-Lernkontext möglich. Gewichtungen bleiben unverändert."
+    else:
+        status = "Backtest-Lernkontext verfügbar. Änderungen bleiben manuell, dokumentations- und testpflichtig."
+
+    rows = [
+        {
+            "Messpunkt": "Gespeicherte Backtests",
+            "Wert": str(len(history)),
+            "Bedeutung": "Lokale Backtest-Datei; keine Brokerdaten und keine Kauf-/Verkaufsautomatisierung.",
+        },
+        {
+            "Messpunkt": "Belastbare Gruppen",
+            "Wert": str(len(groups)),
+            "Bedeutung": "Nur Gruppen mit mindestens 20 Fällen und vollständigen Kennzahlen werden interpretiert.",
+        },
+        {
+            "Messpunkt": "Backtest-Fälle",
+            "Wert": str(total_cases),
+            "Bedeutung": "Summe der historischen Fälle aus gespeicherten Backtest-Gruppen; kann Überschneidungen enthalten.",
+        },
+        {
+            "Messpunkt": "Gewichtete Trefferquote",
+            "Wert": "Datenbasis zu klein" if total_cases < 20 else f"{weighted_hit_rate:.1f}%",
+            "Bedeutung": "Nach Fallzahl gewichtete Trefferquote der gespeicherten Backtest-Gruppen.",
+        },
+        {
+            "Messpunkt": "Gewichtete Durchschnittsrendite",
+            "Wert": "Datenbasis zu klein" if total_cases < 20 else f"{weighted_return:+.2f}%",
+            "Bedeutung": "Nach Fallzahl gewichtete Durchschnittsrendite; fehlende Daten werden nicht geschätzt.",
+        },
+        {
+            "Messpunkt": "Schwächster Drawdown",
+            "Wert": "Datenbasis zu klein" if total_cases < 20 else f"{worst_drawdown:.2f}%",
+            "Bedeutung": "Stärkster historischer Rückgang innerhalb der gespeicherten Backtest-Gruppen.",
+        },
+        {
+            "Messpunkt": "Beste gespeicherte Gruppe",
+            "Wert": backtest_group_label(best["record"], best["row"]),
+            "Bedeutung": f"{best['hit_rate']:.1f}% Treffer, {best['avg_return']:+.2f}% Ø, {best['count']} Fälle.",
+        },
+        {
+            "Messpunkt": "Schwächste gespeicherte Gruppe",
+            "Wert": backtest_group_label(weakest["record"], weakest["row"]),
+            "Bedeutung": f"{weakest['hit_rate']:.1f}% Treffer, {weakest['avg_return']:+.2f}% Ø, {weakest['count']} Fälle.",
+        },
+        {
+            "Messpunkt": "Kalibrierungsregel",
+            "Wert": permission,
+            "Bedeutung": f"{meaning} Backtests verändern keine Gewichtung automatisch.",
+        },
+    ]
+    return status, rows
+
+
 def build_backtest_record(
     symbol: str,
     asset_identity: dict,
@@ -5943,6 +6077,7 @@ def main() -> None:
         forward_history = load_forward_tests()
         decision_history = load_decision_history()
         prediction_history = load_prediction_history()
+        backtest_history = load_backtest_history()
         calibration_status, calibration_rows = calibration_status_rows(
             trade_history,
             forward_history,
@@ -5956,6 +6091,7 @@ def main() -> None:
             decision_history,
             prediction_history,
         )
+        backtest_learning_status, backtest_learning_table = backtest_history_learning_rows(backtest_history)
         backtest_status, backtest_table = backtest_signal_buckets(df, asset_profile)
         backtest_compact_status, backtest_compact_table = backtest_compact_rows(backtest_table)
         historical_confidence_status, historical_confidence_table = historical_confidence_rows(
@@ -6322,6 +6458,13 @@ def main() -> None:
             st.write(segmented_learning_status)
             st.dataframe(
                 pd.DataFrame(segmented_learning_table),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Backtest-Historie als Lernkontext**")
+            st.write(backtest_learning_status)
+            st.dataframe(
+                pd.DataFrame(backtest_learning_table),
                 use_container_width=True,
                 hide_index=True,
             )

@@ -278,6 +278,7 @@ Transparenzregeln:
 - Kalibrierungsbericht anzeigen: Was funktioniert gut? Was funktioniert schlecht? Welche Module brauchen Verbesserung?
   - Status: Basis umgesetzt am 2026-06-15: lokaler Kalibrierungsstatus zählt Forward-Tests, Entscheidungen, Prognosen und ausgewertete Zeiträume.
   - Status: Signalbasierte Kalibrierung umgesetzt am 2026-07-19: ähnliche Setups werden nach RSI, MACD, Marktphase, Volatilität, News, Makro und CRV aufgeschlüsselt; Hinweise bleiben ab Mindestfallzahlen transparent und verändern keine Gewichtungen automatisch.
+  - Status: Backtest-Historie integriert am 2026-07-20: gespeicherte Backtest-Gruppen werden als separater Lernkontext mit Fallzahl, Trefferquote, Rendite und Drawdown angezeigt.
 - Lernlogik transparent machen und keine Blackbox-Entscheidungen treffen.
 - Änderungen an Bewertungslogik erst nach Dokumentation und Tests übernehmen.
 
@@ -489,20 +490,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Backtest-Historie in Lern- und Kalibrierungsübersicht integrieren.
+1. Fehlprognosen und negative Historienfälle nach Ursache kategorisieren.
 
 Warum diese Aufgabe zuerst:
 
-- Backtesting ist jetzt verdichtet und zeigt die wichtigsten Gruppen ohne Tabellenüberforderung.
-- Die gespeicherte Backtest-Historie liegt lokal vor, wird aber noch nicht sichtbar in die Lern- und Kalibrierungsübersicht einbezogen.
-- Der nächste Nutzen liegt darin, gemessene Backtest-Ergebnisse stärker mit dem transparenten Lernsystem zu verbinden.
+- Backtest-Historie ist jetzt als Lernkontext sichtbar und bleibt von automatischen Gewichtungsänderungen getrennt.
+- Die App zeigt bereits Trefferquoten und Segmentgruppen, erklärt aber noch nicht klar genug, warum negative Historienfälle entstanden sind.
+- Der nächste Nutzen liegt darin, wiederkehrende Fehlerquellen wie schwache Marktphase, negatives Momentum, schlechte CRV-Struktur oder hohe Volatilität sichtbar zu machen.
 - Diese Aufgabe bleibt PRIO B, weil sie Messung der Analysequalität und spätere Kalibrierung verbessert.
 
 Nächste konkrete Umsetzung:
 
-1. `backtest_history.json` lesen und in der Lern-/Kalibrierungsübersicht zusammenfassen.
-2. Backtest-Fallzahlen, Trefferquote, Rendite und Drawdown als Lernkontext anzeigen.
-3. Unter 20 Fällen weiterhin `Datenbasis zu klein` anzeigen.
+1. Negative ausgewertete Forward-, Decision-, Prognose- und Trade-Fälle sammeln.
+2. Ursachen nach Signal-Snapshot, Marktphase, Asset-Typ, Volatilität, CRV, News und Makro gruppieren.
+3. Mindestdatenlogik beibehalten: unter 20 Fällen nur zählen, ab 20 vorsichtig interpretieren.
 4. Keine automatische Gewichtungsänderung einbauen.
 5. README, Tests und ROADMAP aktualisieren.
 
@@ -986,6 +987,11 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-20
 
+- Backtest-Historie in Lern- und Kalibrierungsübersicht integriert: Gespeicherte Backtests aus `backtest_history.json` werden als separater Lernkontext mit Fallzahl, Trefferquote, Durchschnittsrendite und Drawdown angezeigt.
+- Transparenzregel beibehalten: Backtest-Historie verändert keine Scores und keine Gewichtungen automatisch.
+- README aktualisiert: Kalibrierungsbereich erklärt den neuen Backtest-Lernkontext.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Mock-Tests für leere, dünne und belastbare Backtest-Historie erfolgreich.
+- Nächste Priorität angepasst: Fehlprognosen und negative Historienfälle nach Ursache kategorisieren.
 - Backtesting-Kompaktansicht umgesetzt: Der Analyse-Detailbereich zeigt jetzt beste Trefferquote, schwächste Rendite, größten Drawdown und größte Datenbasis oberhalb der vollständigen Backtest-Tabelle.
 - Backtest-Verdichtung bleibt konservativ: Gruppen unter 20 Fällen werden nicht als belastbar interpretiert.
 - README aktualisiert: Backtesting-Basis beschreibt nun die Kompaktansicht.

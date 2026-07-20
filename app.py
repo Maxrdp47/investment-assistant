@@ -1067,10 +1067,13 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
         return "Backtest nicht möglich: Kursdaten unvollständig.", [
             {
                 "Zeithorizont": "Daten nicht verfügbar",
+                "Asset-Typ": profile.asset_type,
+                "Marktphase": "Daten nicht verfügbar",
                 "Kaufsignal-Bucket": "Daten nicht verfügbar",
                 "Fälle": "0",
                 "Trefferquote": "Datenbasis zu klein",
                 "Durchschnittsrendite": "Datenbasis zu klein",
+                "Max. Drawdown": "Datenbasis zu klein",
                 "Bedeutung": "Für einen Backtest werden historische Close-, Low- und High-Daten benötigt.",
             }
         ]
@@ -1082,17 +1085,20 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
         return "Backtest nicht möglich: weniger als 240 Handelstage verfügbar.", [
             {
                 "Zeithorizont": "Daten nicht verfügbar",
+                "Asset-Typ": profile.asset_type,
+                "Marktphase": "Daten nicht verfügbar",
                 "Kaufsignal-Bucket": "Daten nicht verfügbar",
                 "Fälle": "0",
                 "Trefferquote": "Datenbasis zu klein",
                 "Durchschnittsrendite": "Datenbasis zu klein",
+                "Max. Drawdown": "Datenbasis zu klein",
                 "Bedeutung": "Die App benötigt genug Historie, damit 50er/200er-Durchschnitt und spätere Kursfolgen ohne Schätzung berechnet werden können.",
             }
         ]
 
     last_entry_index = len(clean) - 21
     step = max(5, (last_entry_index - min_history) // 80) if last_entry_index > min_history else 5
-    grouped: dict[tuple[str, str], list[float]] = {}
+    grouped: dict[tuple[str, str, str], list[dict[str, float]]] = {}
     tested_points = 0
 
     for idx in range(min_history, last_entry_index + 1, step):
@@ -1108,6 +1114,7 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
         risk_reward = calculate_risk_reward(float(close), supports, resistances)
         buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
         bucket = score_bucket(buy_signal.score)
+        phase = market_phase.phase
         tested_points += 1
 
         for label, days in horizons.items():
@@ -1117,37 +1124,58 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
             future_close = value_or_none(clean.iloc[future_idx].get("Close"))
             if future_close is None:
                 continue
-            grouped.setdefault((label, bucket), []).append((float(future_close) - float(close)) / float(close) * 100)
+            future_window = clean.iloc[idx + 1 : future_idx + 1]
+            future_low = value_or_none(future_window["Low"].min()) if "Low" in future_window else None
+            max_drawdown = None if future_low is None else (float(future_low) - float(close)) / float(close) * 100
+            grouped.setdefault((label, phase, bucket), []).append(
+                {
+                    "return_pct": (float(future_close) - float(close)) / float(close) * 100,
+                    "drawdown_pct": max_drawdown if max_drawdown is not None else 0.0,
+                }
+            )
 
     if not grouped:
         return "Backtest nicht möglich: keine vollständigen historischen Einstiegs- und Ausstiegspunkte gefunden.", [
             {
                 "Zeithorizont": "Daten nicht verfügbar",
+                "Asset-Typ": profile.asset_type,
+                "Marktphase": "Daten nicht verfügbar",
                 "Kaufsignal-Bucket": "Daten nicht verfügbar",
                 "Fälle": "0",
                 "Trefferquote": "Datenbasis zu klein",
                 "Durchschnittsrendite": "Datenbasis zu klein",
+                "Max. Drawdown": "Datenbasis zu klein",
                 "Bedeutung": "Es wurden keine vollständigen Kursfolgen gefunden; fehlende Daten werden nicht geschätzt.",
             }
         ]
 
     rows: list[dict[str, str]] = []
     for label in horizons:
-        for bucket in ["hoch", "mittel", "niedrig"]:
-            values = grouped.get((label, bucket), [])
+        grouped_keys = sorted(
+            [key for key in grouped if key[0] == label],
+            key=lambda key: (key[1], {"hoch": 0, "mittel": 1, "niedrig": 2}.get(key[2], 3)),
+        )
+        for _, phase, bucket in grouped_keys:
+            values = grouped.get((label, phase, bucket), [])
             if not values:
                 continue
             count = len(values)
-            hit_rate = sum(1 for value in values if value > 0) / count * 100
-            avg_return = float(np.mean(values))
+            returns = [item["return_pct"] for item in values]
+            drawdowns = [item["drawdown_pct"] for item in values]
+            hit_rate = sum(1 for value in returns if value > 0) / count * 100
+            avg_return = float(np.mean(returns))
+            max_drawdown = float(np.min(drawdowns))
             permission, meaning = calibration_permission(count)
             rows.append(
                 {
                     "Zeithorizont": label,
+                    "Asset-Typ": profile.asset_type,
+                    "Marktphase": phase,
                     "Kaufsignal-Bucket": bucket,
                     "Fälle": str(count),
                     "Trefferquote": "Datenbasis zu klein" if count < 20 else f"{hit_rate:.1f}%",
                     "Durchschnittsrendite": "Datenbasis zu klein" if count < 20 else f"{avg_return:+.2f}%",
+                    "Max. Drawdown": "Datenbasis zu klein" if count < 20 else f"{max_drawdown:+.2f}%",
                     "Status": permission,
                     "Bedeutung": f"{meaning} Backtest nutzt nur historische Kursdaten und ändert keine Gewichtungen automatisch.",
                 }

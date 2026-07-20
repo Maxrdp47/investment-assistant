@@ -26,6 +26,7 @@ TRADE_HISTORY_PATH = Path(__file__).resolve().parent / "trade_history.json"
 FORWARD_TEST_PATH = Path(__file__).resolve().parent / "forward_tests.json"
 DECISION_HISTORY_PATH = Path(__file__).resolve().parent / "decision_history.json"
 PREDICTION_HISTORY_PATH = Path(__file__).resolve().parent / "prediction_history.json"
+BACKTEST_HISTORY_PATH = Path(__file__).resolve().parent / "backtest_history.json"
 try:
     YFINANCE_CACHE_DIR.mkdir(exist_ok=True)
 except OSError:
@@ -356,6 +357,28 @@ def load_forward_tests() -> list[dict]:
     if not isinstance(data, list):
         return []
     return [item for item in data if isinstance(item, dict)]
+
+
+def load_backtest_history() -> list[dict]:
+    if not BACKTEST_HISTORY_PATH.exists():
+        return []
+    try:
+        data = json.loads(BACKTEST_HISTORY_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return [item for item in data if isinstance(item, dict)]
+
+
+def save_backtest_result(record: dict) -> bool:
+    history = load_backtest_history()
+    history.insert(0, record)
+    try:
+        BACKTEST_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        return False
+    return True
 
 
 def trade_direction_multiplier(direction: str) -> int:
@@ -1186,6 +1209,26 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
         "Ergebnis ist ein Signaltest, keine Handelsstrategie und keine Kauf-/Verkaufsautomatisierung."
     )
     return status, rows
+
+
+def build_backtest_record(
+    symbol: str,
+    asset_identity: dict,
+    asset_profile: AssetProfile,
+    backtest_status: str,
+    backtest_rows: list[dict[str, str]],
+    analysis_history_label: str,
+) -> dict:
+    return {
+        "created_at": pd.Timestamp.now().isoformat(),
+        "symbol": symbol,
+        "name": asset_identity.get("name", symbol),
+        "asset_type": asset_profile.asset_type,
+        "analysis_history": analysis_history_label,
+        "status": backtest_status,
+        "rows": backtest_rows,
+        "note": "Backtest speichert nur historische Signal-Auswertung. Keine Brokerdaten, keine Order, keine Kauf- oder Verkaufsautomatisierung.",
+    }
 
 
 def similar_setup_rows(
@@ -6184,6 +6227,19 @@ def main() -> None:
                 use_container_width=True,
                 hide_index=True,
             )
+            if st.button("Backtest-Ergebnis lokal speichern", use_container_width=True, key=f"save_backtest_{symbol}"):
+                backtest_record = build_backtest_record(
+                    symbol,
+                    asset_identity,
+                    asset_profile,
+                    backtest_status,
+                    backtest_table,
+                    analysis_history_label,
+                )
+                if save_backtest_result(backtest_record):
+                    st.success("Backtest-Ergebnis in `backtest_history.json` gespeichert. Es wurde keine Order ausgelöst.")
+                else:
+                    st.error("Backtest-Ergebnis konnte nicht gespeichert werden.")
             st.markdown("**Confidence-System: ähnliche Setups**")
             st.write(similar_setup_status)
             st.dataframe(

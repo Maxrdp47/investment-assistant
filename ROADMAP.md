@@ -268,6 +268,7 @@ Transparenzregeln:
   - Status: Erweiterte Zeiträume umgesetzt am 2026-07-20 für 6 Monate und 12 Monate; alte Prognosehistorien werden beim Auswerten ergänzt.
 - Trefferquote je Modul, Signalart, Asset-Typ und Marktphase berechnen.
 - Fehlprognosen sichtbar machen und Ursachen kategorisieren.
+  - Status: Basis umgesetzt am 2026-07-20: verfehlte Historienfälle werden nach Asset-Typ, Marktphase, Kaufsignal, RSI, MACD, Volatilität, CRV, News und Makro gruppiert.
 - Nur echte nachträgliche Kursdaten verwenden; fehlende Daten als `Daten nicht verfügbar` kennzeichnen.
 
 ### PRIO B: Kalibrierungs- und Lernmodul
@@ -490,20 +491,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Fehlprognosen und negative Historienfälle nach Ursache kategorisieren.
+1. Lernmodul mit konkreten Kalibrierungsvorschlägen aus häufigen Fehlerursachen erweitern.
 
 Warum diese Aufgabe zuerst:
 
-- Backtest-Historie ist jetzt als Lernkontext sichtbar und bleibt von automatischen Gewichtungsänderungen getrennt.
-- Die App zeigt bereits Trefferquoten und Segmentgruppen, erklärt aber noch nicht klar genug, warum negative Historienfälle entstanden sind.
-- Der nächste Nutzen liegt darin, wiederkehrende Fehlerquellen wie schwache Marktphase, negatives Momentum, schlechte CRV-Struktur oder hohe Volatilität sichtbar zu machen.
+- Fehlfälle werden jetzt nach Asset-Typ, Marktphase und Signalgruppen sichtbar gemacht.
+- Die App zeigt damit, wo Fehler gehäuft auftreten, formuliert daraus aber noch keine konkreten, überprüfbaren Kalibrierungsvorschläge.
+- Der nächste Nutzen liegt darin, häufige Fehlerursachen in transparente Vorschläge zu übersetzen, ohne Gewichtungen automatisch zu ändern.
 - Diese Aufgabe bleibt PRIO B, weil sie Messung der Analysequalität und spätere Kalibrierung verbessert.
 
 Nächste konkrete Umsetzung:
 
-1. Negative ausgewertete Forward-, Decision-, Prognose- und Trade-Fälle sammeln.
-2. Ursachen nach Signal-Snapshot, Marktphase, Asset-Typ, Volatilität, CRV, News und Makro gruppieren.
-3. Mindestdatenlogik beibehalten: unter 20 Fällen nur zählen, ab 20 vorsichtig interpretieren.
+1. Häufige Fehlerursachen aus der neuen Fehlfall-Tabelle erkennen.
+2. Vorschläge mit Datenbasis, Fallzahl, Treffer-/Fehlquote und Begründung erzeugen.
+3. Mindestdatenlogik beibehalten: unter 20 Fällen nur zählen, 20 bis 50 vorsichtig, über 50 Vorschläge erlaubt.
 4. Keine automatische Gewichtungsänderung einbauen.
 5. README, Tests und ROADMAP aktualisieren.
 
@@ -987,6 +988,11 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-20
 
+- Fehlfall-Ursachenanalyse umgesetzt: Verfehlte Historienfälle werden im Analyse-Detailbereich nach Asset-Typ, Marktphase, Kaufsignal, RSI, MACD, Volatilität, CRV, News und Makro gruppiert.
+- Mindestdatenlogik beibehalten: Unter 20 Fehlfällen wird nur gezählt; ab 20 Fällen gibt es vorsichtige Hinweise; Gewichtungen werden nie automatisch geändert.
+- README aktualisiert: Signalanalyse beschreibt nun auch die gruppierte Fehlfall-Ursachenanalyse.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Mock-Tests für leere Historie, keine Fehlfälle und Fehlfall-Gruppen erfolgreich.
+- Nächste Priorität angepasst: Lernmodul mit konkreten Kalibrierungsvorschlägen aus häufigen Fehlerursachen erweitern.
 - Backtest-Historie in Lern- und Kalibrierungsübersicht integriert: Gespeicherte Backtests aus `backtest_history.json` werden als separater Lernkontext mit Fallzahl, Trefferquote, Durchschnittsrendite und Drawdown angezeigt.
 - Transparenzregel beibehalten: Backtest-Historie verändert keine Scores und keine Gewichtungen automatisch.
 - README aktualisiert: Kalibrierungsbereich erklärt den neuen Backtest-Lernkontext.

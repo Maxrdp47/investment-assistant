@@ -7,7 +7,7 @@ import tempfile
 import base64
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 import numpy as np
 import pandas as pd
@@ -1081,6 +1081,117 @@ def segmented_learning_rows(
                     "Bedeutung": meaning,
                 }
             )
+    return status, rows
+
+
+def negative_case_cause_rows(
+    trade_history: list[dict],
+    forward_tests: list[dict],
+    decisions: list[dict],
+    predictions: list[dict],
+) -> tuple[str, list[dict[str, str]]]:
+    cases = evaluated_history_cases([trade_history, forward_tests, decisions, predictions])
+    misses = [case for case in cases if case.get("hit") is False]
+
+    if not cases:
+        return "Keine ausgewerteten Historienfälle vorhanden.", [
+            {
+                "Dimension": "Gesamt",
+                "Ausprägung": "Daten nicht verfügbar",
+                "Fehlfälle": "0",
+                "Anteil": "Datenbasis zu klein",
+                "Durchschnittsrendite": "Datenbasis zu klein",
+                "Schlechtester Fall": "Datenbasis zu klein",
+                "Status": "Keine Kalibrierung",
+                "Bedeutung": "Es gibt noch keine ausgewerteten Fälle, aus denen Fehlerursachen abgeleitet werden können.",
+            }
+        ]
+
+    if not misses:
+        return "Keine Fehlfälle in der lokalen Historie erkannt.", [
+            {
+                "Dimension": "Gesamt",
+                "Ausprägung": "Keine Fehlfälle",
+                "Fehlfälle": "0",
+                "Anteil": "0.0%",
+                "Durchschnittsrendite": "n/a",
+                "Schlechtester Fall": "n/a",
+                "Status": "Nur Beobachtung",
+                "Bedeutung": "Die ausgewerteten Fälle enthalten bisher keinen verfehlten Ausgang. Gewichtungen bleiben unverändert.",
+            }
+        ]
+
+    if len(misses) < 20:
+        status = "Datenbasis zu klein. Fehlerursachen werden gezählt, aber noch nicht belastbar interpretiert."
+    elif len(misses) <= 50:
+        status = "Vorsichtige Fehlerursachen-Hinweise möglich. Gewichtungen bleiben unverändert."
+    else:
+        status = "Genügend Fehlfälle für transparentere Ursachenhinweise. Änderungen bleiben manuell und testpflichtig."
+
+    dimensions: list[tuple[str, Callable[[dict], object]]] = [
+        ("Asset-Typ", lambda case: case.get("asset_type") or "Unbekannt"),
+        ("Marktphase", lambda case: case.get("market_phase") or "Unbekannt"),
+        ("Kaufsignal", lambda case: case.get("buy_signal_bucket") or "Unbekannt"),
+        ("RSI", lambda case: case.get("signals", {}).get("RSI") or "Daten nicht verfügbar"),
+        ("MACD", lambda case: case.get("signals", {}).get("MACD") or "Daten nicht verfügbar"),
+        ("Volatilität", lambda case: case.get("signals", {}).get("Volatilität") or "Daten nicht verfügbar"),
+        ("CRV", lambda case: case.get("signals", {}).get("CRV") or "Daten nicht verfügbar"),
+        ("News", lambda case: case.get("signals", {}).get("News") or "Daten nicht verfügbar"),
+        ("Makro", lambda case: case.get("signals", {}).get("Makro") or "Daten nicht verfügbar"),
+    ]
+
+    rows: list[dict[str, str]] = [
+        {
+            "Dimension": "Gesamt",
+            "Ausprägung": "Alle Fehlfälle",
+            "Fehlfälle": str(len(misses)),
+            "Anteil": f"{len(misses) / len(cases) * 100:.1f}%",
+            "Durchschnittsrendite": f"{float(np.mean([case['return_pct'] for case in misses])):+.2f}%",
+            "Schlechtester Fall": f"{min(case['return_pct'] for case in misses):+.2f}%",
+            "Status": calibration_permission(len(misses))[0],
+            "Bedeutung": status,
+        }
+    ]
+
+    for dimension, getter in dimensions:
+        grouped: dict[str, list[dict]] = {}
+        for case in misses:
+            group = str(getter(case))
+            if not group or group.lower() in {"unbekannt", "none", "daten nicht verfügbar"}:
+                continue
+            grouped.setdefault(group, []).append(case)
+
+        for group, group_cases in sorted(grouped.items(), key=lambda item: len(item[1]), reverse=True)[:3]:
+            count = len(group_cases)
+            permission, meaning = calibration_permission(count)
+            avg_return = float(np.mean([case["return_pct"] for case in group_cases]))
+            worst_return = min(case["return_pct"] for case in group_cases)
+            rows.append(
+                {
+                    "Dimension": dimension,
+                    "Ausprägung": group,
+                    "Fehlfälle": str(count),
+                    "Anteil": f"{count / len(misses) * 100:.1f}%",
+                    "Durchschnittsrendite": "Datenbasis zu klein" if count < 20 else f"{avg_return:+.2f}%",
+                    "Schlechtester Fall": "Datenbasis zu klein" if count < 20 else f"{worst_return:+.2f}%",
+                    "Status": permission,
+                    "Bedeutung": f"{meaning} Diese Gruppe zeigt, wo verfehlte Empfehlungen gehäuft auftraten.",
+                }
+            )
+
+    if len(rows) == 1:
+        rows.append(
+            {
+                "Dimension": "Signalgruppen",
+                "Ausprägung": "Daten nicht verfügbar",
+                "Fehlfälle": "0",
+                "Anteil": "Datenbasis zu klein",
+                "Durchschnittsrendite": "Datenbasis zu klein",
+                "Schlechtester Fall": "Datenbasis zu klein",
+                "Status": "Keine Kalibrierung",
+                "Bedeutung": "Die Fehlfälle enthalten noch keine verwertbaren Asset-, Marktphasen- oder Signalgruppen.",
+            }
+        )
     return status, rows
 
 
@@ -6091,6 +6202,12 @@ def main() -> None:
             decision_history,
             prediction_history,
         )
+        negative_cause_status, negative_cause_table = negative_case_cause_rows(
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
+        )
         backtest_learning_status, backtest_learning_table = backtest_history_learning_rows(backtest_history)
         backtest_status, backtest_table = backtest_signal_buckets(df, asset_profile)
         backtest_compact_status, backtest_compact_table = backtest_compact_rows(backtest_table)
@@ -6458,6 +6575,13 @@ def main() -> None:
             st.write(segmented_learning_status)
             st.dataframe(
                 pd.DataFrame(segmented_learning_table),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Fehlfälle nach möglicher Ursache**")
+            st.write(negative_cause_status)
+            st.dataframe(
+                pd.DataFrame(negative_cause_table),
                 use_container_width=True,
                 hide_index=True,
             )

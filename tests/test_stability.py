@@ -329,3 +329,41 @@ def test_news_score_discloses_source_date_relevance_and_sentiment_quality(monkey
     assert "Relevanz: hoch" in details
     assert "Sentiment-Qualität" in details
     assert module.summary.startswith("News-Sentiment")
+
+
+def test_macro_score_discloses_missing_proxy_coverage(monkeypatch) -> None:
+    monkeypatch.setattr(app, "load_macro_prices", lambda: {})
+
+    module = app.score_macro()
+    details = "\n".join(module.details)
+
+    assert module.score == 5.0
+    assert "Datenabdeckung Makro" in details
+    assert "Score-Neutralität Makro" in details
+    assert "Liquiditätsproxy direkt: Daten nicht verfügbar" in details
+    assert "Risikoappetit / Nasdaq-Trend: Daten nicht verfügbar" in details
+
+
+def test_macro_score_explains_available_proxy_effects(monkeypatch) -> None:
+    def frame(start: float, end: float) -> app.pd.DataFrame:
+        return app.pd.DataFrame({"Close": [start, start, start, start, start, end]})
+
+    monkeypatch.setattr(
+        app,
+        "load_macro_prices",
+        lambda: {
+            "Nasdaq": frame(100, 112),
+            "US-Zinsen 10J": frame(100, 90),
+            "Dollar-Index": frame(100, 95),
+            "Inflationserwartung Proxy": frame(100, 102),
+        },
+    )
+
+    module = app.score_macro()
+    details = "\n".join(module.details)
+
+    assert module.score > 5.0
+    assert "Risikoappetit / Nasdaq-Trend" in details
+    assert "Zinsdruck / US-Zinsen 10J" in details
+    assert "Dollar-/Liquiditätsdruck" in details
+    assert "Inflations-/Realzins-Proxy TIP" in details

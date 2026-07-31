@@ -145,7 +145,7 @@ Enthalten sind:
 - Innovation / Hype: Hinweise auf Wachstum, Margen, Cashflow, Marktstellung, Technologiebezug und Hype-Risiko
 - Blasenrisiko: Bewertung, Momentum, 3M-Kursanstieg, Volatilität und News-Sentiment; hoher Wert ist ein Warnsignal
 - Expected Value: Bull-/Base-/Bear-Case, Wahrscheinlichkeiten, erwartete Rendite, erwarteter Verlustbeitrag und Expected-Value-Score
-- Makro-Score
+- Makro-Score: zeigt Datenabdeckung und Score-Neutralität; nutzt Nasdaq/Risikoappetit, US-Zinsen, Dollar-/Liquiditätsdruck und TIP als Inflations-/Realzinsproxy, sofern Yahoo-Daten verfügbar sind. Direkte Liquiditätsdaten werden ohne belastbare Quelle als `Daten nicht verfügbar` angezeigt.
 - Marktregime mit Hinweisen, Gegenargumenten, Unsicherheiten, betroffenen Asset-Klassen und Vertrauensgrad
 - Makro-Wirkung: Zinsen, Dollar, Risikoappetit und Inflations-/Realzinsproxy mit praktischer Wirkung auf Aktien, ETFs, Krypto und Rohstoffe
 - Rohstoff-Kontext: Öl, Gas, Kupfer, Gold und Uran-Proxy als Konjunktur-, Inflations-, Sicherheits- und Energiesignale, sofern Yahoo-Daten verfügbar sind

@@ -3609,36 +3609,54 @@ def trend_change(data: pd.DataFrame, days: int = 60) -> float | None:
 
 def score_macro() -> ModuleScore:
     data = load_macro_prices()
-    details: list[str] = []
+    macro_fields = [
+        ("Risikoappetit / Nasdaq", data.get("Nasdaq")),
+        ("US-Zinsen 10J", data.get("US-Zinsen 10J")),
+        ("Dollar-Index", data.get("Dollar-Index")),
+        ("Inflations-/Realzinsproxy TIP", data.get("Inflationserwartung Proxy")),
+    ]
+    details: list[str] = [
+        data_coverage_detail("Makro", macro_fields),
+        score_neutrality_detail("Makro"),
+        "Liquiditätsproxy direkt: Daten nicht verfügbar. Die App nutzt Nasdaq, Dollar und Zinsen nur als indirekte Risikoappetit-/Liquiditätsproxies.",
+    ]
     score = 5.0
 
     nasdaq_change = trend_change(data.get("Nasdaq", pd.DataFrame()))
     if nasdaq_change is not None:
         adjustment = 1.5 if nasdaq_change > 0.08 else 0.7 if nasdaq_change > 0 else -1.0
         score += adjustment
-        details.append(f"Nasdaq-Trend 3M: {nasdaq_change * 100:+.1f}% ({adjustment:+.1f}).")
+        details.append(f"Risikoappetit / Nasdaq-Trend 3M: {nasdaq_change * 100:+.1f}% ({adjustment:+.1f}).")
+    else:
+        details.append(data_missing("Risikoappetit / Nasdaq-Trend"))
 
     rates_change = trend_change(data.get("US-Zinsen 10J", pd.DataFrame()))
     if rates_change is not None:
         adjustment = -1.0 if rates_change > 0.08 else 0.6 if rates_change < -0.08 else 0.0
         score += adjustment
-        details.append(f"US-Zinsen 10J 3M: {rates_change * 100:+.1f}% ({adjustment:+.1f}).")
+        details.append(f"Zinsdruck / US-Zinsen 10J 3M: {rates_change * 100:+.1f}% ({adjustment:+.1f}).")
+    else:
+        details.append(data_missing("Zinsdruck / US-Zinsen 10J"))
 
     dollar_change = trend_change(data.get("Dollar-Index", pd.DataFrame()))
     if dollar_change is not None:
         adjustment = -0.7 if dollar_change > 0.04 else 0.4 if dollar_change < -0.04 else 0.0
         score += adjustment
-        details.append(f"Dollar-Index 3M: {dollar_change * 100:+.1f}% ({adjustment:+.1f}).")
+        details.append(f"Dollar-/Liquiditätsdruck 3M: {dollar_change * 100:+.1f}% ({adjustment:+.1f}).")
+    else:
+        details.append(data_missing("Dollar-/Liquiditätsdruck"))
 
     inflation_proxy = trend_change(data.get("Inflationserwartung Proxy", pd.DataFrame()))
     if inflation_proxy is not None:
         adjustment = 0.4 if inflation_proxy > 0 else -0.4
         score += adjustment
         details.append(f"Inflations-/Realzins-Proxy TIP 3M: {inflation_proxy * 100:+.1f}% ({adjustment:+.1f}).")
+    else:
+        details.append(data_missing("Inflations-/Realzinsproxy TIP"))
 
     final_score = round(clamp(score), 1)
-    if not details:
-        return ModuleScore(5.0, "Makrodaten konnten nicht geladen werden. Makro wird neutral bewertet.", ["Keine Makrodaten verfügbar."])
+    if nasdaq_change is None and rates_change is None and dollar_change is None and inflation_proxy is None:
+        return ModuleScore(5.0, "Makrodaten konnten nicht geladen werden. Makro wird neutral bewertet.", details + ["Keine Makrodaten verfügbar."])
 
     if final_score >= 6.5:
         summary = "Makroumfeld ist eher unterstützend."
@@ -4629,8 +4647,18 @@ def safe_dataframe_from_yfinance(value: object) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def coverage_value_available(value: object) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, pd.DataFrame):
+        return not value.empty
+    if isinstance(value, (list, tuple, set, dict)):
+        return len(value) > 0
+    return str(value) not in {"", "Daten nicht verfügbar"}
+
+
 def data_coverage_detail(module_name: str, fields: list[tuple[str, object]]) -> str:
-    available = sum(1 for _, value in fields if value is not None and value != [] and str(value) not in {"", "Daten nicht verfügbar"})
+    available = sum(1 for _, value in fields if coverage_value_available(value))
     labels = ", ".join(label for label, _ in fields)
     return f"Datenabdeckung {module_name}: {available}/{len(fields)} Felder verfügbar ({labels})."
 

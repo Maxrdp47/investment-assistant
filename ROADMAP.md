@@ -136,7 +136,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Bewertungsmodelle ausbauen: historische Bewertung, relative Bewertung und Peer-Vergleich, falls Daten verfügbar sind. Status: erweitert am 2026-07-31; zusätzliche Multiples, Forward-KGV-Abstand, Sektor-/Branchenkontext und klare Nichtverfügbarkeit für Historien-/Peer-Daten eingebaut.
 - Analysten-, Earnings-, Event- und institutionelle Module weiter validieren und auf zusätzliche Datenquellen erweitern. Status: validiert am 2026-07-31; Datenabdeckung und Score-Neutralität je Modul ergänzt, fehlende Daten bleiben `Daten nicht verfügbar`.
 - News-Modul verbessern: Quelle, Datum, Relevanz, Sentiment-Qualität. Status: erweitert am 2026-07-31; Yahoo-News werden normalisiert und Quelle, Datum, Relevanz sowie Sentiment-Qualität transparent angezeigt.
-- Makro-Modul erweitern: Inflation, Realzinsen, Liquidität, Risikoappetit.
+- Makro-Modul erweitern: Inflation, Realzinsen, Liquidität, Risikoappetit. Status: erweitert am 2026-07-31; Datenabdeckung, Score-Neutralität, Risikoappetit/Nasdaq, Zinsdruck, Dollar-/Liquiditätsdruck und TIP als Inflations-/Realzinsproxy werden transparent ausgewiesen. Direkte Liquiditätsdaten bleiben ohne Quelle `Daten nicht verfügbar`.
 - Geopolitik-Modul prüfen, ohne Daten zu erfinden.
 - Risiko- und Liquiditätsmodul verfeinern.
 
@@ -513,19 +513,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Makro-Modul erweitern: Inflation, Realzinsen, Liquidität und Risikoappetit transparenter machen.
+1. Geopolitik-Modul prüfen und nur mit belastbarer Datenlage anzeigen.
 
 Warum diese Aufgabe zuerst:
 
-- News-Signale zeigen jetzt Quelle, Datum, Relevanz und Sentiment-Qualität und bleiben neutral, wenn Daten fehlen.
-- Das Makro-Modul beeinflusst Aktien, ETFs, Krypto und Rohstoffe, braucht aber noch bessere Transparenz für Inflation, Realzinsen, Liquidität und Risikoappetit.
-- Der nächste größte Nutzen liegt darin, Makro-Signale nachvollziehbarer und robuster gegen fehlende Proxy-Daten zu machen.
+- Das Makro-Modul zeigt jetzt Datenabdeckung, Score-Neutralität und die Wirkung der verfügbaren Proxy-Daten transparent.
+- Geopolitische Risiken können die Analysequalität stark beeinflussen, dürfen aber nicht aus Bauchgefühl oder unvollständigen Annahmen erfunden werden.
+- Der nächste größte Nutzen liegt darin, zu prüfen, welche geopolitischen Daten überhaupt belastbar verfügbar sind und wie fehlende Daten sauber neutral behandelt werden.
 
 Nächste konkrete Umsetzung:
 
-1. Makro-Proxies für Inflation, Realzinsen, Liquidität und Risikoappetit prüfen.
-2. Datenabdeckung und Score-Neutralität im Makro-Modul ergänzen.
-3. Bei fehlenden Makro-Daten `Daten nicht verfügbar` anzeigen.
+1. Geopolitische Datenquellen und vorhandene News-/Makro-Kontexte prüfen.
+2. Nur belegbare geopolitische Risiken in die Analyse aufnehmen.
+3. Wenn keine belastbare Datenquelle verfügbar ist, `Daten nicht verfügbar` anzeigen und neutral behandeln.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1072,6 +1072,15 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - README aktualisiert: Performance-Tracking und Prognose-Tracking nennen jetzt 6- und 12-Monats-Auswertungen.
 - Tests dokumentiert: `python -m py_compile app.py` erfolgreich; Mock-Test mit alten Historien für Trade, Decision, Prognose und Forward erfolgreich.
 - Nächste Priorität angepasst: Backtesting-Basis vorbereiten.
+
+### 2026-07-31
+
+- Makro-Modul erweitert: Datenabdeckung und Score-Neutralität werden jetzt im Makro-Score ausgewiesen.
+- Makro-Proxies transparenter gemacht: Risikoappetit/Nasdaq, Zinsdruck/US-Zinsen, Dollar-/Liquiditätsdruck und TIP als Inflations-/Realzinsproxy werden einzeln erklärt.
+- Keine Makro- oder Liquiditätsdaten erfunden: direkte Liquiditätsdaten bleiben ohne belastbare Quelle `Daten nicht verfügbar`, und fehlende Proxies führen zu neutraler Bewertung statt Scheingenauigkeit.
+- README aktualisiert: Makro-Score beschreibt jetzt Datenabdeckung, Score-Neutralität und verfügbare Proxy-Daten.
+- Tests dokumentiert: direkte Makro-Mock-Tests erfolgreich; `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Makro-Modul erweitern` ist umgesetzt; neue Priorität ist `Geopolitik-Modul prüfen`, weil geopolitische Risiken hohe Analysewirkung haben, aber nur mit belastbarer Datenlage aufgenommen werden dürfen.
 
 ### 2026-07-19
 

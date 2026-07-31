@@ -138,7 +138,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - News-Modul verbessern: Quelle, Datum, Relevanz, Sentiment-Qualität. Status: erweitert am 2026-07-31; Yahoo-News werden normalisiert und Quelle, Datum, Relevanz sowie Sentiment-Qualität transparent angezeigt.
 - Makro-Modul erweitern: Inflation, Realzinsen, Liquidität, Risikoappetit. Status: erweitert am 2026-07-31; Datenabdeckung, Score-Neutralität, Risikoappetit/Nasdaq, Zinsdruck, Dollar-/Liquiditätsdruck und TIP als Inflations-/Realzinsproxy werden transparent ausgewiesen. Direkte Liquiditätsdaten bleiben ohne Quelle `Daten nicht verfügbar`.
 - Geopolitik-Modul prüfen, ohne Daten zu erfinden. Status: umgesetzt am 2026-07-31; nutzt nur verfügbare Yahoo-News-Titel als Hinweisquelle, zeigt Datenabdeckung und Score-Neutralität und kennzeichnet fehlende geopolitische Daten klar.
-- Risiko- und Liquiditätsmodul verfeinern.
+- Risiko- und Liquiditätsmodul verfeinern. Status: erweitert am 2026-07-31; Datenabdeckung, Score-Neutralität, Asset-Typ-Volatilität, CRV-Einordnung, Volumenqualität und fehlende Spread-/Orderbuchdaten werden transparent angezeigt.
 
 ### PRIO A: Marktregime-, Innovations-, Blasen- und Makro-Wirkungsmodul
 
@@ -513,19 +513,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Risiko- und Liquiditätsmodul verfeinern.
+1. Krypto-Modul: externe Krypto-Spezialdaten und Marktstruktur transparenter prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Das Geopolitik-Modul nutzt jetzt nur verfügbare Yahoo-News-Titel, zeigt Datenabdeckung und bleibt bei fehlenden Daten transparent.
-- Risiko- und Liquiditätsmodule beeinflussen die praktische Nutzbarkeit der Analyse direkt, weil ein gutes Kaufsignal ohne handelbare Liquidität oder planbares Risiko schwächer belastbar ist.
-- Der nächste größte Nutzen liegt darin, Risiko und Liquidität besser nach Asset-Typ, Volatilität, Volumenqualität und CRV zu erklären.
+- Risiko- und Liquiditätsmodule zeigen jetzt Asset-Typ-Schwellen, Datenabdeckung, Score-Neutralität und fehlende Markttiefe transparent.
+- Im Krypto-Modul sind Fear & Greed, ETF-Flows, On-Chain-Daten und Marktstruktur weiterhin offene Datenqualitätsfragen.
+- Der nächste größte Nutzen liegt darin, Krypto-Spezialdaten sauber zu prüfen und fehlende Quellen noch klarer von echten Signalen zu trennen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehenden Risiko-Score und Liquiditäts-Score prüfen.
-2. Asset-Typ-spezifische Schwellen und fehlende Daten transparenter machen.
-3. Volumenqualität, Volatilität und CRV nachvollziehbarer erklären.
+1. Bestehendes Krypto-Zyklus-Modul prüfen.
+2. Fear & Greed, ETF-Flows, On-Chain-Daten und Marktstruktur als Datenfelder transparent ausweisen.
+3. Wenn keine belastbare Quelle verfügbar ist, `Daten nicht verfügbar` anzeigen und keine Werte schätzen.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1075,6 +1075,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-31
 
+- Risiko- und Liquiditätsmodule verfeinert: Risiko-Score zeigt jetzt Datenabdeckung, Score-Neutralität, Asset-Typ-Volatilität, Risiko bis Unterstützung, Potenzial bis Widerstand und CRV-Einordnung.
+- Liquiditäts-Score erweitert: relatives Volumen zum 20er-Schnitt, Yahoo-Durchschnittsvolumen, 10T-Durchschnittsvolumen und fehlende Spread-/Orderbuchdaten werden transparent ausgewiesen.
+- Keine Markttiefedaten erfunden: Bid-Ask-Spread, Orderbuchtiefe, Börsentiefe und Stablecoin-Liquidität bleiben `Daten nicht verfügbar`, wenn keine belastbare Quelle eingebunden ist.
+- README aktualisiert: Risiko-Score und Liquiditäts-Score beschreiben jetzt Datenabdeckung und praktische Grenzen.
+- Tests dokumentiert: direkte Risiko-/Liquiditäts-Mock-Tests erfolgreich; `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Risiko- und Liquiditätsmodul verfeinern` ist umgesetzt; neue Priorität ist `Krypto-Modul: externe Krypto-Spezialdaten und Marktstruktur transparenter prüfen`, weil Krypto-Signale stark von Datenquellen wie Fear & Greed, ETF-Flows, On-Chain und Liquiditätsstruktur abhängen.
 - Geopolitik-Modul umgesetzt: neuer `Geopolitik-Score` im Research-Pack nutzt ausschließlich verfügbare Yahoo-News-Titel als Hinweisquelle für Sanktionen, Zölle, Krieg, Lieferkettenstress oder Exportkontrollen.
 - Keine geopolitischen Daten erfunden: Wenn keine News verfügbar sind, zeigt das Modul `Geopolitische Daten nicht verfügbar`; wenn keine Treffer gefunden werden, wird das ausdrücklich nicht als vollständige Entwarnung formuliert.
 - Unsicherheitsfaktoren verbessert: geopolitische Risiken werden jetzt nicht mehr nur pauschal genannt, sondern abhängig von Datenverfügbarkeit und Geopolitik-Score eingeordnet.

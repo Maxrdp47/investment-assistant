@@ -153,8 +153,8 @@ Enthalten sind:
 - Krypto-Zyklus: nur bei Krypto-Assets, mit Bitcoin-Halving-Einordnung, Krypto-Volatilität und Liquidität; ETF-Flows, Fear & Greed und On-Chain-Daten bleiben `Daten nicht verfügbar`, wenn keine belastbare Quelle eingebunden ist
 - Institutionelle Research-Module: Analysten-Konsens, Earnings, Event-Risiko und institutionelle Daten zeigen Datenabdeckung und Score-Neutralität. Fehlende Analysten-, Earnings-, Event-, Insider-, Short-Interest- oder ETF-Flow-Daten werden nicht geschätzt.
 - News-Score: zeigt Quelle, Datum, Relevanz und einfache Sentiment-Qualität je Nachricht; fehlende oder unklare News-Daten werden neutral behandelt und nicht erfunden.
-- Risiko-Score
-- Liquiditäts-Score
+- Risiko-Score: zeigt Datenabdeckung, Score-Neutralität, Asset-Typ-abhängige Volatilität, Risiko bis Unterstützung, Potenzial bis Widerstand und CRV-Einordnung.
+- Liquiditäts-Score: zeigt Datenabdeckung, relatives Volumen zum 20er-Schnitt, Yahoo-Durchschnittsvolumen, 10T-Durchschnittsvolumen und fehlende Spread-/Orderbuchdaten transparent.
 - Bull-/Base-/Bear-Szenarien mit Wahrscheinlichkeiten, die zusammen 100 % ergeben; Trend, Volatilität, Unterstützungen, Widerstände und CRV werden als Treiber ausgewiesen
 - Nachkaufzonen: aggressiv, fair, sicher und ungültig bei Bruch der Unterstützung; fehlende Unterstützungen oder Widerstände werden als nicht berechenbar angezeigt
 - Research-Fazit: was für Kauf spricht, was dagegen spricht, was die Analyse verbessern würde, welche Marke entscheidend ist und ein konkreter Plan

@@ -412,3 +412,42 @@ def test_geopolitical_context_uses_news_titles_as_evidence(monkeypatch) -> None:
     assert "Geopolitische Risikotreffer" in details
     assert "export control" in details or "export controls" in details
     assert "Entlastungstreffer" in details
+
+
+def test_risk_score_uses_asset_type_thresholds_and_crv_details() -> None:
+    df = app.pd.DataFrame({"Volatility": [0.60]})
+    risk_reward = app.RiskReward(
+        risk_pct=-0.08,
+        reward_pct=0.20,
+        ratio=2.5,
+        score=8.0,
+        summary="Risiko bis Unterstützung -8,0 %, Potenzial bis Widerstand +20,0 %, CRV 2,50.",
+    )
+    stock = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
+    crypto = app.AssetProfile("Krypto", "CRYPTOCURRENCY", "Krypto", {})
+
+    stock_module = app.research_risk_score(df, risk_reward, stock)
+    crypto_module = app.research_risk_score(df, risk_reward, crypto)
+    details = "\n".join(stock_module.details)
+
+    assert stock_module.score < crypto_module.score
+    assert "Datenabdeckung Risiko" in details
+    assert "Score-Neutralität Risiko" in details
+    assert "CRV-Einordnung: 2.50" in details
+    assert "Risiko bis nächste Unterstützung" in details
+
+
+def test_liquidity_score_discloses_volume_coverage_and_missing_market_depth() -> None:
+    df = app.pd.DataFrame({"Volume": [25_000], "Volume_SMA_20": [100_000]})
+    info = {"averageVolume": 40_000, "averageVolume10days": 50_000}
+    profile = app.AssetProfile("ETF", "ETF", "ETF", {})
+
+    module = app.research_liquidity_score(df, info, profile)
+    details = "\n".join(module.details)
+
+    assert "Datenabdeckung Liquidität" in details
+    assert "Score-Neutralität Liquidität" in details
+    assert "0.25x" in details
+    assert "Handel ist dünn" in details
+    assert "10T-Durchschnittsvolumen Yahoo" in details
+    assert "Bid-Ask-Spread und Orderbuchtiefe: Daten nicht verfügbar" in details

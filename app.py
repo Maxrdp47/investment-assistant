@@ -4385,21 +4385,67 @@ def research_momentum_score(df: pd.DataFrame) -> ResearchModule:
     return ResearchModule("Momentum-Score", score, f"Momentum {score}/10 aus RSI, MACD und Volumen.", details, beginner)
 
 
-def research_risk_score(df: pd.DataFrame, risk_reward: RiskReward) -> ResearchModule:
+def volatility_risk_score(volatility: float, asset_type: str) -> tuple[float, str]:
+    thresholds = {
+        "ETF": (0.18, 0.30, 0.50),
+        "Aktie": (0.25, 0.45, 0.75),
+        "Krypto": (0.45, 0.75, 1.10),
+        "Derivat / unbekannt": (0.20, 0.35, 0.60),
+    }.get(asset_type, (0.20, 0.35, 0.60))
+    low, medium, high = thresholds
+    if volatility <= low:
+        return 8.0, "ruhig für diesen Asset-Typ"
+    if volatility <= medium:
+        return 6.0, "normal bis moderat für diesen Asset-Typ"
+    if volatility <= high:
+        return 4.0, "hoch für diesen Asset-Typ"
+    return 2.5, "sehr hoch für diesen Asset-Typ"
+
+
+def research_risk_score(df: pd.DataFrame, risk_reward: RiskReward, profile: AssetProfile) -> ResearchModule:
     latest = df.iloc[-1]
     volatility = value_or_none(latest.get("Volatility"))
     points: list[float] = []
-    details: list[str] = []
+    details: list[str] = [
+        data_coverage_detail(
+            "Risiko",
+            [
+                ("Volatilität", volatility),
+                ("Risiko bis Unterstützung", risk_reward.risk_pct),
+                ("Potenzial bis Widerstand", risk_reward.reward_pct),
+                ("CRV", risk_reward.ratio),
+            ],
+        ),
+        score_neutrality_detail("Risiko"),
+    ]
     if volatility is not None:
-        vol_score = 8.0 if volatility <= 0.25 else 6.0 if volatility <= 0.45 else 4.0 if volatility <= 0.75 else 2.5
+        vol_score, vol_label = volatility_risk_score(volatility, profile.asset_type)
         points.append(vol_score)
-        details.append(f"Volatilität {volatility * 100:.1f}% -> {vol_score:.1f}/10.")
+        details.append(f"Volatilität {volatility * 100:.1f}% ({vol_label}) -> {vol_score:.1f}/10.")
     else:
         details.append(data_missing("Volatilität"))
+    if risk_reward.risk_pct is not None:
+        details.append(f"Risiko bis nächste Unterstützung: {percent_text(risk_reward.risk_pct)}.")
+    else:
+        details.append(data_missing("Risiko bis Unterstützung"))
+    if risk_reward.reward_pct is not None:
+        details.append(f"Potenzial bis nächster Widerstand: {percent_text(risk_reward.reward_pct)}.")
+    else:
+        details.append(data_missing("Potenzial bis Widerstand"))
+    if risk_reward.ratio is not None:
+        if risk_reward.ratio >= 2:
+            crv_text = "attraktiv, weil das Potenzial mindestens doppelt so hoch ist wie das Risiko"
+        elif risk_reward.ratio >= 1:
+            crv_text = "brauchbar, aber nicht besonders komfortabel"
+        else:
+            crv_text = "schwach, weil das Potenzial das Risiko nicht klar übersteigt"
+        details.append(f"CRV-Einordnung: {risk_reward.ratio:.2f} -> {crv_text}.")
+    else:
+        details.append(data_missing("CRV-Einordnung"))
     points.append(risk_reward.score)
     details.append(f"CRV-Score: {risk_reward.score:.1f}/10. {risk_reward.summary}")
     score = score_from_optional(points)
-    beginner = "Der Risiko-Score bewertet Schwankungen und Verhältnis von möglichem Gewinn zu Verlust. Hoch heißt: Das Risiko ist besser planbar."
+    beginner = "Der Risiko-Score bewertet Schwankungen, Abstand zur Unterstützung und Potenzial bis zum Widerstand. Hoch heißt: Das Risiko ist für diesen Asset-Typ besser planbar."
     return ResearchModule("Risiko-Score", score, f"Risiko {score}/10. {risk_reward.summary}", details, beginner)
 
 
@@ -4408,25 +4454,54 @@ def research_liquidity_score(df: pd.DataFrame, info: dict, profile: AssetProfile
     volume = value_or_none(latest.get("Volume"))
     volume_avg = value_or_none(latest.get("Volume_SMA_20"))
     avg_volume = value_or_none(info.get("averageVolume"))
+    avg_volume_10d = value_or_none(info.get("averageVolume10days"))
     points: list[float] = []
-    details: list[str] = []
+    details: list[str] = [
+        data_coverage_detail(
+            "Liquidität",
+            [
+                ("aktuelles Volumen", volume),
+                ("20er-Volumenschnitt", volume_avg),
+                ("Yahoo-Durchschnittsvolumen", avg_volume),
+                ("Yahoo-10T-Durchschnittsvolumen", avg_volume_10d),
+            ],
+        ),
+        score_neutrality_detail("Liquidität"),
+    ]
     if volume is not None and volume_avg is not None and volume_avg > 0:
         ratio = volume / volume_avg
         score = 8.0 if ratio >= 1.0 else 6.0 if ratio >= 0.5 else 3.5
         points.append(score)
-        details.append(f"Aktuelles Volumen zu 20er-Schnitt: {ratio:.2f}x -> {score:.1f}/10.")
+        if ratio >= 1.0:
+            ratio_text = "aktueller Handel ist mindestens durchschnittlich aktiv"
+        elif ratio >= 0.5:
+            ratio_text = "Handel ist unterdurchschnittlich, aber nicht extrem dünn"
+        else:
+            ratio_text = "Handel ist dünn; Signale sind weniger belastbar"
+        details.append(f"Aktuelles Volumen zu 20er-Schnitt: {ratio:.2f}x -> {score:.1f}/10; {ratio_text}.")
     else:
         details.append(data_missing("aktuelles Volumen"))
     if avg_volume is not None:
-        score = 8.0 if avg_volume >= 1_000_000 else 6.0 if avg_volume >= 100_000 else 4.0
+        if profile.asset_type == "ETF":
+            score = 8.0 if avg_volume >= 500_000 else 6.0 if avg_volume >= 50_000 else 4.0
+        elif profile.asset_type == "Krypto":
+            score = 8.0 if avg_volume >= 1_000_000 else 6.0 if avg_volume >= 100_000 else 4.0
+        else:
+            score = 8.0 if avg_volume >= 1_000_000 else 6.0 if avg_volume >= 100_000 else 4.0
         points.append(score)
-        details.append(f"Durchschnittsvolumen Yahoo: {format_currency(avg_volume)} -> {score:.1f}/10.")
+        details.append(f"Durchschnittsvolumen Yahoo: {format_currency(avg_volume)} Stück/Einheiten -> {score:.1f}/10 für Asset-Typ {profile.asset_type}.")
     else:
         details.append(data_missing("Yahoo-Durchschnittsvolumen"))
+    if avg_volume_10d is not None:
+        details.append(f"10T-Durchschnittsvolumen Yahoo: {format_currency(avg_volume_10d)} Stück/Einheiten.")
+    else:
+        details.append(data_missing("Yahoo-10T-Durchschnittsvolumen"))
     if profile.asset_type == "Krypto":
-        details.append("Orderbuch-/Spread-Daten: Daten nicht verfügbar.")
+        details.append("Orderbuch-, Spread-, Börsentiefe- und Stablecoin-Liquiditätsdaten: Daten nicht verfügbar.")
+    else:
+        details.append("Bid-Ask-Spread und Orderbuchtiefe: Daten nicht verfügbar.")
     score = score_from_optional(points)
-    beginner = "Liquidität zeigt, wie gut man typischerweise kaufen oder verkaufen kann. Hoch heißt: Der Markt wirkt handelbarer."
+    beginner = "Liquidität zeigt, wie leicht ein Asset typischerweise handelbar ist. Hoch heißt: Volumen spricht eher dafür, dass Signale belastbarer sind; Spread- und Orderbuchdaten fehlen aber weiterhin."
     return ResearchModule("Liquiditäts-Score", score, f"Liquidität {score}/10 aus verfügbaren Volumendaten.", details, beginner)
 
 
@@ -5524,7 +5599,7 @@ def build_research_pack(
     crypto_cycle = research_crypto_cycle(symbol, asset_profile, df)
     macro_module = module_from_existing("Makro-Score", macro, "Der Makro-Score bewertet Zinsen, Nasdaq, Dollar und Inflationsumfeld. Hoch heißt: Das Umfeld hilft eher.")
     news_module = module_from_existing("News-Score", news, "Der News-Score bewertet die Nachrichtenstimmung. Hoch heißt: Nachrichten geben eher Rückenwind.")
-    risk = research_risk_score(df, risk_reward)
+    risk = research_risk_score(df, risk_reward, asset_profile)
     liquidity = research_liquidity_score(df, info, asset_profile)
     analyst = research_analyst_consensus(info, asset_profile, original_currency, fx_rate, currency_mode)
     earnings = research_earnings_module(symbol, info, asset_profile)

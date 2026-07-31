@@ -413,6 +413,7 @@ Bewerten:
 - beste Alternative?
 - Status: Basis umgesetzt am 2026-06-15. Gespeicherte Trading-Setups werden nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten ausgewertet; Ziel/Stop, Rendite sowie maximale positive und negative Entwicklung werden gespeichert.
 - Status: Erweiterte Zeiträume umgesetzt am 2026-07-20. Trade-Journal, Forward-Tests, Prognosen und Entscheidungen unterstützen 6- und 12-Monats-Reviews kompatibel zu alten Historien.
+- Status: Beste Alternative umgesetzt am 2026-08-01. Trade-Journal-Auswertungen speichern zusätzlich gewählte Aktion, beste Alternative und Opportunitätskosten.
 
 ### PRIO B: Erweitertes Decision Tracking
 
@@ -515,20 +516,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Performance-Tracking für Trade Journal um beste Alternative und Ziel-/Stop-Auswertung gegen Roadmap prüfen.
+1. Krypto-Zyklus-Kontext prüfen und verständlicher in Krypto-Analyse integrieren.
 
 Warum diese Aufgabe zuerst:
 
-- Der Opportunity Scanner ist fachlich breiter und technisch effizienter: Faktorabdeckung ist sichtbar und bereits geladene Yahoo-Stammdaten werden pro Ticker wiederverwendet.
-- Die Roadmap fordert beim Performance Tracking zusätzlich Ziel-/Stop-Prüfung, maximale Entwicklung und den Vergleich zur besten Alternative.
-- Der nächste größte Nutzen liegt darin, gespeicherte Trading-Setups noch vollständiger auswertbar zu machen, damit die spätere Lernlogik auf besseren realen Ergebnissen basiert.
+- Trade-Journal-Performance-Tracking speichert jetzt Ziel/Stop, maximale Bewegungen, beste Alternative und Opportunitätskosten.
+- Krypto bleibt ein wichtiger Asset-Typ in der App, aber mehrere Spezialdatenquellen sind nicht zuverlässig verfügbar und dürfen nicht erfunden werden.
+- Der nächste größte Nutzen liegt darin, den verfügbaren Krypto-Zyklus-Kontext belastbarer und anfängerfreundlicher zu machen, ohne externe Daten zu erfinden.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Trade-Journal-Auswertung gegen die Roadmap-Anforderungen prüfen.
-2. Fehlende Felder wie beste Alternative oder Ziel-/Stop-Kontext ergänzen, falls noch nicht vollständig.
-3. Tests mit gemockten Kursdaten ergänzen.
-4. README und ROADMAP aktualisieren.
+1. Bestehende Krypto-/Halving-Zykluslogik prüfen.
+2. Falls sinnvoll, regelbasierte Zyklusphase und Unsicherheiten ergänzen.
+3. Fehlende externe Spezialdaten weiterhin klar als `Daten nicht verfügbar` kennzeichnen.
+4. Tests ausführen und README/ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
 
@@ -1007,6 +1008,15 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Decision-Tracking-Auswertung mit gemockten Kursdaten erfolgreich.
 - Confidence-System erweitert: Im Research-Modul zeigt die App ähnliche lokale Historienfälle nach Asset-Typ oder Marktphase, historische Trefferquote erst ab ausreichender Datenbasis und die Regel, dass keine automatische Gewichtungsänderung erfolgt.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
+
+### 2026-08-01
+
+- Performance-Tracking für Trade Journal erweitert: Fällige Trade-Auswertungen speichern jetzt zusätzlich gewählte Aktion, beste Alternative, Rendite der besten Alternative und Opportunitätskosten.
+- Ziel-/Stop-Auswertung bleibt unverändert erhalten: Ziel erreicht, Stop erreicht, Rendite sowie maximale positive und negative Entwicklung werden weiterhin aus echten Kursdaten berechnet.
+- Testbarkeit ergänzt: Neuer Mock-Test prüft einen Long-Trade mit Stop-Berührung, negativer Rendite und Short/Absicherung als beste Alternative.
+- README aktualisiert: Performance Tracking beschreibt jetzt beste Alternative und Opportunitätskosten.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkte Funktionschecks für beste Alternative und Trade-Performance-Auswertung erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Performance-Tracking für Trade Journal um beste Alternative und Ziel-/Stop-Auswertung gegen Roadmap prüfen` ist umgesetzt; neue Priorität ist `Krypto-Zyklus-Kontext prüfen und verständlicher in Krypto-Analyse integrieren`, weil Krypto-Analysequalität wichtiger ist als Komfortfunktionen und fehlende Spezialdaten transparent kompensiert werden müssen.
 
 ### 2026-07-31
 

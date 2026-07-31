@@ -126,6 +126,49 @@ def test_trade_journal_allows_new_direction_or_day(tmp_path: Path, monkeypatch) 
     assert len(app.load_trade_history()) == 3
 
 
+def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, monkeypatch) -> None:
+    trade_path = tmp_path / "trade_history.json"
+    monkeypatch.setattr(app, "TRADE_HISTORY_PATH", trade_path)
+    trade_path.write_text(
+        json.dumps(
+            [
+                {
+                    "Datum": "2025-01-01T10:00:00",
+                    "Ticker": "NVDA",
+                    "Richtung": "Long",
+                    "Einstieg": 100.0,
+                    "Zielzone": 120.0,
+                    "Stop-Zone": 90.0,
+                    "review_after": app.empty_review_schedule(),
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    prices = app.pd.DataFrame(
+        {
+            "Close": [100.0, 95.0, 85.0],
+            "High": [102.0, 100.0, 91.0],
+            "Low": [98.0, 92.0, 80.0],
+        },
+        index=app.pd.date_range("2025-01-01", periods=3, freq="D"),
+    )
+
+    monkeypatch.setattr(app.yf, "download", lambda *args, **kwargs: prices.copy())
+
+    updated, message = app.evaluate_due_trade_history()
+    review = app.load_trade_history()[0]["review_after"]["1w"]
+
+    assert updated >= 1
+    assert "aktualisiert" in message
+    assert review["return_pct"] == -15.0
+    assert review["stop_hit"] is True
+    assert review["best_alternative"] == "Short / Absicherung"
+    assert review["best_alternative_return_pct"] == 15.0
+    assert review["opportunity_cost_pct"] == 30.0
+
+
 def test_scanner_factor_snapshot_discloses_missing_and_available_sources() -> None:
     latest = app.pd.Series({"Volume": 200_000, "Volume_SMA_20": 100_000})
     info = {

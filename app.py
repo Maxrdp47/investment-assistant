@@ -450,6 +450,24 @@ def trade_direction_multiplier(direction: str) -> int:
     return -1 if "Short" in str(direction) else 1
 
 
+def trade_best_alternative(direction: str, return_pct: float) -> dict:
+    chosen_label = "Short / Absicherung" if trade_direction_multiplier(direction) < 0 else "Long"
+    alternatives = {
+        "Long": return_pct if chosen_label == "Long" else -return_pct,
+        "Short / Absicherung": return_pct if chosen_label == "Short / Absicherung" else -return_pct,
+        "Beobachten": 0.0,
+    }
+    best_label, best_return = max(alternatives.items(), key=lambda item: item[1])
+    chosen_return = alternatives[chosen_label]
+    return {
+        "chosen_action": chosen_label,
+        "chosen_return_pct": round(chosen_return, 2),
+        "best_alternative": best_label,
+        "best_alternative_return_pct": round(best_return, 2),
+        "opportunity_cost_pct": round(best_return - chosen_return, 2),
+    }
+
+
 def evaluate_due_trade_history() -> tuple[int, str]:
     history = load_trade_history()
     if not history:
@@ -520,6 +538,8 @@ def evaluate_due_trade_history() -> tuple[int, str]:
         else:
             result = "neutral"
 
+        alternative = trade_best_alternative(direction, return_pct)
+
         for label in due_periods:
             review_after[label] = {
                 "reviewed_at": now.isoformat(),
@@ -530,6 +550,7 @@ def evaluate_due_trade_history() -> tuple[int, str]:
                 "target_hit": bool(target_hit),
                 "stop_hit": bool(stop_hit),
                 "result": result,
+                **alternative,
                 "note": "Trade-Journal-Auswertung mit Kursdaten; keine Kauf- oder Verkaufsautomatisierung.",
             }
             updated += 1

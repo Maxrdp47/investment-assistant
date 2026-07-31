@@ -134,7 +134,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Fundamentaldaten für Aktien erweitern: Umsatzwachstum, Gewinnwachstum, Margen, Verschuldung, Free Cashflow, Cashbestand, Bewertung. Status: erweitert am 2026-07-01; zusätzliche strukturierte Kennzahlen und transparente Detailausgabe eingebaut.
 - ETF-Daten erweitern: TER, Fondsvolumen, Region, Sektor, Diversifikation, langfristige Performance. Status: erweitert am 2026-07-01; strukturierter ETF-Snapshot, YTD/1J/3J/5J, Beta und transparente Detailausgabe eingebaut.
 - Bewertungsmodelle ausbauen: historische Bewertung, relative Bewertung und Peer-Vergleich, falls Daten verfügbar sind. Status: erweitert am 2026-07-31; zusätzliche Multiples, Forward-KGV-Abstand, Sektor-/Branchenkontext und klare Nichtverfügbarkeit für Historien-/Peer-Daten eingebaut.
-- Analysten-, Earnings-, Event- und institutionelle Module weiter validieren und auf zusätzliche Datenquellen erweitern.
+- Analysten-, Earnings-, Event- und institutionelle Module weiter validieren und auf zusätzliche Datenquellen erweitern. Status: validiert am 2026-07-31; Datenabdeckung und Score-Neutralität je Modul ergänzt, fehlende Daten bleiben `Daten nicht verfügbar`.
 - News-Modul verbessern: Quelle, Datum, Relevanz, Sentiment-Qualität.
 - Makro-Modul erweitern: Inflation, Realzinsen, Liquidität, Risikoappetit.
 - Geopolitik-Modul prüfen, ohne Daten zu erfinden.
@@ -513,19 +513,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Analysten-, Earnings-, Event- und institutionelle Module weiter validieren und auf zusätzliche Datenquellen prüfen.
+1. News-Modul verbessern: Quelle, Datum, Relevanz und Sentiment-Qualität transparenter machen.
 
 Warum diese Aufgabe zuerst:
 
-- Bewertungsmodelle wurden erweitert und fehlende Historien-/Peer-Daten werden transparent offengelegt.
-- Analysten-, Earnings-, Event- und institutionelle Module liefern hohen Research-Nutzen, sind aber datenquellenabhängig und müssen robust gegen fehlende Daten bleiben.
-- Der nächste größte Nutzen liegt darin, diese institutionellen Module zu validieren, ihre Datenverfügbarkeit klarer zu erklären und keine Analysten-, Event- oder Flow-Daten zu erfinden.
+- Institutionelle Module zeigen jetzt Datenabdeckung und Score-Neutralität und bleiben robust bei fehlenden Daten.
+- Das News-Modul beeinflusst Sentiment und Research-Kontext, braucht aber noch bessere Transparenz zu Quelle, Datum, Relevanz und Sentiment-Qualität.
+- Der nächste größte Nutzen liegt darin, News-Signale nachvollziehbarer zu machen, ohne Nachrichtenlage oder Sentiment zu erfinden.
 
 Nächste konkrete Umsetzung:
 
-1. Analysten-, Earnings-, Event- und institutionelle Datenpfade prüfen.
-2. Fehlende Daten pro Modul klarer ausweisen und Score-Neutralität dokumentieren.
-3. Wenn yfinance belastbare Werte liefert, diese strukturiert anzeigen; sonst `Daten nicht verfügbar`.
+1. News-Datenstruktur prüfen und Quelle/Datum je Nachricht anzeigen.
+2. Relevanz- und Sentiment-Qualität transparent begründen.
+3. Bei fehlenden News oder unklarer Datenlage `Daten nicht verfügbar` anzeigen.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1008,6 +1008,11 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-31
 
+- Institutionelle Research-Module validiert: Analysten-Konsens, Earnings, Event-Risiko und institutionelle Daten zeigen jetzt Datenabdeckung und Score-Neutralität.
+- Keine institutionellen Daten erfunden: Fehlende Analysten-, Earnings-, Event-, Insider-, Short-Interest- oder ETF-Flow-Daten bleiben ausdrücklich `Daten nicht verfügbar`.
+- README aktualisiert: Research-Modul beschreibt Datenabdeckung und Score-Neutralität für institutionelle Module.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; direkte Funktionschecks für fehlende und verfügbare institutionelle Daten erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich.
+- Nächste Priorität angepasst: News-Modul verbessern, Quelle, Datum, Relevanz und Sentiment-Qualität transparenter machen.
 - Bewertungsmodell erweitert: Aktienbewertung zeigt jetzt Forward-KGV-Abstand, EV/Umsatz, Sektor-/Branchenkontext sowie klar getrennte Hinweise zu historischer Bewertungszeitreihe und Peer-Vergleich.
 - Keine Daten erfunden: Wenn Yahoo Finance keine historische Multiple-Zeitreihe oder Peer-Multiples liefert, zeigt die App ausdrücklich `Daten nicht verfügbar`.
 - README aktualisiert: Research-Modul beschreibt die erweiterten Bewertungskennzahlen und die Transparenzregel für fehlende Historien-/Peer-Daten.

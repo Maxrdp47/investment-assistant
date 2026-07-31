@@ -4520,6 +4520,16 @@ def safe_dataframe_from_yfinance(value: object) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def data_coverage_detail(module_name: str, fields: list[tuple[str, object]]) -> str:
+    available = sum(1 for _, value in fields if value is not None and str(value) not in {"", "Daten nicht verfügbar"})
+    labels = ", ".join(label for label, _ in fields)
+    return f"Datenabdeckung {module_name}: {available}/{len(fields)} Felder verfügbar ({labels})."
+
+
+def score_neutrality_detail(module_name: str) -> str:
+    return f"Score-Neutralität {module_name}: Fehlende Daten werden nicht geschätzt und nicht als Fakt gewertet."
+
+
 def research_analyst_consensus(info: dict, profile: AssetProfile, original_currency: str, fx_rate: float | None, currency_mode: str) -> ResearchModule:
     if profile.asset_type not in {"Aktie", "ETF"}:
         return ResearchModule(
@@ -4538,6 +4548,18 @@ def research_analyst_consensus(info: dict, profile: AssetProfile, original_curre
     recommendation_key = str(info.get("recommendationKey", "") or "").replace("_", " ").strip()
 
     details = [
+        data_coverage_detail(
+            "Analysten-Konsens",
+            [
+                ("Durchschnittskursziel", target_mean),
+                ("höchstes Kursziel", target_high),
+                ("niedrigstes Kursziel", target_low),
+                ("Anzahl Analystenmeinungen", analyst_count),
+                ("Recommendation-Mean", recommendation_mean),
+                ("Yahoo-Empfehlung", recommendation_key),
+            ],
+        ),
+        score_neutrality_detail("Analysten-Konsens"),
         f"Durchschnittliches Analystenkursziel: {format_display_money(target_mean, original_currency, fx_rate, currency_mode) if target_mean is not None else 'Daten nicht verfügbar'}.",
         f"Höchstes Kursziel: {format_display_money(target_high, original_currency, fx_rate, currency_mode) if target_high is not None else 'Daten nicht verfügbar'}.",
         f"Niedrigstes Kursziel: {format_display_money(target_low, original_currency, fx_rate, currency_mode) if target_low is not None else 'Daten nicht verfügbar'}.",
@@ -4603,8 +4625,24 @@ def research_earnings_module(symbol: str, info: dict, profile: AssetProfile) -> 
     earnings_dates = load_earnings_dates(symbol)
     details: list[str] = []
     next_report = format_optional_date(info.get("earningsTimestamp") or info.get("earningsTimestampStart"))
+    last_report = format_optional_date(info.get("mostRecentQuarter"))
+    revenue_estimate = value_or_none(info.get("revenueEstimate"))
+    earnings_estimate = value_or_none(info.get("earningsEstimate"))
+    details.append(
+        data_coverage_detail(
+            "Earnings-Modul",
+            [
+                ("nächster Quartalsbericht", None if next_report == "Daten nicht verfügbar" else next_report),
+                ("letzter Quartalsbericht", None if last_report == "Daten nicht verfügbar" else last_report),
+                ("Earnings-Kalender", None if earnings_dates.empty else "verfügbar"),
+                ("Umsatzschätzung", revenue_estimate),
+                ("Gewinnschätzung", earnings_estimate),
+            ],
+        )
+    )
+    details.append(score_neutrality_detail("Earnings-Modul"))
     details.append(f"Nächster Quartalsbericht: {next_report}.")
-    details.append(f"Letzter Quartalsbericht: {format_optional_date(info.get('mostRecentQuarter'))}.")
+    details.append(f"Letzter Quartalsbericht: {last_report}.")
 
     points: list[float] = []
     surprise_text = "Daten nicht verfügbar"
@@ -4631,8 +4669,6 @@ def research_earnings_module(symbol: str, info: dict, profile: AssetProfile) -> 
     else:
         details.extend(["Umsatzschätzung: Daten nicht verfügbar.", "Gewinnschätzung: Daten nicht verfügbar.", "Tatsächliche Ergebnisse: Daten nicht verfügbar.", "Earnings-Surprise: Daten nicht verfügbar."])
 
-    revenue_estimate = value_or_none(info.get("revenueEstimate"))
-    earnings_estimate = value_or_none(info.get("earningsEstimate"))
     details.append(f"Umsatzschätzung: {format_optional_number(revenue_estimate)}.")
     details.append(f"Gewinnschätzung: {format_optional_number(earnings_estimate)}.")
 
@@ -4652,7 +4688,21 @@ def research_earnings_module(symbol: str, info: dict, profile: AssetProfile) -> 
 
 
 def research_event_risk_module(info: dict, profile: AssetProfile, macro: ModuleScore) -> ResearchModule:
+    earnings_date = format_optional_date(info.get("earningsTimestamp") or info.get("earningsTimestampStart"))
     details = [
+        data_coverage_detail(
+            "Event-Risiko",
+            [
+                ("Earnings-Termin", None if earnings_date == "Daten nicht verfügbar" else earnings_date),
+                ("Makro-Score", macro.score),
+                ("Fed-Sitzungen", None),
+                ("EZB-Sitzungen", None),
+                ("CPI/Inflationsdaten", None),
+                ("Arbeitsmarktdaten", None),
+                ("ETF-Entscheidungen", None),
+            ],
+        ),
+        score_neutrality_detail("Event-Risiko"),
         "Fed-Sitzungen: Daten nicht verfügbar.",
         "EZB-Sitzungen: Daten nicht verfügbar.",
         "CPI/Inflationsdaten: Daten nicht verfügbar.",
@@ -4666,7 +4716,6 @@ def research_event_risk_module(info: dict, profile: AssetProfile, macro: ModuleS
     impact = "Daten nicht verfügbar"
     points: list[float] = []
 
-    earnings_date = format_optional_date(info.get("earningsTimestamp") or info.get("earningsTimestampStart"))
     if profile.asset_type == "Aktie" and earnings_date != "Daten nicht verfügbar":
         next_event = "Quartalsbericht"
         event_date = earnings_date
@@ -4703,6 +4752,20 @@ def research_institutional_data(info: dict, profile: AssetProfile) -> ResearchMo
     short_ratio = value_or_none(info.get("shortRatio"))
     short_percent_float = value_or_none(info.get("shortPercentOfFloat"))
     details = [
+        data_coverage_detail(
+            "Institutionelle Daten",
+            [
+                ("institutionelle Beteiligungen", held_institutions),
+                ("Insider-Beteiligungen", held_insiders),
+                ("Short Interest Aktien", shares_short),
+                ("Short Ratio", short_ratio),
+                ("Short Interest vom Float", short_percent_float),
+                ("Insiderkäufe", None),
+                ("Insiderverkäufe", None),
+                ("ETF-Flows", None),
+            ],
+        ),
+        score_neutrality_detail("Institutionelle Daten"),
         f"Institutionelle Beteiligungen: {held_institutions * 100:.1f}%." if held_institutions is not None else "Institutionelle Beteiligungen: Daten nicht verfügbar.",
         f"Insider-Beteiligungen: {held_insiders * 100:.1f}%." if held_insiders is not None else "Insider-Beteiligungen: Daten nicht verfügbar.",
         f"Short Interest Aktien: {format_optional_number(shares_short)}." if shares_short is not None else "Short Interest: Daten nicht verfügbar.",

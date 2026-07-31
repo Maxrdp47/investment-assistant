@@ -235,3 +235,51 @@ def test_research_valuation_score_does_not_invent_missing_relative_data() -> Non
     assert "Relative Bewertungsbasis: Daten nicht verfügbar" in details
     assert "Historische Bewertungszeitreihe: Daten nicht verfügbar" in details
     assert "Peer-Vergleich: Daten nicht verfügbar" in details
+
+
+def test_institutional_research_modules_disclose_data_coverage_and_neutrality(monkeypatch) -> None:
+    profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
+    macro = app.ModuleScore(5.0, "Makro neutral", [])
+    monkeypatch.setattr(app, "load_earnings_dates", lambda symbol: app.pd.DataFrame())
+
+    analyst = app.research_analyst_consensus({}, profile, "USD", None, "EUR + Originalwährung")
+    earnings = app.research_earnings_module("NVDA", {}, profile)
+    event = app.research_event_risk_module({}, profile, macro)
+    institutional = app.research_institutional_data({}, profile)
+
+    for module in [analyst, earnings, event, institutional]:
+        details = "\n".join(module.details)
+        assert "Datenabdeckung" in details
+        assert "Score-Neutralität" in details
+        assert "Daten nicht verfügbar" in details
+
+
+def test_institutional_research_modules_use_available_yfinance_fields(monkeypatch) -> None:
+    profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
+    macro = app.ModuleScore(6.8, "Makro konstruktiv", [])
+    monkeypatch.setattr(app, "load_earnings_dates", lambda symbol: app.pd.DataFrame())
+
+    info = {
+        "targetMeanPrice": 120.0,
+        "targetHighPrice": 150.0,
+        "targetLowPrice": 90.0,
+        "numberOfAnalystOpinions": 18,
+        "recommendationMean": 2.0,
+        "recommendationKey": "buy",
+        "currentPrice": 100.0,
+        "earningsTimestamp": 1_800_000_000,
+        "heldPercentInstitutions": 0.55,
+        "heldPercentInsiders": 0.08,
+        "shortPercentOfFloat": 0.02,
+    }
+
+    analyst = app.research_analyst_consensus(info, profile, "USD", None, "EUR + Originalwährung")
+    event = app.research_event_risk_module(info, profile, macro)
+    institutional = app.research_institutional_data(info, profile)
+
+    assert analyst.score is not None
+    assert event.score is not None
+    assert institutional.score is not None
+    assert any("Datenabdeckung Analysten-Konsens" in detail for detail in analyst.details)
+    assert any("Quartalsbericht" in detail for detail in event.details)
+    assert any("Institutionelle Beteiligungen: 55.0%" in detail for detail in institutional.details)

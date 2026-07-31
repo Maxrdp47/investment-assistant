@@ -3176,8 +3176,7 @@ def override_asset_profile(auto_profile: AssetProfile, selected_type: str) -> As
     )
 
 
-def score_asset_quality(symbol: str, profile: AssetProfile, df: pd.DataFrame) -> ModuleScore:
-    info = load_ticker_info(symbol)
+def score_asset_quality_from_info(symbol: str, profile: AssetProfile, df: pd.DataFrame, info: dict) -> ModuleScore:
     if profile.asset_type == "Aktie":
         result = score_stock_fundamentals(info)
         return ModuleScore(result.score, result.summary.replace("Fundamentalscore", "Asset-Qualität"), result.details)
@@ -3243,6 +3242,10 @@ def score_asset_quality(symbol: str, profile: AssetProfile, df: pd.DataFrame) ->
         score = round(float(np.mean(points)), 1)
         return ModuleScore(score, f"Krypto-Asset-Qualität {score}/10 aus verfügbaren Langfristdaten.", details)
     return score_unknown_fundamentals(profile)
+
+
+def score_asset_quality(symbol: str, profile: AssetProfile, df: pd.DataFrame) -> ModuleScore:
+    return score_asset_quality_from_info(symbol, profile, df, load_ticker_info(symbol))
 
 
 def score_buy_signal(
@@ -3419,7 +3422,7 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
             market_phase = detect_market_phase(df)
             close_value = float(latest["Close"])
             risk_reward = calculate_risk_reward(close_value, supports, resistances)
-            asset_quality = score_asset_quality(symbol, profile, df)
+            asset_quality = score_asset_quality_from_info(symbol, profile, df, info)
             buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
             confidence = scanner_confidence(df, market_phase, latest)
             news = score_news(symbol)

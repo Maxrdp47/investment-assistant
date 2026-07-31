@@ -515,20 +515,20 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Scanner-Performance und Testbarkeit nach Faktorabdeckung prüfen.
+1. Performance-Tracking für Trade Journal um beste Alternative und Ziel-/Stop-Auswertung gegen Roadmap prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Opportunity-Scanner-Faktoren sind jetzt sichtbar: News, Makro, Liquidität, Bewertung und institutionelle Faktoren werden als Score/Proxy oder `Daten nicht verfügbar` ausgewiesen.
-- Durch zusätzliche Faktorabfragen kann der Scanner bei großen Watchlists langsamer werden, insbesondere durch News- und Yahoo-Info-Aufrufe.
-- Der nächste größte Nutzen liegt darin, Scanner-Performance und Testbarkeit zu prüfen, ohne Analysequalität oder Transparenz zurückzunehmen.
+- Der Opportunity Scanner ist fachlich breiter und technisch effizienter: Faktorabdeckung ist sichtbar und bereits geladene Yahoo-Stammdaten werden pro Ticker wiederverwendet.
+- Die Roadmap fordert beim Performance Tracking zusätzlich Ziel-/Stop-Prüfung, maximale Entwicklung und den Vergleich zur besten Alternative.
+- Der nächste größte Nutzen liegt darin, gespeicherte Trading-Setups noch vollständiger auswertbar zu machen, damit die spätere Lernlogik auf besseren realen Ergebnissen basiert.
 
 Nächste konkrete Umsetzung:
 
-1. Scanner-Durchlauf und relevante Helper mit Mocks prüfen.
-2. Performance-Risiken aus zusätzlichen Faktorabfragen dokumentieren oder begrenzen.
-3. Falls nötig, kleine Optimierung ohne Funktionsabbau umsetzen.
-4. Tests ausführen und ROADMAP aktualisieren.
+1. Bestehende Trade-Journal-Auswertung gegen die Roadmap-Anforderungen prüfen.
+2. Fehlende Felder wie beste Alternative oder Ziel-/Stop-Kontext ergänzen, falls noch nicht vollständig.
+3. Tests mit gemockten Kursdaten ergänzen.
+4. README und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
 
@@ -1009,6 +1009,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-07-31
+
+- Scanner-Performance verbessert: `scan_opportunities()` verwendet bereits geladene Yahoo-Stammdaten nun direkt für die Asset-Qualität und vermeidet dadurch eine doppelte Stammdatenabfrage pro Ticker.
+- Testbarkeit ergänzt: Ein neuer Mock-Test prüft, dass der Opportunity Scanner pro Symbol nur einmal `load_ticker_info()` aufruft und die Faktor-Spalten weiter ausgibt.
+- README aktualisiert: Opportunity Scanner dokumentiert jetzt die Wiederverwendung geladener Stammdaten.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Scanner-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Scanner-Performance und Testbarkeit nach Faktorabdeckung prüfen` ist umgesetzt; neue Priorität ist `Performance-Tracking für Trade Journal um beste Alternative und Ziel-/Stop-Auswertung gegen Roadmap prüfen`, weil die Lernfähigkeit von vollständigen Ergebnisdaten abhängt.
 
 - News-Modul erweitert: Yahoo-News werden defensiv normalisiert und je Nachricht mit Quelle, Datum, Relevanz und Sentiment-Qualität angezeigt.
 - Keine News erfunden: Fehlende, unklare oder leere News-Daten bleiben neutral und werden als `Daten nicht verfügbar` ausgewiesen.

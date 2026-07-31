@@ -164,6 +164,44 @@ def test_scanner_factor_snapshot_keeps_missing_data_explicit() -> None:
     assert snapshot["Institutionelle Faktoren"] == "Daten nicht verfügbar"
 
 
+def test_opportunity_scanner_reuses_loaded_ticker_info(monkeypatch) -> None:
+    calls = {"ticker_info": 0}
+    index = app.pd.date_range("2025-01-01", periods=260, freq="D")
+    prices = app.pd.DataFrame(
+        {
+            "Close": list(range(100, 360)),
+            "High": list(range(101, 361)),
+            "Low": list(range(99, 359)),
+            "Volume": [100_000] * 260,
+        },
+        index=index,
+    )
+
+    def fake_load_price_data(symbol: str, period: str, interval: str) -> app.pd.DataFrame:
+        return prices.copy()
+
+    def fake_load_ticker_info(symbol: str) -> dict:
+        calls["ticker_info"] += 1
+        return {
+            "quoteType": "EQUITY",
+            "shortName": "Nvidia",
+            "trailingPE": 24.0,
+            "heldPercentInstitutions": 0.52,
+        }
+
+    monkeypatch.setattr(app, "load_price_data", fake_load_price_data)
+    monkeypatch.setattr(app, "load_ticker_info", fake_load_ticker_info)
+    monkeypatch.setattr(app, "score_macro", lambda: app.ModuleScore(5.0, "Makro neutral", []))
+    monkeypatch.setattr(app, "score_news", lambda symbol: app.ModuleScore(5.0, "News neutral", []))
+
+    rows, errors = app.scan_opportunities(["NVDA"])
+
+    assert errors == []
+    assert calls["ticker_info"] == 1
+    assert rows[0]["Ticker"] == "NVDA"
+    assert {"News", "Makro", "Liquidität", "Bewertung", "Institutionelle Faktoren"} <= set(rows[0])
+
+
 def test_portfolio_loader_reports_empty_or_invalid_optional_file(tmp_path: Path, monkeypatch) -> None:
     portfolio_path = tmp_path / "portfolio.json"
     monkeypatch.setattr(app, "PORTFOLIO_PATH", portfolio_path)

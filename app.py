@@ -4230,6 +4230,9 @@ def research_valuation_score(info: dict, profile: AssetProfile, df: pd.DataFrame
     free_cashflow = value_or_none(info.get("freeCashflow"))
     price_to_book = value_or_none(info.get("priceToBook"))
     market_cap = value_or_none(info.get("marketCap"))
+    enterprise_to_revenue = value_or_none(info.get("enterpriseToRevenue"))
+    sector = info.get("sector") or info.get("category")
+    industry = info.get("industry")
     revenue_growth = value_or_none(info.get("revenueGrowth"))
     earnings_growth = value_or_none(info.get("earningsGrowth"))
     operating_margin = value_or_none(info.get("operatingMargins"))
@@ -4251,6 +4254,16 @@ def research_valuation_score(info: dict, profile: AssetProfile, df: pd.DataFrame
         details.append(f"Forward-KGV: {forward_pe:.1f} -> {score:.1f}/10.")
     else:
         details.append(data_missing("Forward-KGV"))
+    if trailing_pe is not None and forward_pe is not None and trailing_pe > 0:
+        forward_discount = (trailing_pe - forward_pe) / trailing_pe
+        score = 7.5 if forward_discount >= 0.20 else 6.5 if forward_discount >= 0.05 else 5.0 if forward_discount >= -0.05 else 3.5
+        points.append(score)
+        details.append(
+            f"Forward-KGV-Abstand: {forward_discount * 100:+.1f}% gegen aktuelles KGV -> {score:.1f}/10. "
+            "Das ist ein Erwartungsindikator, keine Gewinnprognose der App."
+        )
+    else:
+        details.append(data_missing("Forward-KGV-Abstand"))
     if peg_ratio is not None and peg_ratio > 0:
         score = 8.0 if peg_ratio <= 1.2 else 6.5 if peg_ratio <= 2.0 else 4.5 if peg_ratio <= 3.5 else 2.5
         points.append(score)
@@ -4269,6 +4282,12 @@ def research_valuation_score(info: dict, profile: AssetProfile, df: pd.DataFrame
         details.append(f"EV/EBITDA als EV/EBIT-Näherung: {enterprise_to_ebitda:.1f} -> {score:.1f}/10.")
     else:
         details.append("EV/EBIT: Daten nicht verfügbar.")
+    if enterprise_to_revenue is not None and enterprise_to_revenue > 0:
+        score = 8.0 if enterprise_to_revenue <= 3 else 6.5 if enterprise_to_revenue <= 7 else 4.5 if enterprise_to_revenue <= 12 else 2.5
+        points.append(score)
+        details.append(f"EV/Umsatz: {enterprise_to_revenue:.1f} -> {score:.1f}/10.")
+    else:
+        details.append(data_missing("EV/Umsatz"))
     if enterprise_value is not None and free_cashflow is not None and free_cashflow > 0:
         ev_fcf = enterprise_value / free_cashflow
         score = 8.0 if ev_fcf <= 18 else 6.5 if ev_fcf <= 30 else 4.5 if ev_fcf <= 50 else 2.5
@@ -4310,8 +4329,15 @@ def research_valuation_score(info: dict, profile: AssetProfile, df: pd.DataFrame
         details.append(f"Verschuldung Debt/Equity: {debt_to_equity:.1f}.")
     else:
         details.append(data_missing("Verschuldung / Debt-to-Equity"))
-    details.append("Historische Bewertung: Daten nicht verfügbar.")
-    details.append("Branchenvergleich: Daten nicht verfügbar.")
+    if sector or industry:
+        details.append(
+            "Relative Bewertungsbasis: "
+            f"Sektor {sector or 'Daten nicht verfügbar'}, Branche {industry or 'Daten nicht verfügbar'}."
+        )
+    else:
+        details.append("Relative Bewertungsbasis: Daten nicht verfügbar.")
+    details.append("Historische Bewertungszeitreihe: Daten nicht verfügbar. Yahoo Finance liefert hier keine belastbare KGV-/KUV-Historie.")
+    details.append("Peer-Vergleich: Daten nicht verfügbar. Es werden keine Vergleichsunternehmen oder Peer-Multiples erfunden.")
     if snapshot:
         price_to_book_score, price_to_book_label = score_valuation_multiple(snapshot.price_to_book, (2.5, 5.0, 10.0))
         if price_to_book_score is not None:

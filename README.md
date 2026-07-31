@@ -138,7 +138,7 @@ Enthalten sind:
 - Datenqualitäts-Check: Ticker, Asset-Typ, Börse, Währung, Kursdaten, Volumen, 200 Handelstage sowie 50er/200er-Durchschnitt
 - Charttechnik-Score
 - Momentum-Score
-- Bewertungsscore oder bei Krypto Zyklus-/On-Chain-Score; bei Aktien werden KGV, Forward-KGV, PEG, KUV, EV/EBIT-Näherung, EV/FCF, Kurs/Buchwert, Free-Cashflow-Rendite, Wachstum, Margen, Verschuldung, historische Bewertung und Branchenvergleich getrennt ausgewiesen, sofern verfügbar
+- Bewertungsscore oder bei Krypto Zyklus-/On-Chain-Score; bei Aktien werden KGV, Forward-KGV, Forward-KGV-Abstand, PEG, KUV, EV/Umsatz, EV/EBIT-Näherung, EV/FCF, Kurs/Buchwert, Free-Cashflow-Rendite, Wachstum, Margen, Verschuldung, Sektor-/Branchenkontext, historische Bewertung und Peer-Vergleich getrennt ausgewiesen. Fehlende Historien- oder Peer-Daten bleiben ausdrücklich `Daten nicht verfügbar`.
 - Fundamentaldaten-Score oder bei Krypto Netzwerk-/Adoptionsscore
 - Zukunftspotenzial: Wachstum, Margen, Qualität und verfügbares Sentiment, ohne fehlende Daten zu erfinden
 - Eingepreiste Erwartungen: Bewertungsniveau, Momentum, News-/Analysten-Euphorie, IPO-/KI-Hype, Zuflüsse und Sentiment; hoher Wert bedeutet, dass bereits viel Optimismus im Kurs stecken kann

@@ -193,3 +193,45 @@ def test_calibration_suggestions_allow_manual_proposal_after_large_error_basis()
         and "55 Fälle" in row["Datenbasis"]
         for row in rows
     )
+
+
+def test_research_valuation_score_discloses_relative_and_missing_peer_data() -> None:
+    profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
+    macro = app.ModuleScore(5.0, "Makro neutral", [])
+    info = {
+        "trailingPE": 24.0,
+        "forwardPE": 18.0,
+        "pegRatio": 1.4,
+        "priceToSalesTrailing12Months": 6.0,
+        "enterpriseToEbitda": 16.0,
+        "enterpriseToRevenue": 5.5,
+        "enterpriseValue": 120_000_000_000,
+        "freeCashflow": 6_000_000_000,
+        "priceToBook": 4.0,
+        "marketCap": 100_000_000_000,
+        "sector": "Technology",
+        "industry": "Semiconductors",
+    }
+
+    module = app.research_valuation_score(info, profile, app.pd.DataFrame(), macro)
+    details = "\n".join(module.details)
+
+    assert module.name == "Bewertungsscore"
+    assert "EV/Umsatz" in details
+    assert "Forward-KGV-Abstand" in details
+    assert "Relative Bewertungsbasis" in details
+    assert "Technology" in details
+    assert "Historische Bewertungszeitreihe: Daten nicht verfügbar" in details
+    assert "Peer-Vergleich: Daten nicht verfügbar" in details
+
+
+def test_research_valuation_score_does_not_invent_missing_relative_data() -> None:
+    profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
+    macro = app.ModuleScore(5.0, "Makro neutral", [])
+
+    module = app.research_valuation_score({}, profile, app.pd.DataFrame(), macro)
+    details = "\n".join(module.details)
+
+    assert "Relative Bewertungsbasis: Daten nicht verfügbar" in details
+    assert "Historische Bewertungszeitreihe: Daten nicht verfügbar" in details
+    assert "Peer-Vergleich: Daten nicht verfügbar" in details

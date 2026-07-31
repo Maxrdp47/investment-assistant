@@ -133,7 +133,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 
 - Fundamentaldaten für Aktien erweitern: Umsatzwachstum, Gewinnwachstum, Margen, Verschuldung, Free Cashflow, Cashbestand, Bewertung. Status: erweitert am 2026-07-01; zusätzliche strukturierte Kennzahlen und transparente Detailausgabe eingebaut.
 - ETF-Daten erweitern: TER, Fondsvolumen, Region, Sektor, Diversifikation, langfristige Performance. Status: erweitert am 2026-07-01; strukturierter ETF-Snapshot, YTD/1J/3J/5J, Beta und transparente Detailausgabe eingebaut.
-- Bewertungsmodelle ausbauen: historische Bewertung, relative Bewertung und Peer-Vergleich, falls Daten verfügbar sind.
+- Bewertungsmodelle ausbauen: historische Bewertung, relative Bewertung und Peer-Vergleich, falls Daten verfügbar sind. Status: erweitert am 2026-07-31; zusätzliche Multiples, Forward-KGV-Abstand, Sektor-/Branchenkontext und klare Nichtverfügbarkeit für Historien-/Peer-Daten eingebaut.
 - Analysten-, Earnings-, Event- und institutionelle Module weiter validieren und auf zusätzliche Datenquellen erweitern.
 - News-Modul verbessern: Quelle, Datum, Relevanz, Sentiment-Qualität.
 - Makro-Modul erweitern: Inflation, Realzinsen, Liquidität, Risikoappetit.
@@ -513,20 +513,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Bewertungsmodelle ausbauen: historische Bewertung, relative Bewertung und Peer-Vergleich prüfen, falls Daten verfügbar sind.
+1. Analysten-, Earnings-, Event- und institutionelle Module weiter validieren und auf zusätzliche Datenquellen prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
-- Signalanalyse, Opportunity Scanner und Trading-Modus sind als Basis umgesetzt.
-- Das Confidence-System zeigt jetzt ähnliche historische Setups und Trefferquoten aus lokaler Historie.
-- Aktien- und ETF-Fundamentaldaten wurden strukturiert erweitert; der nächste größte Nutzen liegt in transparenteren Bewertungsmodellen und relativen Bewertungsvergleichen, soweit echte Daten verfügbar sind.
+- Bewertungsmodelle wurden erweitert und fehlende Historien-/Peer-Daten werden transparent offengelegt.
+- Analysten-, Earnings-, Event- und institutionelle Module liefern hohen Research-Nutzen, sind aber datenquellenabhängig und müssen robust gegen fehlende Daten bleiben.
+- Der nächste größte Nutzen liegt darin, diese institutionellen Module zu validieren, ihre Datenverfügbarkeit klarer zu erklären und keine Analysten-, Event- oder Flow-Daten zu erfinden.
 
 Nächste konkrete Umsetzung:
 
-1. Historische Bewertungsdaten prüfen, ohne fehlende Zeitreihen zu erfinden.
-2. Relative Bewertung und Peer-Vergleich nur einbauen, wenn belastbare Vergleichsdaten verfügbar sind.
-3. Bei fehlenden Peer- oder Historienwerten sichtbar `Daten nicht verfügbar` anzeigen.
+1. Analysten-, Earnings-, Event- und institutionelle Datenpfade prüfen.
+2. Fehlende Daten pro Modul klarer ausweisen und Score-Neutralität dokumentieren.
+3. Wenn yfinance belastbare Werte liefert, diese strukturiert anzeigen; sonst `Daten nicht verfügbar`.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1006,6 +1005,14 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Decision-Tracking-Auswertung mit gemockten Kursdaten erfolgreich.
 - Confidence-System erweitert: Im Research-Modul zeigt die App ähnliche lokale Historienfälle nach Asset-Typ oder Marktphase, historische Trefferquote erst ab ausreichender Datenbasis und die Regel, dass keine automatische Gewichtungsänderung erfolgt.
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
+
+### 2026-07-31
+
+- Bewertungsmodell erweitert: Aktienbewertung zeigt jetzt Forward-KGV-Abstand, EV/Umsatz, Sektor-/Branchenkontext sowie klar getrennte Hinweise zu historischer Bewertungszeitreihe und Peer-Vergleich.
+- Keine Daten erfunden: Wenn Yahoo Finance keine historische Multiple-Zeitreihe oder Peer-Multiples liefert, zeigt die App ausdrücklich `Daten nicht verfügbar`.
+- README aktualisiert: Research-Modul beschreibt die erweiterten Bewertungskennzahlen und die Transparenzregel für fehlende Historien-/Peer-Daten.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; direkte Funktionschecks für verfügbare Bewertungsdaten und fehlende Peer-/Historienwerte erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich.
+- Nächste Priorität angepasst: Analysten-, Earnings-, Event- und institutionelle Module validieren und auf zusätzliche Datenquellen prüfen.
 
 ### 2026-07-20
 

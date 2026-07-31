@@ -3394,6 +3394,18 @@ NEGATIVE_WORDS = {
     "miss", "cuts", "cut", "downgrade", "bearish", "fall", "falls", "drop", "risk", "loss",
     "weak", "lawsuit", "probe", "sell", "underperform", "crash", "verlust", "schwach", "risiko",
 }
+GEOPOLITICAL_RISK_TERMS = {
+    "war", "conflict", "invasion", "missile", "sanction", "sanctions", "tariff", "tariffs",
+    "trade war", "export control", "export controls", "blockade", "military", "geopolitical",
+    "geopolitics", "taiwan", "red sea", "supply disruption", "oil shock", "opec", "russia",
+    "ukraine", "iran", "israel", "krieg", "konflikt", "sanktion", "sanktionen", "zoll",
+    "zölle", "exportkontrolle", "blockade", "militär", "geopolitik",
+}
+GEOPOLITICAL_RELIEF_TERMS = {
+    "ceasefire", "truce", "peace", "deal", "agreement", "diplomacy", "de-escalation",
+    "deescalation", "waiver", "tariff relief", "waffenruhe", "frieden", "abkommen",
+    "diplomatie", "deeskalation", "zollpause",
+}
 
 
 @st.cache_data(ttl=30 * 60)
@@ -3549,6 +3561,13 @@ def score_news(symbol: str) -> ModuleScore:
         summary = "News-Sentiment ist überwiegend neutral."
     summary = f"{summary} Sentiment-Qualität: {quality_text}; Quelle/Datum/Relevanz werden je Nachricht ausgewiesen."
     return ModuleScore(score, summary, details[:5])
+
+
+def geopolitical_term_hits(title: str) -> tuple[list[str], list[str]]:
+    lower = title.lower()
+    risk_hits = sorted(term for term in GEOPOLITICAL_RISK_TERMS if term in lower)
+    relief_hits = sorted(term for term in GEOPOLITICAL_RELIEF_TERMS if term in lower)
+    return risk_hits, relief_hits
 
 
 @st.cache_data(ttl=30 * 60)
@@ -3813,6 +3832,79 @@ def research_macro_impact(profile: AssetProfile, macro: ModuleScore) -> Research
     summary = f"Makro-Wirkung {macro.score}/10 für {profile.asset_type}. {macro.summary}"
     beginner = "Das Makro-Wirkungsmodul erklärt, warum Zinsen, Dollar, Inflation und Risikoappetit ein Asset unterstützen oder belasten können. Es ist Kontext, kein Kaufbefehl."
     return ResearchModule("Makro-Wirkung", macro.score, summary, details, beginner)
+
+
+def research_geopolitical_context(symbol: str, profile: AssetProfile) -> ResearchModule:
+    news = load_news_items(symbol)
+    coverage_fields: list[tuple[str, object]] = []
+    details: list[str] = [
+        score_neutrality_detail("Geopolitik"),
+        "Datenquelle: Yahoo-Finance-News-Titel. Es werden keine geopolitischen Ereignisse außerhalb der verfügbaren News erfunden.",
+    ]
+    if not news:
+        details.insert(0, data_coverage_detail("Geopolitik", [("News-Titel", None), ("Quelle", None), ("Datum", None), ("Tickerbezug", None)]))
+        details.append("Geopolitische Spezialdaten: Daten nicht verfügbar.")
+        details.append("Praktische Bedeutung: fehlende Treffer sind keine Entwarnung, sondern eine eingeschränkte Datenlage.")
+        beginner = "Geopolitik meint Risiken durch Krieg, Sanktionen, Zölle oder Lieferketten. Wenn keine belastbaren Daten vorliegen, sollte die App daraus keine Sicherheit ableiten."
+        return ResearchModule("Geopolitik-Score", None, "Geopolitische Daten nicht verfügbar.", details, beginner)
+
+    normalized_items = [normalized_news_item(item, symbol) for item in news[:8] if isinstance(item, dict)]
+    risk_titles: list[str] = []
+    relief_titles: list[str] = []
+    risk_hit_count = 0
+    relief_hit_count = 0
+
+    for normalized in normalized_items:
+        title = str(normalized.get("title") or "").strip()
+        coverage_fields.extend(
+            [
+                ("News-Titel", title),
+                ("Quelle", None if normalized["publisher"] == "Daten nicht verfügbar" else normalized["publisher"]),
+                ("Datum", None if normalized["published"] == "Daten nicht verfügbar" else normalized["published"]),
+                ("Tickerbezug", normalized["related"]),
+            ]
+        )
+        if not title:
+            continue
+        risk_hits, relief_hits = geopolitical_term_hits(title)
+        if risk_hits:
+            risk_hit_count += len(risk_hits)
+            risk_titles.append(f"{title} | Risikotreffer: {', '.join(risk_hits[:4])}.")
+        if relief_hits:
+            relief_hit_count += len(relief_hits)
+            relief_titles.append(f"{title} | Entlastungstreffer: {', '.join(relief_hits[:4])}.")
+
+    details.insert(0, data_coverage_detail("Geopolitik", coverage_fields or [("News-Titel", None), ("Quelle", None), ("Datum", None), ("Tickerbezug", None)]))
+    details.append(f"Geopolitische Risikotreffer: {risk_hit_count}.")
+    details.append(f"Geopolitische Entlastungstreffer: {relief_hit_count}.")
+
+    if risk_titles:
+        details.extend(risk_titles[:3])
+    else:
+        details.append("Keine geopolitischen Risikobegriffe in den verfügbaren Yahoo-News-Titeln gefunden. Das ist keine vollständige Entwarnung.")
+    if relief_titles:
+        details.extend(relief_titles[:2])
+    else:
+        details.append("Keine geopolitischen Entlastungsbegriffe in den verfügbaren Yahoo-News-Titeln gefunden.")
+
+    asset_effects = {
+        "Aktie": "Für Aktien zählen besonders Lieferketten, Absatzregionen, Sanktionen, Zölle und Exportkontrollen.",
+        "ETF": "Für ETFs hängt die Wirkung von Region, Sektor und Indexgewichtung ab; breite ETFs sind meist indirekter betroffen.",
+        "Krypto": "Für Krypto wirkt Geopolitik meist über Risikoappetit, Dollar, Kapitalverkehr und Regulierung.",
+        "Derivat / unbekannt": "Bei unbekannten Assets ist die geopolitische Wirkung schwer belastbar; Risikobegrenzung ist wichtiger.",
+    }
+    details.append("Asset-Typ-Wirkung: " + asset_effects.get(profile.asset_type, asset_effects["Derivat / unbekannt"]))
+
+    score = clamp(6.0 - min(risk_hit_count, 5) * 0.9 + min(relief_hit_count, 3) * 0.5)
+    final_score = round(score, 1)
+    if risk_hit_count >= 3:
+        summary = f"Geopolitischer Gegenwind in verfügbaren News erhöht. Score {final_score}/10."
+    elif risk_hit_count > 0:
+        summary = f"Einzelne geopolitische Risikohinweise in verfügbaren News. Score {final_score}/10."
+    else:
+        summary = f"Keine geopolitischen Risikotreffer in verfügbaren News-Titeln. Score {final_score}/10 bei begrenzter Datenlage."
+    beginner = "Der Geopolitik-Score prüft, ob aktuelle News Hinweise auf Krieg, Sanktionen, Zölle oder Lieferkettenstress enthalten. Praktisch heißt das: niedrige Werte erhöhen Vorsicht; fehlende Treffer sind keine Garantie."
+    return ResearchModule("Geopolitik-Score", final_score, summary, details, beginner)
 
 
 def research_commodity_context(profile: AssetProfile) -> ResearchModule:
@@ -5025,6 +5117,7 @@ def build_uncertainty_factors(
     data_quality: ResearchModule,
     event_risk: ResearchModule,
     earnings: ResearchModule,
+    geopolitics: ResearchModule,
     news: ModuleScore,
     macro: ModuleScore,
     latest: pd.Series,
@@ -5047,11 +5140,14 @@ def build_uncertainty_factors(
         factors.append("Schwaches Makro-Umfeld kann positive Asset-Signale überlagern.")
     if news.score <= 4.5:
         factors.append("Negativer Nachrichtenfluss kann die technische Analyse kurzfristig widerlegen.")
+    if geopolitics.score is None:
+        factors.append("Geopolitische Risikodaten sind nicht verfügbar; externe Ereignisse können die Analyse trotzdem widerlegen.")
+    elif geopolitics.score <= 4.5:
+        factors.append("Erhöhte geopolitische Risikohinweise können positive Markt- oder News-Signale überlagern.")
     if not supports:
         factors.append("Keine klare Unterstützung erkannt; dadurch fehlt eine belastbare Risikomarke.")
     if market_phase_clarity_score(market_phase) < 5:
         factors.append("Marktphase ist nicht klar; Signale können häufiger kippen.")
-    factors.append("Geopolitische Risiken sind nicht vollständig modelliert.")
     while len(factors) < 3:
         factors.append("Neue externe Daten können die Einschätzung verändern.")
     return factors[:5]
@@ -5420,6 +5516,7 @@ def build_research_pack(
     future_potential = research_future_potential(info, asset_profile, asset_quality, news)
     market_regime = research_market_regime(df, market_phase, macro)
     macro_impact = research_macro_impact(asset_profile, macro)
+    geopolitics = research_geopolitical_context(symbol, asset_profile)
     commodity_context = research_commodity_context(asset_profile)
     bubble_risk = research_bubble_risk(info, df, valuation, momentum, news)
     priced_expectations = research_priced_expectations(info, asset_profile, valuation, momentum, news)
@@ -5434,12 +5531,12 @@ def build_research_pack(
     event_risk = research_event_risk_module(info, asset_profile, macro)
     institutional = research_institutional_data(info, asset_profile)
     expected_value = research_expected_value(close, supports, resistances, buy_signal, asset_quality, risk_reward, market_phase, latest)
-    modules = [fundamentals, future_potential, valuation, priced_expectations, bubble_risk, chart, momentum, expected_value, innovation, market_regime, macro_impact, commodity_context, macro_module, news_module, risk, liquidity]
+    modules = [fundamentals, future_potential, valuation, priced_expectations, bubble_risk, chart, momentum, expected_value, innovation, market_regime, macro_impact, geopolitics, commodity_context, macro_module, news_module, risk, liquidity]
     if asset_profile.asset_type == "Krypto":
         modules.insert(5, crypto_cycle)
     institutional_modules = [analyst, earnings, event_risk, institutional]
     confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules, asset_profile.asset_type, buy_signal.score)
-    uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)
+    uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, geopolitics, news, macro, latest, market_phase, supports)
     scenarios = build_scenarios(close, supports, resistances, buy_signal, asset_quality, risk_reward, market_phase, latest, original_currency, fx_rate, currency_mode)
     buy_zones = build_buy_zones(close, supports, resistances, latest, original_currency, fx_rate, currency_mode)
     decision = professional_decision(asset_quality, future_potential, valuation, priced_expectations, bubble_risk, buy_signal, expected_value, macro, market_phase, confidence)

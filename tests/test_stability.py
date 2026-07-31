@@ -367,3 +367,48 @@ def test_macro_score_explains_available_proxy_effects(monkeypatch) -> None:
     assert "Zinsdruck / US-Zinsen 10J" in details
     assert "Dollar-/Liquiditätsdruck" in details
     assert "Inflations-/Realzins-Proxy TIP" in details
+
+
+def test_geopolitical_context_does_not_invent_missing_data(monkeypatch) -> None:
+    monkeypatch.setattr(app, "load_news_items", lambda symbol: [])
+    profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
+
+    module = app.research_geopolitical_context("NVDA", profile)
+    details = "\n".join(module.details)
+
+    assert module.score is None
+    assert module.summary == "Geopolitische Daten nicht verfügbar."
+    assert "Datenabdeckung Geopolitik" in details
+    assert "Daten nicht verfügbar" in details
+    assert "keine geopolitischen Ereignisse" in details
+
+
+def test_geopolitical_context_uses_news_titles_as_evidence(monkeypatch) -> None:
+    monkeypatch.setattr(
+        app,
+        "load_news_items",
+        lambda symbol: [
+            {
+                "title": "Chip stocks fall as new export controls raise Taiwan supply risk",
+                "publisher": "Example News",
+                "providerPublishTime": 1_800_000_000,
+                "relatedTickers": ["NVDA"],
+            },
+            {
+                "title": "Markets rally after tariff relief deal",
+                "publisher": "Market Desk",
+                "providerPublishTime": 1_800_000_100,
+                "relatedTickers": ["NVDA"],
+            },
+        ],
+    )
+    profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
+
+    module = app.research_geopolitical_context("NVDA", profile)
+    details = "\n".join(module.details)
+
+    assert module.score is not None
+    assert module.score < 6.0
+    assert "Geopolitische Risikotreffer" in details
+    assert "export control" in details or "export controls" in details
+    assert "Entlastungstreffer" in details

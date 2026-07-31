@@ -137,7 +137,7 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 - Analysten-, Earnings-, Event- und institutionelle Module weiter validieren und auf zusätzliche Datenquellen erweitern. Status: validiert am 2026-07-31; Datenabdeckung und Score-Neutralität je Modul ergänzt, fehlende Daten bleiben `Daten nicht verfügbar`.
 - News-Modul verbessern: Quelle, Datum, Relevanz, Sentiment-Qualität. Status: erweitert am 2026-07-31; Yahoo-News werden normalisiert und Quelle, Datum, Relevanz sowie Sentiment-Qualität transparent angezeigt.
 - Makro-Modul erweitern: Inflation, Realzinsen, Liquidität, Risikoappetit. Status: erweitert am 2026-07-31; Datenabdeckung, Score-Neutralität, Risikoappetit/Nasdaq, Zinsdruck, Dollar-/Liquiditätsdruck und TIP als Inflations-/Realzinsproxy werden transparent ausgewiesen. Direkte Liquiditätsdaten bleiben ohne Quelle `Daten nicht verfügbar`.
-- Geopolitik-Modul prüfen, ohne Daten zu erfinden.
+- Geopolitik-Modul prüfen, ohne Daten zu erfinden. Status: umgesetzt am 2026-07-31; nutzt nur verfügbare Yahoo-News-Titel als Hinweisquelle, zeigt Datenabdeckung und Score-Neutralität und kennzeichnet fehlende geopolitische Daten klar.
 - Risiko- und Liquiditätsmodul verfeinern.
 
 ### PRIO A: Marktregime-, Innovations-, Blasen- und Makro-Wirkungsmodul
@@ -513,19 +513,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Geopolitik-Modul prüfen und nur mit belastbarer Datenlage anzeigen.
+1. Risiko- und Liquiditätsmodul verfeinern.
 
 Warum diese Aufgabe zuerst:
 
-- Das Makro-Modul zeigt jetzt Datenabdeckung, Score-Neutralität und die Wirkung der verfügbaren Proxy-Daten transparent.
-- Geopolitische Risiken können die Analysequalität stark beeinflussen, dürfen aber nicht aus Bauchgefühl oder unvollständigen Annahmen erfunden werden.
-- Der nächste größte Nutzen liegt darin, zu prüfen, welche geopolitischen Daten überhaupt belastbar verfügbar sind und wie fehlende Daten sauber neutral behandelt werden.
+- Das Geopolitik-Modul nutzt jetzt nur verfügbare Yahoo-News-Titel, zeigt Datenabdeckung und bleibt bei fehlenden Daten transparent.
+- Risiko- und Liquiditätsmodule beeinflussen die praktische Nutzbarkeit der Analyse direkt, weil ein gutes Kaufsignal ohne handelbare Liquidität oder planbares Risiko schwächer belastbar ist.
+- Der nächste größte Nutzen liegt darin, Risiko und Liquidität besser nach Asset-Typ, Volatilität, Volumenqualität und CRV zu erklären.
 
 Nächste konkrete Umsetzung:
 
-1. Geopolitische Datenquellen und vorhandene News-/Makro-Kontexte prüfen.
-2. Nur belegbare geopolitische Risiken in die Analyse aufnehmen.
-3. Wenn keine belastbare Datenquelle verfügbar ist, `Daten nicht verfügbar` anzeigen und neutral behandeln.
+1. Bestehenden Risiko-Score und Liquiditäts-Score prüfen.
+2. Asset-Typ-spezifische Schwellen und fehlende Daten transparenter machen.
+3. Volumenqualität, Volatilität und CRV nachvollziehbarer erklären.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1075,6 +1075,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-31
 
+- Geopolitik-Modul umgesetzt: neuer `Geopolitik-Score` im Research-Pack nutzt ausschließlich verfügbare Yahoo-News-Titel als Hinweisquelle für Sanktionen, Zölle, Krieg, Lieferkettenstress oder Exportkontrollen.
+- Keine geopolitischen Daten erfunden: Wenn keine News verfügbar sind, zeigt das Modul `Geopolitische Daten nicht verfügbar`; wenn keine Treffer gefunden werden, wird das ausdrücklich nicht als vollständige Entwarnung formuliert.
+- Unsicherheitsfaktoren verbessert: geopolitische Risiken werden jetzt nicht mehr nur pauschal genannt, sondern abhängig von Datenverfügbarkeit und Geopolitik-Score eingeordnet.
+- README aktualisiert: Geopolitik-Score und Grenzen der Datenlage dokumentiert.
+- Tests dokumentiert: direkte Geopolitik-Mock-Tests erfolgreich; `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Geopolitik-Modul prüfen` ist umgesetzt; neue Priorität ist `Risiko- und Liquiditätsmodul verfeinern`, weil Risiko, Volumenqualität und Handelbarkeit die praktische Belastbarkeit eines Kaufsignals stark beeinflussen.
 - Makro-Modul erweitert: Datenabdeckung und Score-Neutralität werden jetzt im Makro-Score ausgewiesen.
 - Makro-Proxies transparenter gemacht: Risikoappetit/Nasdaq, Zinsdruck/US-Zinsen, Dollar-/Liquiditätsdruck und TIP als Inflations-/Realzinsproxy werden einzeln erklärt.
 - Keine Makro- oder Liquiditätsdaten erfunden: direkte Liquiditätsdaten bleiben ohne belastbare Quelle `Daten nicht verfügbar`, und fehlende Proxies führen zu neutraler Bewertung statt Scheingenauigkeit.

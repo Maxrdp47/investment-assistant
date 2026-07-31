@@ -148,6 +148,7 @@ Enthalten sind:
 - Makro-Score: zeigt Datenabdeckung und Score-Neutralität; nutzt Nasdaq/Risikoappetit, US-Zinsen, Dollar-/Liquiditätsdruck und TIP als Inflations-/Realzinsproxy, sofern Yahoo-Daten verfügbar sind. Direkte Liquiditätsdaten werden ohne belastbare Quelle als `Daten nicht verfügbar` angezeigt.
 - Marktregime mit Hinweisen, Gegenargumenten, Unsicherheiten, betroffenen Asset-Klassen und Vertrauensgrad
 - Makro-Wirkung: Zinsen, Dollar, Risikoappetit und Inflations-/Realzinsproxy mit praktischer Wirkung auf Aktien, ETFs, Krypto und Rohstoffe
+- Geopolitik-Score: nutzt nur verfügbare Yahoo-News-Titel als Hinweisquelle für Sanktionen, Zölle, Krieg, Lieferketten- oder Exportkontrollrisiken. Wenn keine belastbaren News vorliegen, steht `Daten nicht verfügbar`; fehlende Treffer sind keine vollständige Entwarnung.
 - Rohstoff-Kontext: Öl, Gas, Kupfer, Gold und Uran-Proxy als Konjunktur-, Inflations-, Sicherheits- und Energiesignale, sofern Yahoo-Daten verfügbar sind
 - Krypto-Zyklus: nur bei Krypto-Assets, mit Bitcoin-Halving-Einordnung, Krypto-Volatilität und Liquidität; ETF-Flows, Fear & Greed und On-Chain-Daten bleiben `Daten nicht verfügbar`, wenn keine belastbare Quelle eingebunden ist
 - Institutionelle Research-Module: Analysten-Konsens, Earnings, Event-Risiko und institutionelle Daten zeigen Datenabdeckung und Score-Neutralität. Fehlende Analysten-, Earnings-, Event-, Insider-, Short-Interest- oder ETF-Flow-Daten werden nicht geschätzt.

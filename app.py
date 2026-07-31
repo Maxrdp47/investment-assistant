@@ -6279,6 +6279,50 @@ def render_analysis_card(title: str, status: str, explanation: str) -> None:
     )
 
 
+def set_app_view(view: str) -> None:
+    """Switch between the two user-facing tools."""
+    st.session_state["app_view"] = view
+
+
+def render_main_menu() -> None:
+    """Render the small, mobile-friendly entry screen."""
+    st.markdown("## Was möchtest du tun?")
+    st.caption("Wähle einen Bereich. Du kannst jederzeit zum Hauptmenü zurückkehren.")
+    st.write("")
+
+    _, analysis_col, scanner_col, _ = st.columns([0.35, 1, 1, 0.35])
+    with analysis_col:
+        st.markdown("### Analyse Tool")
+        st.write("Ein einzelnes Asset ausführlich prüfen und verständlich bewerten.")
+        st.button(
+            "Analyse öffnen",
+            type="primary",
+            use_container_width=True,
+            key="open_analysis_tool",
+            on_click=set_app_view,
+            args=("analysis",),
+        )
+    with scanner_col:
+        st.markdown("### Opportunity Scanner")
+        st.write("Mehrere Assets vergleichen und interessante Chancen herausfiltern.")
+        st.button(
+            "Scanner öffnen",
+            use_container_width=True,
+            key="open_opportunity_scanner",
+            on_click=set_app_view,
+            args=("scanner",),
+        )
+
+
+def render_back_to_menu_button(key: str) -> None:
+    st.button(
+        "← Zurück zum Hauptmenü",
+        key=key,
+        on_click=set_app_view,
+        args=("menu",),
+    )
+
+
 def main() -> None:
     st.set_page_config(page_title=APP_TITLE, layout="wide")
 
@@ -6346,6 +6390,26 @@ def main() -> None:
             margin-top: 10px;
             color: #e5e7eb;
         }
+        .block-container {
+            max-width: 1180px;
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }
+        div[data-testid="stButton"] > button {
+            min-height: 3rem;
+            border-radius: 0.75rem;
+            font-weight: 650;
+        }
+        @media (max-width: 700px) {
+            .block-container {
+                padding-top: 1rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            div[data-testid="stHorizontalBlock"] {
+                gap: 0.75rem;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -6356,8 +6420,71 @@ def main() -> None:
     st.warning(DISCLAIMER)
     st.caption("Keine Broker-Anbindung. Keine Kauf- oder Verkaufsautomatisierung. Die letzte Entscheidung trifft immer der Nutzer.")
 
+    if "app_view" not in st.session_state:
+        st.session_state["app_view"] = "menu"
+
+    app_view = st.session_state["app_view"]
+    if app_view == "menu":
+        render_main_menu()
+        return
+
+    if app_view == "scanner":
+        render_back_to_menu_button("scanner_back_to_menu")
+        st.header("Opportunity Scanner")
+        st.caption("Vergleiche mehrere Assets und prüfe anschließend die interessantesten Setups im Detail.")
+
+        scanner_watchlist_raw = st.text_area(
+            "Zu prüfende Ticker",
+            value=DEFAULT_SCANNER_WATCHLIST,
+            help="Kommagetrennte Yahoo-Finance-Ticker. Der Scanner macht nur Vorschläge und handelt nicht automatisch.",
+        )
+        scanner_symbols = parse_watchlist_symbols(scanner_watchlist_raw)
+        control_col, info_col = st.columns([1, 2])
+        with control_col:
+            scan_requested = st.button(
+                "Chancen jetzt scannen",
+                type="primary",
+                use_container_width=True,
+                key="run_opportunity_scan",
+            )
+        with info_col:
+            st.caption(f"{len(scanner_symbols)} Ticker für den nächsten Scan vorbereitet.")
+
+        if not scan_requested:
+            st.info("Starte den Scan, um mögliche Long- und Short-Kandidaten zu vergleichen.")
+            return
+        if not scanner_symbols:
+            st.info("Bitte mindestens einen Yahoo-Finance-Ticker eintragen.")
+            return
+
+        with st.spinner("Scanne Assets nach Chancen..."):
+            scanner_results, scanner_errors = scan_opportunities(scanner_symbols)
+        render_opportunity_scanner(scanner_results, scanner_errors)
+        setup_symbols = [
+            item["Ticker"]
+            for item in scanner_results
+            if item["Richtung"] in {"Long", "Short / Absicherung"}
+        ][:5]
+        if not setup_symbols:
+            setup_symbols = [item["Ticker"] for item in scanner_results[:3]]
+        with st.spinner("Erzeuge Trading-Setups aus den besten Kandidaten..."):
+            trading_setups: list[dict] = []
+            trading_errors: list[str] = []
+            for setup_symbol in setup_symbols:
+                setup, setup_error = build_trading_setup(setup_symbol)
+                if setup is not None:
+                    trading_setups.append(setup)
+                if setup_error:
+                    trading_errors.append(setup_error)
+        render_trading_mode(trading_setups, trading_errors)
+        return
+
+    render_back_to_menu_button("analysis_back_to_menu")
+    st.header("Analyse Tool")
+    st.caption("Wähle ein Asset aus und starte eine ausführliche Einzelanalyse.")
+
     with st.sidebar:
-        st.header("Analyse")
+        st.header("Analyse Tool")
         query = st.text_input("Asset-Name oder Ticker", value="", placeholder="z. B. Xiaomi, PLTR, Bitcoin")
         period_label = st.selectbox("Zeitraum", list(PERIOD_OPTIONS), index=2)
         interval = st.selectbox("Intervall", INTERVAL_OPTIONS, index=4)
@@ -6401,16 +6528,6 @@ def main() -> None:
                 else:
                     st.info(message)
 
-        with st.expander("Opportunity Scanner", expanded=False):
-            scanner_watchlist_raw = st.text_area(
-                "Watchlist",
-                value=DEFAULT_SCANNER_WATCHLIST,
-                help="Kommagetrennte Yahoo-Finance-Ticker. Der Scanner macht nur Vorschläge und handelt nicht automatisch.",
-            )
-            scanner_symbols = parse_watchlist_symbols(scanner_watchlist_raw)
-            st.caption(f"{len(scanner_symbols)} Ticker vorbereitet.")
-            scan_requested = st.button("Watchlist scannen", use_container_width=True)
-
         candidates = find_ticker_candidates(query)
         candidate_labels = [format_candidate(candidate) for candidate in candidates]
         selected_label = st.selectbox("Gefundene Yahoo-Finance-Treffer", candidate_labels or [""])
@@ -6450,32 +6567,6 @@ def main() -> None:
     if refresh_seconds:
         st.markdown(f"<meta http-equiv='refresh' content='{refresh_seconds}'>", unsafe_allow_html=True)
         st.caption(f"Auto-Refresh aktiv: Die Seite lädt alle {refresh_seconds} Sekunden neu. Yahoo-Finance-Daten können verzögert sein.")
-
-    if scan_requested:
-        if not scanner_symbols:
-            st.info("Bitte mindestens einen Yahoo-Finance-Ticker für den Opportunity Scanner eintragen.")
-        else:
-            with st.spinner("Scanne Watchlist nach Chancen..."):
-                scanner_results, scanner_errors = scan_opportunities(scanner_symbols)
-            render_opportunity_scanner(scanner_results, scanner_errors)
-            setup_symbols = [
-                item["Ticker"]
-                for item in scanner_results
-                if item["Richtung"] in {"Long", "Short / Absicherung"}
-            ][:5]
-            if not setup_symbols:
-                setup_symbols = [item["Ticker"] for item in scanner_results[:3]]
-            with st.spinner("Erzeuge Trading-Setups aus Scanner-Kandidaten..."):
-                trading_setups: list[dict] = []
-                trading_errors: list[str] = []
-                for setup_symbol in setup_symbols:
-                    setup, setup_error = build_trading_setup(setup_symbol)
-                    if setup is not None:
-                        trading_setups.append(setup)
-                    if setup_error:
-                        trading_errors.append(setup_error)
-            render_trading_mode(trading_setups, trading_errors)
-            st.divider()
 
     if manual_symbol.strip():
         symbol = manual_symbol.strip().upper()

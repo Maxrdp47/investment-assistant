@@ -6,6 +6,8 @@ Die App handelt nicht automatisch, hat keine Broker-Anbindung und gibt keine Fin
 
 ## Funktionen
 
+- klares Hauptmenü mit zwei getrennten Ansichten: `Analyse Tool` und `Opportunity Scanner`
+- mobilfreundliche Navigation mit Rückkehr zum Hauptmenü; kein App-Logo oder eigenes Favicon
 - Asset-Name oder Yahoo-Finance-Ticker eingeben
 - automatische Yahoo-Finance-Suche mit auswählbaren Treffern für Firmennamen, ETFs und Kryptowährungen
 - Speicherung der zuletzt erfolgreichen Suchanfragen in `search_history.json`
@@ -22,6 +24,15 @@ Die App handelt nicht automatisch, hat keine Broker-Anbindung und gibt keine Fin
 - Marktphase und Szenario-Wahrscheinlichkeiten
 - Anfänger-Modus mit einfachen Erklärungen
 - optionaler Portfolio-Modus mit `portfolio.json`
+
+## Navigation
+
+Nach dem Start wählst du im Hauptmenü zwischen zwei getrennten Arbeitsbereichen:
+
+- **Analyse Tool:** ausführliche Einzelanalyse eines ausgewählten Assets. Suche, Zeitraum, Währung und Portfolio-Modus befinden sich ausschließlich in dieser Ansicht.
+- **Opportunity Scanner:** Vergleich mehrerer Ticker und anschließende Erzeugung der interessantesten Trading-Setups. Der Scanner verändert die Einzelanalyse nicht.
+
+Beide Ansichten besitzen einen Button **Zurück zum Hauptmenü**. Die Navigation wird im Streamlit Session State gespeichert und benötigt keine zusätzliche Seite oder Browser-Navigation.
 
 ## Start
 

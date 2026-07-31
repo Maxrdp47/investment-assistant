@@ -230,7 +230,7 @@ Transparenzregeln:
 
 ### Priorität 4: Krypto-Modul
 
-- Bitcoin-Halving-Zyklus integrieren. Status: Basis umgesetzt am 2026-06-15.
+- Bitcoin-Halving-Zyklus integrieren. Status: Basis umgesetzt am 2026-06-15; erweitert am 2026-08-01 um deterministische Zyklusphase, Zyklusfortschritt, praktische Anlegerbedeutung und klare Unsicherheitsregel.
 - Fear & Greed Index prüfen und integrieren, falls zuverlässig verfügbar. Status: geprüft am 2026-07-31; keine belastbare Quelle eingebunden, daher weiterhin `Daten nicht verfügbar`.
 - ETF-Flows integrieren, falls eine belastbare Datenquelle verfügbar ist. Status: geprüft am 2026-07-31; keine belastbare Quelle eingebunden, daher weiterhin `Daten nicht verfügbar`.
 - On-Chain-Daten integrieren, falls verfügbar. Status: geprüft am 2026-07-31; keine belastbare Quelle eingebunden, daher weiterhin `Daten nicht verfügbar`.
@@ -516,19 +516,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Krypto-Zyklus-Kontext prüfen und verständlicher in Krypto-Analyse integrieren.
+1. Forward-Testing-Hauptliste gegen gespeicherte Modul-Scores, Szenarien und Ergebnisgruppen konsolidieren.
 
 Warum diese Aufgabe zuerst:
 
-- Trade-Journal-Performance-Tracking speichert jetzt Ziel/Stop, maximale Bewegungen, beste Alternative und Opportunitätskosten.
-- Krypto bleibt ein wichtiger Asset-Typ in der App, aber mehrere Spezialdatenquellen sind nicht zuverlässig verfügbar und dürfen nicht erfunden werden.
-- Der nächste größte Nutzen liegt darin, den verfügbaren Krypto-Zyklus-Kontext belastbarer und anfängerfreundlicher zu machen, ohne externe Daten zu erfinden.
+- Krypto-Zyklus-Kontext ist jetzt verständlicher, deterministisch testbar und trennt Kontextsignal klar vom Kaufsignal.
+- Forward-Testing ist zentral für messbare Analysequalität, aber die Hauptliste enthält noch offene Formulierungen zu gespeicherten Modul-Scores, Szenarien und Ergebnisgruppen.
+- Der nächste größte Nutzen liegt darin, gespeicherte Forward-Tests vollständiger für spätere Trefferquoten und Lernlogik nutzbar zu machen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Krypto-/Halving-Zykluslogik prüfen.
-2. Falls sinnvoll, regelbasierte Zyklusphase und Unsicherheiten ergänzen.
-3. Fehlende externe Spezialdaten weiterhin klar als `Daten nicht verfügbar` kennzeichnen.
+1. Bestehende Forward-Test-Speicherung und Auswertung gegen ROADMAP-Anforderungen prüfen.
+2. Fehlende Modul-Score-, Szenario- oder Gruppierungsfelder ergänzen, falls noch nicht vollständig.
+3. Kompatibilität alter Historien beibehalten.
 4. Tests ausführen und README/ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1010,6 +1010,13 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Krypto-Zyklus-Kontext erweitert: Das Krypto-Zyklusmodul nutzt jetzt eine testbare Halving-Kontextfunktion mit Zyklusphase, Zyklusfortschritt, Score und praktischer Anlegerbedeutung.
+- Anfänger-Transparenz verbessert: Der Halving-Zyklus wird ausdrücklich als Kontextsignal und nicht als Kaufsignal erklärt; Trend, Liquidität, Volatilität, Makro und Risikomarken bleiben wichtiger.
+- Keine Krypto-Daten erfunden: ETF-Flows, Fear & Greed, On-Chain, Orderbuch, Spread, Börsentiefe und Stablecoin-Liquidität bleiben ohne belastbare Quelle `Daten nicht verfügbar`.
+- README aktualisiert: Krypto-Zyklus beschreibt jetzt Zyklusfortschritt, Anlegerbedeutung und Unsicherheitsregel.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Krypto-Zyklus-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Krypto-Zyklus-Kontext prüfen und verständlicher in Krypto-Analyse integrieren` ist umgesetzt; neue Priorität ist `Forward-Testing-Hauptliste gegen gespeicherte Modul-Scores, Szenarien und Ergebnisgruppen konsolidieren`, weil messbare Analysequalität und Lernfähigkeit Vorrang vor Komfortfunktionen haben.
 
 - Performance-Tracking für Trade Journal erweitert: Fällige Trade-Auswertungen speichern jetzt zusätzlich gewählte Aktion, beste Alternative, Rendite der besten Alternative und Opportunitätskosten.
 - Ziel-/Stop-Auswertung bleibt unverändert erhalten: Ziel erreicht, Stop erreicht, Rendite sowie maximale positive und negative Entwicklung werden weiterhin aus echten Kursdaten berechnet.

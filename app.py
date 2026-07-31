@@ -4234,6 +4234,48 @@ def research_commodity_context(profile: AssetProfile) -> ResearchModule:
     return ResearchModule("Rohstoff-Kontext", confidence, summary, details, beginner)
 
 
+def crypto_halving_cycle_context(today: pd.Timestamp | None = None) -> dict:
+    reference_today = (today or pd.Timestamp.today()).normalize()
+    last_halving = pd.Timestamp("2024-04-20")
+    next_halving_estimate = pd.Timestamp("2028-04-20")
+    days_since_halving = int((reference_today - last_halving).days)
+    days_to_next_halving = int((next_halving_estimate - reference_today).days)
+    cycle_length = max(int((next_halving_estimate - last_halving).days), 1)
+    progress = clamp(days_since_halving / cycle_length, 0.0, 1.0)
+
+    if days_since_halving < 0:
+        phase = "vor der aktuellen Halving-Referenz"
+        score = 5.0
+        practical_meaning = "Das bekannte Halving-Fenster liefert noch keinen positiven oder negativen Zyklusimpuls."
+    elif days_since_halving < 180:
+        phase = "frühe Nach-Halving-Phase"
+        score = 6.5
+        practical_meaning = "Für Anleger bedeutet das: Zyklus-Rückenwind ist möglich, aber Kursbestätigung und Liquidität sind wichtiger als das Datum allein."
+    elif days_since_halving < 550:
+        phase = "mittlere Zyklusphase"
+        score = 7.0
+        practical_meaning = "Für Anleger bedeutet das: Der Zykluskontext ist konstruktiv, Nachkäufe sollten trotzdem an Trend, Volumen und Unterstützungen gekoppelt bleiben."
+    elif days_since_halving < 900:
+        phase = "späte Zyklusphase mit erhöhtem Rückschlagsrisiko"
+        score = 5.0
+        practical_meaning = "Für Anleger bedeutet das: Nicht aggressiv nur wegen des Halving-Zyklus kaufen; Rücksetzer und Bestätigung werden wichtiger."
+    else:
+        phase = "späte/Übergangsphase vor dem nächsten Halving"
+        score = 4.5
+        practical_meaning = "Für Anleger bedeutet das: Der Zyklus spricht eher für vorsichtige Positionsgrößen und klare Risikomarken."
+
+    return {
+        "last_halving": last_halving,
+        "next_halving_estimate": next_halving_estimate,
+        "days_since_halving": days_since_halving,
+        "days_to_next_halving": days_to_next_halving,
+        "progress_pct": round(progress * 100, 1),
+        "phase": phase,
+        "score": score,
+        "practical_meaning": practical_meaning,
+    }
+
+
 def research_crypto_cycle(symbol: str, profile: AssetProfile, df: pd.DataFrame) -> ResearchModule:
     if profile.asset_type != "Krypto":
         return ResearchModule("Krypto-Zyklus", None, "Nicht relevant für diesen Asset-Typ.", ["Asset ist nicht als Krypto erkannt."], "Dieses Modul gilt nur für Kryptowährungen.")
@@ -4245,30 +4287,18 @@ def research_crypto_cycle(symbol: str, profile: AssetProfile, df: pd.DataFrame) 
     close = value_or_none(latest.get("Close"))
     sma_50 = value_or_none(latest.get("SMA_50"))
     sma_200 = value_or_none(latest.get("SMA_200"))
-    today = pd.Timestamp.today().normalize()
-    last_halving = pd.Timestamp("2024-04-20")
-    next_halving_estimate = pd.Timestamp("2028-04-20")
-    days_since_halving = int((today - last_halving).days)
-    days_to_next_halving = int((next_halving_estimate - today).days)
-
-    if days_since_halving < 180:
-        phase = "frühe Nach-Halving-Phase"
-        cycle_score = 6.5
-    elif days_since_halving < 550:
-        phase = "mittlere Zyklusphase"
-        cycle_score = 7.0
-    elif days_since_halving < 900:
-        phase = "späte Zyklusphase mit erhöhtem Rückschlagsrisiko"
-        cycle_score = 5.0
-    else:
-        phase = "späte/Übergangsphase vor dem nächsten Halving"
-        cycle_score = 4.5
+    cycle_context = crypto_halving_cycle_context()
+    days_since_halving = cycle_context["days_since_halving"]
+    days_to_next_halving = cycle_context["days_to_next_halving"]
+    phase = str(cycle_context["phase"])
+    cycle_score = float(cycle_context["score"])
 
     details = [
         data_coverage_detail(
             "Krypto-Zyklus",
             [
                 ("Halving-Zeitfenster", days_since_halving),
+                ("Zyklusfortschritt", cycle_context["progress_pct"]),
                 ("Volatilität", volatility),
                 ("Volumenvergleich", volume if volume is not None and volume_avg is not None else None),
                 ("Trendstruktur", close if close is not None and sma_50 is not None and sma_200 is not None else None),
@@ -4283,7 +4313,10 @@ def research_crypto_cycle(symbol: str, profile: AssetProfile, df: pd.DataFrame) 
         f"Ticker: {symbol}.",
         f"Letztes Bitcoin-Halving: 20.04.2024; Tage seitdem: {days_since_halving}.",
         f"Nächstes Halving grob geschätzt um 2028; Tage bis zur Schätzung: {days_to_next_halving}.",
+        f"Zyklusfortschritt bis zur nächsten groben Halving-Schätzung: {cycle_context['progress_pct']:.1f}%.",
         f"Zyklusphase: {phase} -> {cycle_score:.1f}/10.",
+        f"Praktische Bedeutung: {cycle_context['practical_meaning']}",
+        "Unsicherheit: Der Halving-Zyklus ist ein Kontextsignal, kein Kaufsignal. Trend, Liquidität, Volatilität, Makro und Risikomarken können wichtiger sein.",
         "ETF-Flows: Daten nicht verfügbar.",
         "Fear & Greed: Daten nicht verfügbar.",
         "On-Chain-Daten: Daten nicht verfügbar.",
@@ -4321,7 +4354,7 @@ def research_crypto_cycle(symbol: str, profile: AssetProfile, df: pd.DataFrame) 
 
     score = round(float(np.mean(points)), 1)
     summary = f"Krypto-Zyklus {score}/10. {phase}."
-    beginner = "Krypto-Zyklen können nach Bitcoin-Halvings Muster zeigen, sind aber keine Garantie. Dieses Modul trennt verfügbare Marktdaten von fehlenden Spezialdaten wie ETF-Flows, Fear & Greed, On-Chain, Orderbuch und Stablecoin-Liquidität."
+    beginner = "Krypto-Zyklen können nach Bitcoin-Halvings Muster zeigen, sind aber keine Garantie. Praktisch heißt das: Der Zyklus kann Rückenwind oder Vorsicht anzeigen, ersetzt aber keine Prüfung von Trend, Volumen, Volatilität und Unterstützungen. Dieses Modul trennt verfügbare Marktdaten von fehlenden Spezialdaten wie ETF-Flows, Fear & Greed, On-Chain, Orderbuch und Stablecoin-Liquidität."
     return ResearchModule("Krypto-Zyklus", score, summary, details, beginner)
 
 

@@ -662,6 +662,21 @@ def test_crypto_cycle_discloses_special_data_coverage_and_market_structure() -> 
     assert "On-Chain-Daten: Daten nicht verfügbar" in details
     assert "Stablecoin-Liquiditätsdaten: Daten nicht verfügbar" in details
     assert "Trendstruktur konstruktiv" in details
+    assert "Zyklusfortschritt" in details
+    assert "Praktische Bedeutung" in details
+    assert "kein Kaufsignal" in details
+
+
+def test_crypto_halving_cycle_context_is_deterministic_for_known_dates() -> None:
+    early = app.crypto_halving_cycle_context(app.pd.Timestamp("2024-06-01"))
+    middle = app.crypto_halving_cycle_context(app.pd.Timestamp("2025-06-01"))
+    late = app.crypto_halving_cycle_context(app.pd.Timestamp("2026-08-01"))
+
+    assert early["phase"] == "frühe Nach-Halving-Phase"
+    assert middle["phase"] == "mittlere Zyklusphase"
+    assert late["phase"] == "späte Zyklusphase mit erhöhtem Rückschlagsrisiko"
+    assert 0 <= late["progress_pct"] <= 100
+    assert "Für Anleger bedeutet das" in late["practical_meaning"]
 
 
 def test_crypto_fundamentals_disclose_missing_special_sources() -> None:

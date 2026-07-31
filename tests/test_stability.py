@@ -283,3 +283,49 @@ def test_institutional_research_modules_use_available_yfinance_fields(monkeypatc
     assert any("Datenabdeckung Analysten-Konsens" in detail for detail in analyst.details)
     assert any("Quartalsbericht" in detail for detail in event.details)
     assert any("Institutionelle Beteiligungen: 55.0%" in detail for detail in institutional.details)
+
+
+def test_news_score_discloses_missing_news_coverage(monkeypatch) -> None:
+    monkeypatch.setattr(app, "load_news_items", lambda symbol: [])
+
+    module = app.score_news("NVDA")
+    details = "\n".join(module.details)
+
+    assert module.score == 5.0
+    assert "Datenabdeckung News" in details
+    assert "Score-Neutralität News" in details
+    assert "Keine News verfügbar" in details
+
+
+def test_news_score_discloses_source_date_relevance_and_sentiment_quality(monkeypatch) -> None:
+    monkeypatch.setattr(
+        app,
+        "load_news_items",
+        lambda symbol: [
+            {
+                "title": "Nvidia shares rally after strong growth",
+                "publisher": "Example News",
+                "providerPublishTime": 1_800_000_000,
+                "link": "https://example.com/nvda",
+                "relatedTickers": ["NVDA"],
+            },
+            {
+                "content": {
+                    "title": "Chip sector faces risk after weak demand",
+                    "provider": {"displayName": "Market Desk"},
+                    "pubDate": "2026-07-30T12:00:00Z",
+                    "finance": {"stockTickers": ["AMD"]},
+                }
+            },
+        ],
+    )
+
+    module = app.score_news("NVDA")
+    details = "\n".join(module.details)
+
+    assert "Datenabdeckung News" in details
+    assert "Quelle: Example News" in details
+    assert "Datum:" in details
+    assert "Relevanz: hoch" in details
+    assert "Sentiment-Qualität" in details
+    assert module.summary.startswith("News-Sentiment")

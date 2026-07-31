@@ -151,7 +151,7 @@ Enthalten sind:
 - Rohstoff-Kontext: Öl, Gas, Kupfer, Gold und Uran-Proxy als Konjunktur-, Inflations-, Sicherheits- und Energiesignale, sofern Yahoo-Daten verfügbar sind
 - Krypto-Zyklus: nur bei Krypto-Assets, mit Bitcoin-Halving-Einordnung, Krypto-Volatilität und Liquidität; ETF-Flows, Fear & Greed und On-Chain-Daten bleiben `Daten nicht verfügbar`, wenn keine belastbare Quelle eingebunden ist
 - Institutionelle Research-Module: Analysten-Konsens, Earnings, Event-Risiko und institutionelle Daten zeigen Datenabdeckung und Score-Neutralität. Fehlende Analysten-, Earnings-, Event-, Insider-, Short-Interest- oder ETF-Flow-Daten werden nicht geschätzt.
-- News-Score
+- News-Score: zeigt Quelle, Datum, Relevanz und einfache Sentiment-Qualität je Nachricht; fehlende oder unklare News-Daten werden neutral behandelt und nicht erfunden.
 - Risiko-Score
 - Liquiditäts-Score
 - Bull-/Base-/Bear-Szenarien mit Wahrscheinlichkeiten, die zusammen 100 % ergeben; Trend, Volatilität, Unterstützungen, Widerstände und CRV werden als Treiber ausgewiesen

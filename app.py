@@ -3405,40 +3405,149 @@ def load_news_items(symbol: str) -> list[dict]:
         return []
 
 
+def news_field(item: dict, *keys: str) -> object:
+    current: object = item
+    for key in keys:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
+
+
+def normalized_news_item(item: dict, symbol: str) -> dict[str, object]:
+    content = item.get("content") if isinstance(item.get("content"), dict) else {}
+    title = (
+        item.get("title")
+        or news_field(content, "title")
+        or news_field(content, "headline")
+        or ""
+    )
+    publisher = (
+        item.get("publisher")
+        or news_field(item, "provider", "displayName")
+        or news_field(content, "provider", "displayName")
+        or news_field(content, "publisher")
+        or "Daten nicht verfügbar"
+    )
+    published_at = (
+        item.get("providerPublishTime")
+        or news_field(content, "pubDate")
+        or news_field(content, "displayTime")
+        or news_field(content, "providerPublishTime")
+    )
+    link = item.get("link") or news_field(content, "canonicalUrl", "url") or news_field(content, "clickThroughUrl", "url")
+    related = item.get("relatedTickers") or news_field(content, "finance", "stockTickers") or []
+    if not isinstance(related, list):
+        related = []
+    return {
+        "title": str(title or "").strip(),
+        "publisher": str(publisher or "Daten nicht verfügbar").strip(),
+        "published": format_news_date(published_at),
+        "link": str(link or "Daten nicht verfügbar").strip(),
+        "related": [str(value).upper() for value in related],
+        "symbol": symbol.upper(),
+    }
+
+
+def format_news_date(value: object) -> str:
+    if value is None or value == "":
+        return "Daten nicht verfügbar"
+    numeric = value_or_none(value)
+    try:
+        if numeric is not None:
+            return pd.Timestamp.fromtimestamp(float(numeric)).strftime("%Y-%m-%d %H:%M")
+        return pd.Timestamp(value).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return "Daten nicht verfügbar"
+
+
+def news_sentiment_from_title(title: str) -> tuple[int, str, int, int]:
+    lower = title.lower()
+    pos = sum(1 for word in POSITIVE_WORDS if word in lower)
+    neg = sum(1 for word in NEGATIVE_WORDS if word in lower)
+    raw = pos - neg
+    if pos > neg:
+        tone = "positiv"
+    elif neg > pos:
+        tone = "negativ"
+    else:
+        tone = "neutral"
+    return raw, tone, pos, neg
+
+
+def news_relevance(item: dict[str, object]) -> tuple[str, str]:
+    title = str(item.get("title") or "")
+    related = item.get("related") if isinstance(item.get("related"), list) else []
+    symbol = str(item.get("symbol") or "").upper()
+    if symbol and symbol in related:
+        return "hoch", "Ticker steht in den Yahoo-Related-Tickers."
+    if title:
+        clean_symbol = symbol.split(".")[0].replace("-", " ")
+        if clean_symbol and clean_symbol.lower() in title.lower():
+            return "mittel", "Ticker/Asset wird im Titel erwähnt."
+        return "mittel", "Titel vorhanden, aber direkter Tickerbezug nicht eindeutig."
+    return "niedrig", "Titel oder Tickerbezug fehlen."
+
+
 def score_news(symbol: str) -> ModuleScore:
     news = load_news_items(symbol)
     if not news:
-        return ModuleScore(5.0, "News-Daten nicht verfügbar oder keine aktuellen Nachrichten über Yahoo Finance gefunden. News wird neutral behandelt.", ["Keine News verfügbar."])
+        return ModuleScore(
+            5.0,
+            "News-Daten nicht verfügbar oder keine aktuellen Nachrichten über Yahoo Finance gefunden. News wird neutral behandelt.",
+            [
+                "Datenabdeckung News: 0/4 Felder verfügbar (Quelle, Datum, Titel, Tickerbezug).",
+                score_neutrality_detail("News"),
+                "Keine News verfügbar.",
+            ],
+        )
 
     sentiment_values: list[int] = []
     details: list[str] = []
-    for item in news[:5]:
-        title = str(item.get("title", "")).strip()
+    normalized_items = [normalized_news_item(item, symbol) for item in news[:5] if isinstance(item, dict)]
+    coverage_fields = []
+    for normalized in normalized_items:
+        coverage_fields.extend(
+            [
+                ("Quelle", None if normalized["publisher"] == "Daten nicht verfügbar" else normalized["publisher"]),
+                ("Datum", None if normalized["published"] == "Daten nicht verfügbar" else normalized["published"]),
+                ("Titel", normalized["title"]),
+                ("Tickerbezug", normalized["related"]),
+            ]
+        )
+    details.append(data_coverage_detail("News", coverage_fields or [("Quelle", None), ("Datum", None), ("Titel", None), ("Tickerbezug", None)]))
+    details.append(score_neutrality_detail("News"))
+
+    low_quality = 0
+    for normalized in normalized_items:
+        title = str(normalized.get("title") or "").strip()
         if not title:
+            low_quality += 1
             continue
-        lower = title.lower()
-        pos = sum(1 for word in POSITIVE_WORDS if word in lower)
-        neg = sum(1 for word in NEGATIVE_WORDS if word in lower)
-        sentiment_values.append(pos - neg)
-        if pos > neg:
-            tone = "positiv"
-        elif neg > pos:
-            tone = "negativ"
-        else:
-            tone = "neutral"
-        details.append(f"{tone}: {title}")
+        raw_sentiment, tone, pos, neg = news_sentiment_from_title(title)
+        sentiment_values.append(raw_sentiment)
+        relevance, relevance_reason = news_relevance(normalized)
+        if relevance == "niedrig":
+            low_quality += 1
+        details.append(
+            f"{tone}: {title} | Quelle: {normalized['publisher']} | Datum: {normalized['published']} | "
+            f"Relevanz: {relevance} ({relevance_reason}) | Sentiment-Qualität: "
+            f"{'klar' if pos != neg else 'unklar'} ({pos} positive, {neg} negative Treffer)."
+        )
 
     if not sentiment_values:
-        return ModuleScore(5.0, "Nachrichten vorhanden, aber ohne klares Sentiment.", ["Sentiment neutral."])
+        return ModuleScore(5.0, "Nachrichten vorhanden, aber ohne klares Sentiment. News wird neutral behandelt.", details + ["Sentiment-Qualität: Daten nicht verfügbar."])
 
     avg_sentiment = float(np.mean(sentiment_values))
     score = round(clamp(5 + avg_sentiment * 1.5), 1)
+    quality_text = "hoch" if low_quality == 0 else "eingeschränkt" if low_quality < len(sentiment_values) else "niedrig"
     if score >= 6.5:
         summary = "News-Sentiment ist überwiegend positiv."
     elif score <= 4.0:
         summary = "News-Sentiment ist überwiegend negativ."
     else:
         summary = "News-Sentiment ist überwiegend neutral."
+    summary = f"{summary} Sentiment-Qualität: {quality_text}; Quelle/Datum/Relevanz werden je Nachricht ausgewiesen."
     return ModuleScore(score, summary, details[:5])
 
 
@@ -4521,7 +4630,7 @@ def safe_dataframe_from_yfinance(value: object) -> pd.DataFrame:
 
 
 def data_coverage_detail(module_name: str, fields: list[tuple[str, object]]) -> str:
-    available = sum(1 for _, value in fields if value is not None and str(value) not in {"", "Daten nicht verfügbar"})
+    available = sum(1 for _, value in fields if value is not None and value != [] and str(value) not in {"", "Daten nicht verfügbar"})
     labels = ", ".join(label for label, _ in fields)
     return f"Datenabdeckung {module_name}: {available}/{len(fields)} Felder verfügbar ({labels})."
 

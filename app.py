@@ -1972,6 +1972,87 @@ def signal_learning_rows(forward_tests: list[dict], predictions: list[dict]) -> 
     return status, rows
 
 
+def prediction_hit_rate_rows(predictions: list[dict]) -> tuple[str, list[dict[str, str]]]:
+    evaluated: list[dict] = []
+    for record in predictions:
+        if not isinstance(record, dict):
+            continue
+        for period, result in review_results(record):
+            hit = setup_result_is_hit(result)
+            return_pct = value_or_none(result.get("return_pct")) if isinstance(result, dict) else None
+            if hit is None or return_pct is None:
+                continue
+            evaluated.append({"record": record, "period": period, "hit": hit, "return_pct": float(return_pct)})
+
+    if not evaluated:
+        return "Keine ausgewerteten Prognosen vorhanden.", [
+            {
+                "Dimension": "Gesamt",
+                "Gruppe": "Daten nicht verfügbar",
+                "Fälle": "0",
+                "Trefferquote": "Datenbasis zu klein",
+                "Durchschnittsrendite": "Datenbasis zu klein",
+                "Bedeutung": "Prognosen werden erst nach echter Kursauswertung berücksichtigt.",
+            }
+        ]
+
+    status = (
+        "Datenbasis zu klein. Prognose-Trefferquoten werden gezählt, aber noch nicht belastbar interpretiert."
+        if len(evaluated) < 20
+        else "Vorsichtige Prognose-Trefferquoten möglich. Gewichtungen werden nicht automatisch geändert."
+        if len(evaluated) <= 50
+        else "Prognose-Datenbasis groß genug für manuelle Kalibrierungshinweise. Gewichtungen bleiben testpflichtig."
+    )
+
+    grouped: dict[tuple[str, str], list[dict]] = {}
+    for case in evaluated:
+        record = case["record"]
+        grouped.setdefault(("Asset-Typ", str(record.get("asset_type") or "Unbekannt")), []).append(case)
+        module_scores = record.get("module_scores")
+        if isinstance(module_scores, list):
+            for module in module_scores:
+                if not isinstance(module, dict):
+                    continue
+                name = str(module.get("name") or "Unbekanntes Modul")
+                bucket = score_bucket(module.get("score"))
+                grouped.setdefault(("Modul", f"{name} ({bucket})"), []).append(case)
+        else:
+            signal_snapshot = record.get("signal_snapshot")
+            if isinstance(signal_snapshot, dict):
+                for name, bucket in signal_snapshot.items():
+                    grouped.setdefault(("Signal", f"{name} ({bucket})"), []).append(case)
+
+    rows: list[dict[str, str]] = []
+    for (dimension, group), cases in sorted(grouped.items(), key=lambda item: (item[0][0], item[0][1])):
+        count = len(cases)
+        hit_rate = sum(1 for case in cases if case["hit"]) / count * 100
+        avg_return = float(np.mean([case["return_pct"] for case in cases]))
+        if count < 20:
+            interpretation = "Datenbasis zu klein; nur Zählwert, keine Kalibrierung."
+            hit_text = "Datenbasis zu klein"
+            avg_text = "Datenbasis zu klein"
+        elif count <= 50:
+            interpretation = "Vorsichtiger Hinweis; keine automatische Gewichtungsänderung."
+            hit_text = f"{hit_rate:.1f}%"
+            avg_text = f"{avg_return:+.2f}%"
+        else:
+            interpretation = "Manueller Kalibrierungshinweis erlaubt; keine automatische Änderung."
+            hit_text = f"{hit_rate:.1f}%"
+            avg_text = f"{avg_return:+.2f}%"
+        rows.append(
+            {
+                "Dimension": dimension,
+                "Gruppe": group,
+                "Fälle": str(count),
+                "Trefferquote": hit_text,
+                "Durchschnittsrendite": avg_text,
+                "Bedeutung": interpretation,
+            }
+        )
+
+    return status, rows
+
+
 def evaluated_basic_history_cases(trade_history: list[dict], forward_tests: list[dict], predictions: list[dict]) -> list[dict]:
     cases: list[dict] = []
     for source, items in [("Trade Journal", trade_history), ("Forward-Test", forward_tests), ("Prognose", predictions)]:
@@ -5781,6 +5862,10 @@ def build_prediction_record(
         "risk_reward_score": risk_reward.score,
         "risk_reward_ratio": risk_reward.ratio,
         "signal_snapshot": build_signal_snapshot(latest, risk_reward, research_pack.modules),
+        "module_scores": [
+            {"name": module.name, "score": module.score, "summary": module.summary}
+            for module in research_pack.modules
+        ],
         "professional_decision": research_pack.decision,
         "scenarios": research_pack.scenarios,
         "decisive_mark": research_pack.conclusion.get("Welche Marke ist entscheidend?"),
@@ -7060,6 +7145,7 @@ def main() -> None:
             prediction_history,
         )
         signal_learning_status, signal_learning_table = signal_learning_rows(forward_history, prediction_history)
+        prediction_hit_status, prediction_hit_table = prediction_hit_rate_rows(prediction_history)
         segmented_learning_status, segmented_learning_table = segmented_learning_rows(
             trade_history,
             forward_history,
@@ -7438,6 +7524,13 @@ def main() -> None:
             st.write(signal_learning_status)
             st.dataframe(
                 pd.DataFrame(signal_learning_table),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Prognose-Tracking: Trefferquoten nach Asset und Modul**")
+            st.write(prediction_hit_status)
+            st.dataframe(
+                pd.DataFrame(prediction_hit_table),
                 use_container_width=True,
                 hide_index=True,
             )

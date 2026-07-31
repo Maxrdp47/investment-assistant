@@ -249,10 +249,10 @@ Transparenzregeln:
 
 ### Priorität 6: Prognose-Tracking
 
-- Prognosen speichern.
-- Szenarien und Kursziele später mit echten Ergebnissen vergleichen.
-- Trefferquote je Asset und Modul ausweisen.
-- Grundlage für ein späteres Lernsystem vorbereiten.
+- Prognosen speichern. Status: umgesetzt am 2026-06-15; neue Prognosen speichern zusätzlich Modul-Scores seit 2026-07-31.
+- Szenarien und Kursziele später mit echten Ergebnissen vergleichen. Status: umgesetzt am 2026-07-20 für 1 Woche, 1 Monat, 3 Monate, 6 Monate und 12 Monate.
+- Trefferquote je Asset und Modul ausweisen. Status: erweitert am 2026-07-31; Prognose-Tracking zeigt Asset-Typ- und Modul-/Signalgruppen aus ausgewerteten Prognosen, mit Mindestdatenlogik.
+- Grundlage für ein späteres Lernsystem vorbereiten. Status: umgesetzt; Prognosen fließen in Confidence, Signalanalyse, Segmentanalyse, Fehlmuster und Kalibrierungsvorschläge ein.
 
 ### PRIO B: Forward-Testing-Modul
 
@@ -513,19 +513,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Prognose-Tracking-Hauptliste konsolidieren und Modul-Trefferquoten prüfen.
+1. Lernlogik-Dokumentation und Testbarkeit konsolidieren.
 
 Warum diese Aufgabe zuerst:
 
-- Krypto-Spezialdaten zeigen jetzt Datenabdeckung, Score-Neutralität und klare Grenzen für fehlende externe Quellen.
-- Prognose-Tracking ist als PRIO-B-Modul bereits breit umgesetzt, aber die ältere Hauptliste enthält noch offene Formulierungen.
-- Der nächste größte Nutzen liegt darin, Prognose-Tracking-Status, Trefferquoten je Asset/Modul und verbleibende Lücken zu konsolidieren, damit die Roadmap nicht widersprüchlich priorisiert.
+- Prognose-Tracking ist jetzt in Hauptliste und PRIO-B-Abschnitt konsistent: Speicherung, Auswertung, Asset-/Modultrefferquoten und Lernsystem-Anbindung sind dokumentiert.
+- Die Lernlogik ist über mehrere Tabellen verteilt und braucht eine konsolidierte Test-/Dokumentationssicht, damit spätere Kalibrierungsänderungen nachvollziehbar bleiben.
+- Der nächste größte Nutzen liegt darin, Lernstatus, Mindestdatenlogik und manuelle Kalibrierungsregeln noch klarer zu prüfen und zu dokumentieren.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Prognose-Tracking-Funktionen gegen ROADMAP-Anforderungen prüfen.
-2. Fehlende Modul-/Asset-Trefferquoten identifizieren.
-3. Umsetzung oder Roadmap-Konsolidierung dokumentieren, ohne historische Performance zu erfinden.
+1. Bestehende Lern- und Kalibrierungstabellen gegen ROADMAP-Anforderungen prüfen.
+2. Fehlende Tests oder widersprüchliche Dokumentation identifizieren.
+3. Lernlogik transparent halten: keine automatische Gewichtungsänderung, keine Blackbox.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1075,6 +1075,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-31
 
+- Prognose-Tracking konsolidiert: Neue Prognosen speichern jetzt Research-Modul-Scores zusätzlich zu Szenarien, Kurszielen, Wahrscheinlichkeiten, entscheidender Marke und Signal-Snapshot.
+- Trefferquoten je Asset und Modul ergänzt: Die Analyse-Details zeigen ausgewertete Prognosen nach Asset-Typ sowie Modul-/Signalgruppen; alte Prognosen ohne Modul-Scores bleiben über `signal_snapshot` kompatibel.
+- Mindestdatenlogik beibehalten: Unter 20 Fällen werden Prognosegruppen nur gezählt; ab 20 Fällen sind vorsichtige Hinweise möglich; Gewichtungen werden nie automatisch geändert.
+- README aktualisiert: Prognose-Tracking beschreibt jetzt Modul-Scores, Asset-/Modultrefferquoten und Datenbasisgrenzen.
+- Tests dokumentiert: direkte Prognose-Mock-Tests erfolgreich; `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Prognose-Tracking-Hauptliste konsolidieren und Modul-Trefferquoten prüfen` ist umgesetzt; neue Priorität ist `Lernlogik-Dokumentation und Testbarkeit konsolidieren`, weil die nächste Analysequalitätsverbesserung in nachvollziehbarer Kalibrierung und Mindestdatenlogik liegt.
 - Krypto-Spezialdaten transparenter gemacht: Krypto-Fundamentals, Krypto-Asset-Qualität und Krypto-Zyklus zeigen jetzt Datenabdeckung und Score-Neutralität für Fear & Greed, ETF-Flows, On-Chain, Orderbuch/Spread, Stablecoin-Liquidität und Volumenvergleich.
 - Krypto-Marktstruktur ergänzt: Das Krypto-Zyklusmodul bewertet verfügbare 50er/200er-Trendstruktur zusätzlich zu Halving-Zeitfenster, Volatilität und Volumenvergleich.
 - Keine Krypto-Daten erfunden: Fear & Greed, ETF-Flows, On-Chain-Daten, Orderbuch, Spread, Börsentiefe und Stablecoin-Liquidität bleiben ohne belastbare Quelle ausdrücklich `Daten nicht verfügbar`.

@@ -493,3 +493,51 @@ def test_crypto_fundamentals_disclose_missing_special_sources() -> None:
     assert "ETF-Flows: Daten nicht verfügbar" in details
     assert "On-Chain-Daten: Daten nicht verfügbar" in details
     assert "Stablecoin-Liquidität: Daten nicht verfügbar" in details
+
+
+def test_prediction_hit_rate_rows_group_by_asset_and_module() -> None:
+    predictions = [
+        {
+            "asset_type": "Aktie",
+            "module_scores": [
+                {"name": "Makro-Score", "score": 7.0},
+                {"name": "News-Score", "score": 4.0},
+            ],
+            "review_after": {
+                "1m": {
+                    "return_pct": 6.2,
+                    "scenario_read": "Bull/Base wahrscheinlicher",
+                }
+            },
+        }
+    ]
+
+    status, rows = app.prediction_hit_rate_rows(predictions)
+    dimensions = {(row["Dimension"], row["Gruppe"]) for row in rows}
+
+    assert "Datenbasis zu klein" in status
+    assert ("Asset-Typ", "Aktie") in dimensions
+    assert ("Modul", "Makro-Score (hoch)") in dimensions
+    assert ("Modul", "News-Score (niedrig)") in dimensions
+
+
+def test_prediction_hit_rate_rows_keeps_legacy_signal_snapshots() -> None:
+    predictions = [
+        {
+            "asset_type": "Krypto",
+            "signal_snapshot": {"RSI": "überverkauft", "Makro": "hoch"},
+            "review_after": {
+                "1w": {
+                    "return_pct": -3.0,
+                    "scenario_read": "Bear wahrscheinlicher",
+                }
+            },
+        }
+    ]
+
+    _, rows = app.prediction_hit_rate_rows(predictions)
+    dimensions = {(row["Dimension"], row["Gruppe"]) for row in rows}
+
+    assert ("Asset-Typ", "Krypto") in dimensions
+    assert ("Signal", "RSI (überverkauft)") in dimensions
+    assert ("Signal", "Makro (hoch)") in dimensions

@@ -231,11 +231,11 @@ Transparenzregeln:
 ### Priorität 4: Krypto-Modul
 
 - Bitcoin-Halving-Zyklus integrieren. Status: Basis umgesetzt am 2026-06-15.
-- Fear & Greed Index prüfen und integrieren, falls zuverlässig verfügbar.
-- ETF-Flows integrieren, falls eine belastbare Datenquelle verfügbar ist.
-- On-Chain-Daten integrieren, falls verfügbar.
-- Krypto-Liquidität und Marktstruktur besser erklären.
-- Bei fehlenden Krypto-Daten immer `Daten nicht verfügbar` anzeigen.
+- Fear & Greed Index prüfen und integrieren, falls zuverlässig verfügbar. Status: geprüft am 2026-07-31; keine belastbare Quelle eingebunden, daher weiterhin `Daten nicht verfügbar`.
+- ETF-Flows integrieren, falls eine belastbare Datenquelle verfügbar ist. Status: geprüft am 2026-07-31; keine belastbare Quelle eingebunden, daher weiterhin `Daten nicht verfügbar`.
+- On-Chain-Daten integrieren, falls verfügbar. Status: geprüft am 2026-07-31; keine belastbare Quelle eingebunden, daher weiterhin `Daten nicht verfügbar`.
+- Krypto-Liquidität und Marktstruktur besser erklären. Status: erweitert am 2026-07-31; Volumenvergleich, Volatilität, 50er/200er-Struktur sowie fehlende Orderbuch-, Spread-, Börsentiefe- und Stablecoin-Liquiditätsdaten werden transparent angezeigt.
+- Bei fehlenden Krypto-Daten immer `Daten nicht verfügbar` anzeigen. Status: umgesetzt am 2026-07-31; Krypto-Spezialdaten zeigen Datenabdeckung und Score-Neutralität.
 
 ### Priorität 5: Backtesting
 
@@ -513,19 +513,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Krypto-Modul: externe Krypto-Spezialdaten und Marktstruktur transparenter prüfen.
+1. Prognose-Tracking-Hauptliste konsolidieren und Modul-Trefferquoten prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Risiko- und Liquiditätsmodule zeigen jetzt Asset-Typ-Schwellen, Datenabdeckung, Score-Neutralität und fehlende Markttiefe transparent.
-- Im Krypto-Modul sind Fear & Greed, ETF-Flows, On-Chain-Daten und Marktstruktur weiterhin offene Datenqualitätsfragen.
-- Der nächste größte Nutzen liegt darin, Krypto-Spezialdaten sauber zu prüfen und fehlende Quellen noch klarer von echten Signalen zu trennen.
+- Krypto-Spezialdaten zeigen jetzt Datenabdeckung, Score-Neutralität und klare Grenzen für fehlende externe Quellen.
+- Prognose-Tracking ist als PRIO-B-Modul bereits breit umgesetzt, aber die ältere Hauptliste enthält noch offene Formulierungen.
+- Der nächste größte Nutzen liegt darin, Prognose-Tracking-Status, Trefferquoten je Asset/Modul und verbleibende Lücken zu konsolidieren, damit die Roadmap nicht widersprüchlich priorisiert.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehendes Krypto-Zyklus-Modul prüfen.
-2. Fear & Greed, ETF-Flows, On-Chain-Daten und Marktstruktur als Datenfelder transparent ausweisen.
-3. Wenn keine belastbare Quelle verfügbar ist, `Daten nicht verfügbar` anzeigen und keine Werte schätzen.
+1. Bestehende Prognose-Tracking-Funktionen gegen ROADMAP-Anforderungen prüfen.
+2. Fehlende Modul-/Asset-Trefferquoten identifizieren.
+3. Umsetzung oder Roadmap-Konsolidierung dokumentieren, ohne historische Performance zu erfinden.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1075,6 +1075,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-31
 
+- Krypto-Spezialdaten transparenter gemacht: Krypto-Fundamentals, Krypto-Asset-Qualität und Krypto-Zyklus zeigen jetzt Datenabdeckung und Score-Neutralität für Fear & Greed, ETF-Flows, On-Chain, Orderbuch/Spread, Stablecoin-Liquidität und Volumenvergleich.
+- Krypto-Marktstruktur ergänzt: Das Krypto-Zyklusmodul bewertet verfügbare 50er/200er-Trendstruktur zusätzlich zu Halving-Zeitfenster, Volatilität und Volumenvergleich.
+- Keine Krypto-Daten erfunden: Fear & Greed, ETF-Flows, On-Chain-Daten, Orderbuch, Spread, Börsentiefe und Stablecoin-Liquidität bleiben ohne belastbare Quelle ausdrücklich `Daten nicht verfügbar`.
+- README aktualisiert: Krypto-Zyklus beschreibt jetzt Datenabdeckung, Marktstruktur und fehlende Spezialdatenquellen.
+- Tests dokumentiert: direkte Krypto-Mock-Tests erfolgreich; `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Krypto-Modul: externe Krypto-Spezialdaten und Marktstruktur transparenter prüfen` ist umgesetzt; neue Priorität ist `Prognose-Tracking-Hauptliste konsolidieren und Modul-Trefferquoten prüfen`, weil die PRIO-B-Umsetzung bereits weit fortgeschritten ist, aber die ältere Hauptliste noch offene Formulierungen enthält.
 - Risiko- und Liquiditätsmodule verfeinert: Risiko-Score zeigt jetzt Datenabdeckung, Score-Neutralität, Asset-Typ-Volatilität, Risiko bis Unterstützung, Potenzial bis Widerstand und CRV-Einordnung.
 - Liquiditäts-Score erweitert: relatives Volumen zum 20er-Schnitt, Yahoo-Durchschnittsvolumen, 10T-Durchschnittsvolumen und fehlende Spread-/Orderbuchdaten werden transparent ausgewiesen.
 - Keine Markttiefedaten erfunden: Bid-Ask-Spread, Orderbuchtiefe, Börsentiefe und Stablecoin-Liquidität bleiben `Daten nicht verfügbar`, wenn keine belastbare Quelle eingebunden ist.

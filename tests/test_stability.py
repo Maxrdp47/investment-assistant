@@ -451,3 +451,45 @@ def test_liquidity_score_discloses_volume_coverage_and_missing_market_depth() ->
     assert "Handel ist dünn" in details
     assert "10T-Durchschnittsvolumen Yahoo" in details
     assert "Bid-Ask-Spread und Orderbuchtiefe: Daten nicht verfügbar" in details
+
+
+def test_crypto_cycle_discloses_special_data_coverage_and_market_structure() -> None:
+    df = app.pd.DataFrame(
+        {
+            "Close": [120.0],
+            "SMA_50": [110.0],
+            "SMA_200": [90.0],
+            "Volatility": [0.62],
+            "Volume": [150_000],
+            "Volume_SMA_20": [100_000],
+        }
+    )
+    profile = app.AssetProfile("Krypto", "CRYPTOCURRENCY", "Krypto", {})
+
+    module = app.research_crypto_cycle("BTC-EUR", profile, df)
+    details = "\n".join(module.details)
+
+    assert module.score is not None
+    assert "Datenabdeckung Krypto-Zyklus" in details
+    assert "Score-Neutralität Krypto-Zyklus" in details
+    assert "Fear & Greed: Daten nicht verfügbar" in details
+    assert "ETF-Flows: Daten nicht verfügbar" in details
+    assert "On-Chain-Daten: Daten nicht verfügbar" in details
+    assert "Stablecoin-Liquiditätsdaten: Daten nicht verfügbar" in details
+    assert "Trendstruktur konstruktiv" in details
+
+
+def test_crypto_fundamentals_disclose_missing_special_sources() -> None:
+    df = app.pd.DataFrame({"Volatility": [0.80], "Volume": [50_000], "Volume_SMA_20": [100_000]})
+    technical = app.ModuleScore(6.0, "Technik", [])
+    macro = app.ModuleScore(5.0, "Makro", [])
+
+    module = app.score_crypto_fundamentals({}, technical, macro, df)
+    details = "\n".join(module.details)
+
+    assert "Datenabdeckung Krypto-Spezialdaten" in details
+    assert "Score-Neutralität Krypto-Spezialdaten" in details
+    assert "Fear & Greed: Daten nicht verfügbar" in details
+    assert "ETF-Flows: Daten nicht verfügbar" in details
+    assert "On-Chain-Daten: Daten nicht verfügbar" in details
+    assert "Stablecoin-Liquidität: Daten nicht verfügbar" in details

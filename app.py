@@ -2919,9 +2919,24 @@ def score_crypto_fundamentals(info: dict, technical: ModuleScore, macro: ModuleS
     volume_avg = value_or_none(latest.get("Volume_SMA_20"))
 
     details = [
-        "Bitcoin-Zyklus: Daten nicht verfügbar.",
+        data_coverage_detail(
+            "Krypto-Spezialdaten",
+            [
+                ("Fear & Greed", None),
+                ("ETF-Flows", None),
+                ("On-Chain-Daten", None),
+                ("Orderbuch-/Spread-Daten", None),
+                ("Stablecoin-Liquidität", None),
+                ("Volumenvergleich", volume if volume is not None and volume_avg is not None else None),
+            ],
+        ),
+        score_neutrality_detail("Krypto-Spezialdaten"),
+        "Bitcoin-Zyklus: wird im Research-Krypto-Zyklusmodul aus Halving-Zeitfenster und Marktdaten eingeordnet.",
+        "Fear & Greed: Daten nicht verfügbar.",
         "ETF-Flows: Daten nicht verfügbar.",
         "On-Chain-Daten: Daten nicht verfügbar.",
+        "Orderbuch-/Spread-Daten: Daten nicht verfügbar.",
+        "Stablecoin-Liquidität: Daten nicht verfügbar.",
     ]
     points = [technical.score, macro.score]
     details.append(f"Trend/Momentum aus Technik: {technical.score:.1f}/10.")
@@ -3023,13 +3038,28 @@ def score_asset_quality(symbol: str, profile: AssetProfile, df: pd.DataFrame) ->
         else:
             details.append(data_missing("Volatilität"))
 
+        details.insert(
+            0,
+            data_coverage_detail(
+                "Krypto-Asset-Qualität",
+                [
+                    ("Marktkapitalisierung", market_cap),
+                    ("Volumenvergleich", volume if volume is not None and volume_avg is not None else None),
+                    ("Volatilität", volatility),
+                    ("Institutionelle Akzeptanz", None),
+                    ("ETF-Flows", None),
+                    ("On-Chain-Daten", None),
+                ],
+            ),
+        )
+        details.insert(1, score_neutrality_detail("Krypto-Asset-Qualität"))
         details.extend(
             [
-                "Zyklusphase: Daten nicht verfügbar.",
                 "Makroabhängigkeit: wird im Kaufsignal/Makro-Kontext betrachtet, nicht als langfristige Qualität erfunden.",
                 "Institutionelle Akzeptanz: Daten nicht verfügbar.",
                 "ETF-Flows: Daten nicht verfügbar.",
                 "On-Chain-Daten: Daten nicht verfügbar.",
+                "Entwickleraktivität, aktive Adressen, Hashrate oder Total Value Locked: Daten nicht verfügbar.",
             ]
         )
         if not points:
@@ -3954,6 +3984,9 @@ def research_crypto_cycle(symbol: str, profile: AssetProfile, df: pd.DataFrame) 
     volatility = value_or_none(latest.get("Volatility"))
     volume = value_or_none(latest.get("Volume"))
     volume_avg = value_or_none(latest.get("Volume_SMA_20"))
+    close = value_or_none(latest.get("Close"))
+    sma_50 = value_or_none(latest.get("SMA_50"))
+    sma_200 = value_or_none(latest.get("SMA_200"))
     today = pd.Timestamp.today().normalize()
     last_halving = pd.Timestamp("2024-04-20")
     next_halving_estimate = pd.Timestamp("2028-04-20")
@@ -3974,6 +4007,21 @@ def research_crypto_cycle(symbol: str, profile: AssetProfile, df: pd.DataFrame) 
         cycle_score = 4.5
 
     details = [
+        data_coverage_detail(
+            "Krypto-Zyklus",
+            [
+                ("Halving-Zeitfenster", days_since_halving),
+                ("Volatilität", volatility),
+                ("Volumenvergleich", volume if volume is not None and volume_avg is not None else None),
+                ("Trendstruktur", close if close is not None and sma_50 is not None and sma_200 is not None else None),
+                ("Fear & Greed", None),
+                ("ETF-Flows", None),
+                ("On-Chain-Daten", None),
+                ("Orderbuch-/Spread-Daten", None),
+                ("Stablecoin-Liquidität", None),
+            ],
+        ),
+        score_neutrality_detail("Krypto-Zyklus"),
         f"Ticker: {symbol}.",
         f"Letztes Bitcoin-Halving: 20.04.2024; Tage seitdem: {days_since_halving}.",
         f"Nächstes Halving grob geschätzt um 2028; Tage bis zur Schätzung: {days_to_next_halving}.",
@@ -3981,6 +4029,7 @@ def research_crypto_cycle(symbol: str, profile: AssetProfile, df: pd.DataFrame) 
         "ETF-Flows: Daten nicht verfügbar.",
         "Fear & Greed: Daten nicht verfügbar.",
         "On-Chain-Daten: Daten nicht verfügbar.",
+        "Orderbuch-, Spread-, Börsentiefe- und Stablecoin-Liquiditätsdaten: Daten nicht verfügbar.",
     ]
     points = [cycle_score]
     if volatility is not None:
@@ -3997,9 +4046,24 @@ def research_crypto_cycle(symbol: str, profile: AssetProfile, df: pd.DataFrame) 
     else:
         details.append(data_missing("Krypto-Liquidität / Volumenvergleich"))
 
+    if close is not None and sma_50 is not None and sma_200 is not None:
+        if close > sma_50 > sma_200:
+            market_structure_score = 7.5
+            structure = "Trendstruktur konstruktiv: Kurs über 50er- und 200er-Durchschnitt."
+        elif close < sma_50 < sma_200:
+            market_structure_score = 3.5
+            structure = "Trendstruktur schwach: Kurs unter 50er- und 200er-Durchschnitt."
+        else:
+            market_structure_score = 5.5
+            structure = "Trendstruktur gemischt: Durchschnitte liefern kein klares Krypto-Struktursignal."
+        points.append(market_structure_score)
+        details.append(f"{structure} -> {market_structure_score:.1f}/10.")
+    else:
+        details.append(data_missing("Krypto-Marktstruktur / 50er- und 200er-Durchschnitt"))
+
     score = round(float(np.mean(points)), 1)
     summary = f"Krypto-Zyklus {score}/10. {phase}."
-    beginner = "Krypto-Zyklen können nach Bitcoin-Halvings Muster zeigen, sind aber keine Garantie. Fehlende ETF-Flow-, Fear-&-Greed- und On-Chain-Daten werden nicht geschätzt."
+    beginner = "Krypto-Zyklen können nach Bitcoin-Halvings Muster zeigen, sind aber keine Garantie. Dieses Modul trennt verfügbare Marktdaten von fehlenden Spezialdaten wie ETF-Flows, Fear & Greed, On-Chain, Orderbuch und Stablecoin-Liquidität."
     return ResearchModule("Krypto-Zyklus", score, summary, details, beginner)
 
 

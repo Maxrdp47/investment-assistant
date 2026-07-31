@@ -32,6 +32,25 @@ Schutz vor erfundenen Daten:
 - ETF-Flows niemals erfinden.
 - Makrodaten niemals erfinden.
 
+## PRIO 0 – Stabilisierung
+
+Neue ROADMAP-Funktionen bleiben pausiert, bis die bestehende Anwendung die Stabilitätskriterien erfüllt.
+
+- Anwendung startet fehlerfrei: am 2026-07-31 mit `compileall`, Pytest, Streamlit-AppTest und headless Streamlit-Start geprüft.
+- Bestehende Funktionen reparieren: History-Lader und Auswertungsdaten tolerieren fehlende, leere und ältere lokale Datenformate.
+- Signaturen und Datenmodelle vereinheitlichen: `evaluated_history_cases()` erhält Trade-History, Forward-Tests und Predictions konsistent als getrennte Eingaben; alle Kompatibilitätsaufrufe verwenden dieselbe Reihenfolge.
+- Smoke-Tests ergänzen: Startseite, Hauptbedienelemente, leere Histories und unvollständige ältere JSON-Daten werden automatisiert geprüft.
+- Logo entfernen: eigenes Browser-Tab-Symbol entfernt; im Repository bestehen keine weiteren Logo-Einbindungen.
+- Keine neuen Funktionen entwickeln, bis Start, Hauptanalyse, Portfolio, Trading/Scanner und lokale Historien bei den verfügbaren Tests stabil bleiben.
+
+Stabilitätskriterien:
+
+- Streamlit startet ohne Traceback und zeigt die Startseite.
+- Analyse wird erst nach bewusster Betätigung von `Analysieren` gestartet; externe Datenquellen blockieren nicht mehr den initialen Seitenaufbau.
+- Fehlende oder ungültige optionale History-Dateien führen zu leeren Ansichten statt zu einem App-Absturz.
+- Regressionstests für History-Signaturen und ältere `review_after`-Formate laufen erfolgreich.
+- Keine Portfolio-, Analyse-, Trade-History- oder Konfigurationsdaten werden für die Stabilisierung gelöscht.
+
 ## Aktueller Projektstand
 
 Analysierter Stand am 2026-06-14:
@@ -112,8 +131,8 @@ Die App ist funktional und startet lokal über Streamlit. Sie nutzt Yahoo Financ
 
 ### Priorität 3: Profi-Research
 
-- Fundamentaldaten für Aktien erweitern: Umsatzwachstum, Gewinnwachstum, Margen, Verschuldung, Free Cashflow, Cashbestand, Bewertung.
-- ETF-Daten erweitern: TER, Fondsvolumen, Region, Sektor, Diversifikation, langfristige Performance.
+- Fundamentaldaten für Aktien erweitern: Umsatzwachstum, Gewinnwachstum, Margen, Verschuldung, Free Cashflow, Cashbestand, Bewertung. Status: erweitert am 2026-07-01; zusätzliche strukturierte Kennzahlen und transparente Detailausgabe eingebaut.
+- ETF-Daten erweitern: TER, Fondsvolumen, Region, Sektor, Diversifikation, langfristige Performance. Status: erweitert am 2026-07-01; strukturierter ETF-Snapshot, YTD/1J/3J/5J, Beta und transparente Detailausgabe eingebaut.
 - Bewertungsmodelle ausbauen: historische Bewertung, relative Bewertung und Peer-Vergleich, falls Daten verfügbar sind.
 - Analysten-, Earnings-, Event- und institutionelle Module weiter validieren und auf zusätzliche Datenquellen erweitern.
 - News-Modul verbessern: Quelle, Datum, Relevanz, Sentiment-Qualität.
@@ -280,6 +299,7 @@ Transparenzregeln:
   - Status: Basis umgesetzt am 2026-06-15: lokaler Kalibrierungsstatus zählt Forward-Tests, Entscheidungen, Prognosen und ausgewertete Zeiträume.
   - Status: Signalbasierte Kalibrierung umgesetzt am 2026-07-19: ähnliche Setups werden nach RSI, MACD, Marktphase, Volatilität, News, Makro und CRV aufgeschlüsselt; Hinweise bleiben ab Mindestfallzahlen transparent und verändern keine Gewichtungen automatisch.
   - Status: Backtest-Historie integriert am 2026-07-20: gespeicherte Backtest-Gruppen werden als separater Lernkontext mit Fallzahl, Trefferquote, Rendite und Drawdown angezeigt.
+  - Status: Kalibrierungsvorschläge aus Fehlmustern umgesetzt am 2026-07-31: häufige Fehlmuster erzeugen manuelle Prüfhinweise mit Datenbasis, Fehlquote und Begründung; Gewichtungen werden nicht automatisch geändert.
 - Lernlogik transparent machen und keine Blackbox-Entscheidungen treffen.
 - Änderungen an Bewertungslogik erst nach Dokumentation und Tests übernehmen.
 
@@ -414,6 +434,8 @@ Berechnen:
 
 ### PRIO B: Confidence-System
 
+Status: ähnliche historische Setups und Trefferquoten aus `trade_history.json`, `forward_tests.json` und `prediction_history.json` umgesetzt am 2026-07-01. Unter 20 ähnlichen Fällen zeigt die App `Datenbasis zu klein`; Gewichtungen werden nicht automatisch geändert.
+
 Zusätzlich zur Chance immer einen Confidence Score anzeigen.
 
 Beispiel:
@@ -491,22 +513,21 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Lernmodul mit konkreten Kalibrierungsvorschlägen aus häufigen Fehlerursachen erweitern.
+1. Bewertungsmodelle ausbauen: historische Bewertung, relative Bewertung und Peer-Vergleich prüfen, falls Daten verfügbar sind.
 
 Warum diese Aufgabe zuerst:
 
-- Fehlfälle werden jetzt nach Asset-Typ, Marktphase und Signalgruppen sichtbar gemacht.
-- Die App zeigt damit, wo Fehler gehäuft auftreten, formuliert daraus aber noch keine konkreten, überprüfbaren Kalibrierungsvorschläge.
-- Der nächste Nutzen liegt darin, häufige Fehlerursachen in transparente Vorschläge zu übersetzen, ohne Gewichtungen automatisch zu ändern.
-- Diese Aufgabe bleibt PRIO B, weil sie Messung der Analysequalität und spätere Kalibrierung verbessert.
+- Die zentralen PRIO-A-Aufgaben aus Score-Qualität und Szenarien sind umgesetzt.
+- Signalanalyse, Opportunity Scanner und Trading-Modus sind als Basis umgesetzt.
+- Das Confidence-System zeigt jetzt ähnliche historische Setups und Trefferquoten aus lokaler Historie.
+- Aktien- und ETF-Fundamentaldaten wurden strukturiert erweitert; der nächste größte Nutzen liegt in transparenteren Bewertungsmodellen und relativen Bewertungsvergleichen, soweit echte Daten verfügbar sind.
 
 Nächste konkrete Umsetzung:
 
-1. Häufige Fehlerursachen aus der neuen Fehlfall-Tabelle erkennen.
-2. Vorschläge mit Datenbasis, Fallzahl, Treffer-/Fehlquote und Begründung erzeugen.
-3. Mindestdatenlogik beibehalten: unter 20 Fällen nur zählen, 20 bis 50 vorsichtig, über 50 Vorschläge erlaubt.
-4. Keine automatische Gewichtungsänderung einbauen.
-5. README, Tests und ROADMAP aktualisieren.
+1. Historische Bewertungsdaten prüfen, ohne fehlende Zeitreihen zu erfinden.
+2. Relative Bewertung und Peer-Vergleich nur einbauen, wenn belastbare Vergleichsdaten verfügbar sind.
+3. Bei fehlenden Peer- oder Historienwerten sichtbar `Daten nicht verfügbar` anzeigen.
+4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
 
@@ -988,6 +1009,11 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-20
 
+- Kalibrierungsvorschläge aus Fehlmustern umgesetzt: Die App erzeugt im Analyse-Detailbereich manuelle Prüfhinweise mit Datenbasis, Fehlquote, Begründung und Umsetzungsregel.
+- Mindestdatenlogik beibehalten: Unter 20 Fällen wird nur gezählt; 20 bis 50 Fälle liefern vorsichtige Hinweise; über 50 Fälle erlauben manuelle Kalibrierungsvorschläge.
+- README aktualisiert: Signalanalyse beschreibt nun auch konkrete Kalibrierungsvorschläge aus Fehlmustern.
+- Tests dokumentiert: `python -m py_compile app.py` erfolgreich; direkte Funktionschecks für leere Historie, keine Fehlmuster und große Fehlerbasis erfolgreich; `pytest` konnte nicht laufen, weil das Modul in der lokalen venv fehlt.
+- Nächste Priorität angepasst: Bewertungsmodelle ausbauen, historische Bewertung, relative Bewertung und Peer-Vergleich prüfen, falls Daten verfügbar sind.
 - Fehlfall-Ursachenanalyse umgesetzt: Verfehlte Historienfälle werden im Analyse-Detailbereich nach Asset-Typ, Marktphase, Kaufsignal, RSI, MACD, Volatilität, CRV, News und Makro gruppiert.
 - Mindestdatenlogik beibehalten: Unter 20 Fehlfällen wird nur gezählt; ab 20 Fällen gibt es vorsichtige Hinweise; Gewichtungen werden nie automatisch geändert.
 - README aktualisiert: Signalanalyse beschreibt nun auch die gruppierte Fehlfall-Ursachenanalyse.
@@ -1080,3 +1106,22 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Arbeitsmodus erweitert: Wenn kein Implementierungs-Prompt vorhanden ist, wird selbstständig geplant, umgesetzt, getestet und dokumentiert.
 - Autonome Architekturpflege ergänzt: ROADMAP-Reihenfolge darf angepasst werden, wenn eine frühere strukturelle Änderung spätere Aufgaben besser lösbar macht.
 - Projekt auf autonomen Langzeitbetrieb vorbereitet: GitHub-Synchronisation, Sicherheits-Commits, Rollback-Regeln, intelligente Priorisierung, Testmatrix und Schutz vor erfundenen Daten dokumentiert.
+
+## Umsetzungsnotiz 2026-07-01
+
+- Confidence-System erweitert: Die App sammelt ausgewertete lokale Fälle aus Trade Journal, Forward-Tests und Prognose-Tracking, gleicht sie nach Asset-Typ, Marktphase, Richtung und Kaufsignal-Bucket ab und zeigt Anzahl ähnlicher Setups sowie Trefferquote.
+- Bei weniger als 20 ähnlichen Fällen wird transparent `Datenbasis zu klein` angezeigt; zwischen 20 und 50 Fällen nur ein vorsichtiger Hinweis; über 50 Fällen nur ein Hinweis auf mögliche manuelle Kalibrierung.
+- Trading-Setups zeigen die Historien-Einordnung zusätzlich zur Chance und zum Confidence Score.
+- Die Research-Vertrauensanalyse enthält die Historien-Einordnung als Detail, verändert aber keine Gewichtungen automatisch.
+
+## Umsetzungsnotiz 2026-07-01 - Aktien-Fundamentaldaten
+
+- Aktien-Fundamentaldaten erweitert: strukturierter Snapshot für Wachstum, Margen, Renditen, Cash, Verschuldung, Free Cashflow, operativen Cashflow, KGV, Forward-KGV, Kurs-Umsatz-Verhältnis, Kurs-Buchwert-Verhältnis, EV/EBITDA und Marktkapitalisierung.
+- Asset-Qualität und Bewertungsscore nutzen die zusätzlichen Kennzahlen nur, wenn Yahoo Finance echte Werte liefert; fehlende Werte bleiben `Daten nicht verfügbar`.
+- Nächste höchste offene Priorität ist ETF-Datenqualität und ETF-Strukturtransparenz.
+
+## Umsetzungsnotiz 2026-07-01 - ETF-Daten
+
+- ETF-Daten erweitert: strukturierter Snapshot für Kategorie, Fondsgesellschaft, TER/Kostenquote, Fondsvolumen, Holdings, YTD-, 1J-, 3J- und 5J-Performance sowie 3-Jahres-Beta.
+- ETF-Qualität zeigt verfügbare Struktur- und Performance-Daten transparent; fehlende ETF-Spezialdaten bleiben `Daten nicht verfügbar`.
+- Nächste höchste offene Priorität sind Bewertungsmodelle, relative Bewertung und Peer-Vergleich ohne erfundene Vergleichsdaten.

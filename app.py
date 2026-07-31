@@ -4,7 +4,6 @@ import json
 import math
 import difflib
 import tempfile
-import base64
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
@@ -19,7 +18,6 @@ import yfinance as yf
 APP_TITLE = "Investment-Assistent"
 DISCLAIMER = "Dies ist keine Finanzberatung, sondern eine technische Analysehilfe."
 YFINANCE_CACHE_DIR = Path(__file__).resolve().parent / ".yfinance-cache"
-BONEZ_LOGO_PATH = Path(__file__).resolve().parent / "assets" / "bonez_mc_logo.svg"
 PORTFOLIO_PATH = Path(__file__).resolve().parent / "portfolio.json"
 SEARCH_HISTORY_PATH = Path(__file__).resolve().parent / "search_history.json"
 TRADE_HISTORY_PATH = Path(__file__).resolve().parent / "trade_history.json"
@@ -187,6 +185,43 @@ class ResearchPack:
     conclusion: dict[str, str | list[str]]
 
 
+@dataclass
+class StockFundamentalSnapshot:
+    revenue_growth: float | None
+    earnings_growth: float | None
+    profit_margin: float | None
+    operating_margin: float | None
+    gross_margin: float | None
+    return_on_equity: float | None
+    return_on_assets: float | None
+    total_cash: float | None
+    total_debt: float | None
+    free_cashflow: float | None
+    operating_cashflow: float | None
+    trailing_pe: float | None
+    forward_pe: float | None
+    price_to_sales: float | None
+    price_to_book: float | None
+    enterprise_to_ebitda: float | None
+    market_cap: float | None
+
+
+@dataclass
+class EtfFundamentalSnapshot:
+    category: str | None
+    fund_family: str | None
+    annual_report_expense_ratio: float | None
+    expense_ratio: float | None
+    total_assets: float | None
+    net_assets: float | None
+    holdings_count: float | None
+    fifty_two_week_change: float | None
+    three_year_return: float | None
+    five_year_return: float | None
+    beta_3y: float | None
+    ytd_return: float | None
+
+
 def normalize_query(query: str) -> str:
     return " ".join(query.lower().strip().split())
 
@@ -294,14 +329,24 @@ def similar_ticker_suggestions(query: str) -> list[dict]:
     return dedupe_candidates(candidates)[:5]
 
 
-def load_search_history() -> list[dict]:
-    if not SEARCH_HISTORY_PATH.exists():
+def load_json_dict_list(path: Path) -> list[dict]:
+    """Load a local JSON history without failing on missing or legacy content."""
+    if not path.exists():
         return []
     try:
-        data = json.loads(SEARCH_HISTORY_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        raw = path.read_text(encoding="utf-8").strip()
+        if not raw:
+            return []
+        data = json.loads(raw)
+    except (OSError, json.JSONDecodeError, UnicodeError):
         return []
-    return data if isinstance(data, list) else []
+    if not isinstance(data, list):
+        return []
+    return [item for item in data if isinstance(item, dict)]
+
+
+def load_search_history() -> list[dict]:
+    return load_json_dict_list(SEARCH_HISTORY_PATH)
 
 
 def save_successful_search(query: str, candidate: dict) -> None:
@@ -336,27 +381,11 @@ def append_trade_records(records: list[dict]) -> bool:
 
 
 def load_trade_history() -> list[dict]:
-    if not TRADE_HISTORY_PATH.exists():
-        return []
-    try:
-        data = json.loads(TRADE_HISTORY_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
+    return load_json_dict_list(TRADE_HISTORY_PATH)
 
 
 def load_forward_tests() -> list[dict]:
-    if not FORWARD_TEST_PATH.exists():
-        return []
-    try:
-        data = json.loads(FORWARD_TEST_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
+    return load_json_dict_list(FORWARD_TEST_PATH)
 
 
 def load_backtest_history() -> list[dict]:
@@ -488,15 +517,7 @@ def save_forward_test(record: dict) -> bool:
 
 
 def load_decision_history() -> list[dict]:
-    if not DECISION_HISTORY_PATH.exists():
-        return []
-    try:
-        data = json.loads(DECISION_HISTORY_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
+    return load_json_dict_list(DECISION_HISTORY_PATH)
 
 
 def save_decision_record(record: dict) -> bool:
@@ -603,15 +624,7 @@ def evaluate_due_decision_history() -> tuple[int, str]:
 
 
 def load_prediction_history() -> list[dict]:
-    if not PREDICTION_HISTORY_PATH.exists():
-        return []
-    try:
-        data = json.loads(PREDICTION_HISTORY_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
+    return load_json_dict_list(PREDICTION_HISTORY_PATH)
 
 
 def save_prediction_record(record: dict) -> bool:
@@ -778,6 +791,16 @@ def rsi_bucket(value: object) -> str:
         return "schwach"
     return "neutral"
 
+def signal_bucket(score: float | None) -> str:
+    value = value_or_none(score)
+    if value is None:
+        return "unbekannt"
+    if value >= 6.5:
+        return "stark"
+    if value <= 3.5:
+        return "schwach"
+    return "neutral"
+
 
 def macd_bucket(macd_value: object, signal_value: object) -> str:
     macd = value_or_none(macd_value)
@@ -921,10 +944,23 @@ def action_hit(action: str, return_pct: float) -> bool:
     return return_pct > 0
 
 
-def evaluated_history_cases(histories: list[list[dict]]) -> list[dict]:
+def evaluated_history_cases(
+    trade_history: list[dict] | None = None,
+    forward_tests: list[dict] | None = None,
+    predictions: list[dict] | None = None,
+    decisions: list[dict] | None = None,
+) -> list[dict]:
+    histories = [
+        ("Trade Journal", trade_history or []),
+        ("Forward-Test", forward_tests or []),
+        ("Prognose", predictions or []),
+        ("Entscheidung", decisions or []),
+    ]
     cases: list[dict] = []
-    for history in histories:
+    for source, history in histories:
         for record in history:
+            if not isinstance(record, dict):
+                continue
             review_after = record.get("review_after", {})
             if not isinstance(review_after, dict):
                 continue
@@ -932,11 +968,13 @@ def evaluated_history_cases(histories: list[list[dict]]) -> list[dict]:
                 if not isinstance(review, dict):
                     continue
                 return_pct = record_return_for_review(record, review)
-                if return_pct is None:
+                legacy_hit = setup_result_is_hit(review) if return_pct is None else None
+                if return_pct is None and legacy_hit is None:
                     continue
                 action = record_action(record)
                 cases.append(
                     {
+                        "source": source,
                         "period": period,
                         "record": record,
                         "action": action,
@@ -945,12 +983,97 @@ def evaluated_history_cases(histories: list[list[dict]]) -> list[dict]:
                         "market_phase": str(record.get("market_phase") or record.get("Marktphase") or "Unbekannt"),
                         "buy_signal_bucket": score_bucket(record.get("buy_signal") or record.get("Kaufsignal")),
                         "quality_bucket": score_bucket(record.get("asset_quality") or record.get("Asset-Qualität")),
-                        "return_pct": return_pct,
-                        "hit": action_hit(action, return_pct),
+                        "return_pct": return_pct if return_pct is not None else 0.0,
+                        "hit": action_hit(action, return_pct) if return_pct is not None else legacy_hit,
                         "signals": {
                             name: signal_bucket_from_record(record, name)
                             for name in ["RSI", "MACD", "Marktphase", "Volatilität", "News", "Makro", "CRV"]
                         },
+                    }
+                )
+    return cases
+
+
+def setup_result_is_hit(result: dict) -> bool | None:
+    if not isinstance(result, dict):
+        return None
+    result_label = str(result.get("result") or result.get("scenario_read") or "").lower()
+    if "treffer" in result_label or "positiv" in result_label or "bull" in result_label:
+        return True
+    if "fehlschlag" in result_label or "negativ" in result_label or "bear" in result_label:
+        return False
+    return_pct = value_or_none(result.get("return_pct"))
+    if return_pct is None:
+        return None
+    return float(return_pct) > 0
+
+
+def review_results(record: dict) -> list[tuple[str, dict]]:
+    review_after = record.get("review_after")
+    if not isinstance(review_after, dict):
+        return []
+    return [
+        (str(period), result)
+        for period, result in review_after.items()
+        if isinstance(result, dict)
+    ]
+
+
+def historical_review_cases() -> list[dict]:
+    cases: list[dict] = []
+    for record in load_trade_history():
+        asset_type = str(record.get("Asset-Typ") or record.get("asset_type") or "Unbekannt")
+        market_phase = str(record.get("Marktphase") or record.get("market_phase") or "Unbekannt")
+        direction = str(record.get("Richtung") or record.get("direction") or "Unbekannt")
+        score = value_or_none(record.get("Kaufsignal") or record.get("buy_signal"))
+        for period, result in review_results(record):
+            hit = setup_result_is_hit(result)
+            if hit is not None:
+                cases.append(
+                    {
+                        "source": "Trade Journal",
+                        "asset_type": asset_type,
+                        "market_phase": market_phase,
+                        "direction": direction,
+                        "signal_bucket": signal_bucket(score),
+                        "period": period,
+                        "hit": hit,
+                    }
+                )
+    for record in load_forward_tests():
+        asset_type = str(record.get("asset_type") or "Unbekannt")
+        market_phase = str(record.get("market_phase") or "Unbekannt")
+        score = value_or_none(record.get("buy_signal"))
+        direction = "Long" if score is not None and float(score) >= 5 else "Beobachten"
+        for period, result in review_results(record):
+            hit = setup_result_is_hit(result)
+            if hit is not None:
+                cases.append(
+                    {
+                        "source": "Forward-Test",
+                        "asset_type": asset_type,
+                        "market_phase": market_phase,
+                        "direction": direction,
+                        "signal_bucket": signal_bucket(score),
+                        "period": period,
+                        "hit": hit,
+                    }
+                )
+    for record in load_prediction_history():
+        asset_type = str(record.get("asset_type") or "Unbekannt")
+        market_phase = str(record.get("market_phase") or "Unbekannt")
+        for period, result in review_results(record):
+            hit = setup_result_is_hit(result)
+            if hit is not None:
+                cases.append(
+                    {
+                        "source": "Prognose",
+                        "asset_type": asset_type,
+                        "market_phase": market_phase,
+                        "direction": "Szenario",
+                        "signal_bucket": "unbekannt",
+                        "period": period,
+                        "hit": hit,
                     }
                 )
     return cases
@@ -1016,7 +1139,7 @@ def segmented_learning_rows(
     decisions: list[dict],
     predictions: list[dict],
 ) -> tuple[str, list[dict[str, str]]]:
-    cases = evaluated_history_cases([trade_history, forward_tests, decisions, predictions])
+    cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
     if not cases:
         return "Keine ausgewerteten Historienfälle vorhanden.", [
             {
@@ -1090,7 +1213,7 @@ def negative_case_cause_rows(
     decisions: list[dict],
     predictions: list[dict],
 ) -> tuple[str, list[dict[str, str]]]:
-    cases = evaluated_history_cases([trade_history, forward_tests, decisions, predictions])
+    cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
     misses = [case for case in cases if case.get("hit") is False]
 
     if not cases:
@@ -1192,6 +1315,115 @@ def negative_case_cause_rows(
                 "Bedeutung": "Die Fehlfälle enthalten noch keine verwertbaren Asset-, Marktphasen- oder Signalgruppen.",
             }
         )
+    return status, rows
+
+
+def calibration_suggestion_rows(
+    trade_history: list[dict],
+    forward_tests: list[dict],
+    decisions: list[dict],
+    predictions: list[dict],
+) -> tuple[str, list[dict[str, str]]]:
+    cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
+    if not cases:
+        return "Keine Kalibrierungsvorschläge möglich: keine ausgewerteten Historienfälle vorhanden.", [
+            {
+                "Bereich": "Gesamt",
+                "Muster": "Daten nicht verfügbar",
+                "Datenbasis": "0 Fälle",
+                "Fehlquote": "Datenbasis zu klein",
+                "Vorschlag": "Keine Änderung",
+                "Begründung": "Ohne ausgewertete Historie darf die App keine Kalibrierungsvorschläge ableiten.",
+                "Umsetzung": "Keine automatische Gewichtungsänderung.",
+            }
+        ]
+
+    dimensions: list[tuple[str, Callable[[dict], object], str]] = [
+        ("Asset-Typ", lambda case: case.get("asset_type") or "Unbekannt", "Prüfen, ob die Bewertungslogik für diesen Asset-Typ zu optimistisch oder zu vorsichtig ist."),
+        ("Marktphase", lambda case: case.get("market_phase") or "Unbekannt", "Prüfen, ob die Marktphasen-Erkennung oder ihre Gewichtung im Kaufsignal angepasst werden sollte."),
+        ("Kaufsignal", lambda case: case.get("buy_signal_bucket") or "Unbekannt", "Prüfen, ob die Kaufsignal-Schwellen zu aggressiv oder zu defensiv gesetzt sind."),
+        ("RSI", lambda case: case.get("signals", {}).get("RSI") or "Daten nicht verfügbar", "Prüfen, ob RSI-Signale je Asset-Typ anders interpretiert werden sollten."),
+        ("MACD", lambda case: case.get("signals", {}).get("MACD") or "Daten nicht verfügbar", "Prüfen, ob Momentum-Bestätigung stärker verlangt werden sollte."),
+        ("Volatilität", lambda case: case.get("signals", {}).get("Volatilität") or "Daten nicht verfügbar", "Prüfen, ob hohe Schwankung das Timing oder die Positionsgröße stärker begrenzen sollte."),
+        ("CRV", lambda case: case.get("signals", {}).get("CRV") or "Daten nicht verfügbar", "Prüfen, ob ein schwaches Chancen-Risiko-Verhältnis stärker gegen Einstiege sprechen sollte."),
+        ("News", lambda case: case.get("signals", {}).get("News") or "Daten nicht verfügbar", "Prüfen, ob News-Signale zuverlässiger gefiltert oder schwächer gewichtet werden sollten."),
+        ("Makro", lambda case: case.get("signals", {}).get("Makro") or "Daten nicht verfügbar", "Prüfen, ob Makro-Gegenwind stärker in Risiko und Timing einfließen sollte."),
+    ]
+
+    candidates: list[dict[str, object]] = []
+    for dimension, getter, suggestion in dimensions:
+        grouped: dict[str, list[dict]] = {}
+        for case in cases:
+            group = str(getter(case))
+            if not group or group.lower() in {"unbekannt", "none", "daten nicht verfügbar"}:
+                continue
+            grouped.setdefault(group, []).append(case)
+
+        for group, group_cases in grouped.items():
+            count = len(group_cases)
+            misses = [case for case in group_cases if case.get("hit") is False]
+            miss_count = len(misses)
+            if miss_count == 0:
+                continue
+            miss_rate = miss_count / count * 100
+            avg_return = float(np.mean([case["return_pct"] for case in group_cases]))
+            candidates.append(
+                {
+                    "dimension": dimension,
+                    "group": group,
+                    "count": count,
+                    "miss_count": miss_count,
+                    "miss_rate": miss_rate,
+                    "avg_return": avg_return,
+                    "suggestion": suggestion,
+                }
+            )
+
+    if not candidates:
+        return "Keine auffälligen Fehlmuster erkannt.", [
+            {
+                "Bereich": "Gesamt",
+                "Muster": "Keine Fehlmuster",
+                "Datenbasis": f"{len(cases)} Fälle",
+                "Fehlquote": "0.0%",
+                "Vorschlag": "Keine Änderung",
+                "Begründung": "Die lokale Historie enthält aktuell keine gruppierbaren Fehlmuster.",
+                "Umsetzung": "Keine automatische Gewichtungsänderung.",
+            }
+        ]
+
+    candidates.sort(key=lambda item: (int(item["miss_count"]), float(item["miss_rate"]), -float(item["avg_return"])), reverse=True)
+    rows: list[dict[str, str]] = []
+    for candidate in candidates[:10]:
+        count = int(candidate["count"])
+        miss_count = int(candidate["miss_count"])
+        miss_rate = float(candidate["miss_rate"])
+        permission, meaning = calibration_permission(count)
+        if count < 20:
+            proposal = "Nur zählen"
+        elif count <= 50:
+            proposal = "Vorsichtig prüfen"
+        else:
+            proposal = "Manueller Kalibrierungsvorschlag erlaubt"
+        rows.append(
+            {
+                "Bereich": str(candidate["dimension"]),
+                "Muster": str(candidate["group"]),
+                "Datenbasis": f"{count} Fälle, davon {miss_count} Fehlfälle",
+                "Fehlquote": "Datenbasis zu klein" if count < 20 else f"{miss_rate:.1f}%",
+                "Vorschlag": proposal,
+                "Begründung": f"{meaning} {candidate['suggestion']}",
+                "Umsetzung": "Nicht automatisch ändern; erst dokumentieren, testen und Roadmap begründen.",
+            }
+        )
+
+    largest_basis = max(int(candidate["count"]) for candidate in candidates)
+    if largest_basis < 20:
+        status = "Datenbasis zu klein. Vorschläge werden nur als Zählhinweis angezeigt."
+    elif largest_basis <= 50:
+        status = "Vorsichtige Kalibrierungshinweise möglich. Gewichtungen bleiben unverändert."
+    else:
+        status = "Kalibrierungsvorschläge erlaubt. Jede Änderung bleibt manuell, dokumentiert und testpflichtig."
     return status, rows
 
 
@@ -1591,7 +1823,7 @@ def similar_setup_rows(
     decisions: list[dict],
     predictions: list[dict],
 ) -> tuple[str, list[dict[str, str]]]:
-    cases = evaluated_history_cases([trade_history, forward_tests, decisions, predictions])
+    cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
     target_family = action_family(action)
     target_buy_bucket = score_bucket(buy_signal.score)
     target_quality_bucket = score_bucket(asset_quality.score)
@@ -1635,6 +1867,33 @@ def similar_setup_rows(
     rows.extend(signal_calibration_rows(similar))
     return status, rows
 
+def similar_setup_statistics(
+    asset_type: str,
+    market_phase: str,
+    direction: str,
+    buy_signal_score: float | None,
+) -> dict[str, str | int | float | None]:
+    bucket = signal_bucket(buy_signal_score)
+    evaluated = historical_review_cases()
+    similar = [
+        case
+        for case in evaluated
+        if case["asset_type"] == asset_type
+        and (case["market_phase"] == market_phase or case["signal_bucket"] == bucket or case["direction"] == direction)
+    ]
+    count = len(similar)
+    hits = sum(1 for case in similar if case["hit"])
+    hit_rate = round(hits / count * 100, 1) if count else None
+    if count < 20:
+        status = "Datenbasis zu klein"
+        summary = f"Ähnliche historische Setups: {count}. Datenbasis zu klein; Trefferquote wird nicht als belastbar gewertet."
+    elif count <= 50:
+        status = "vorsichtiger Hinweis"
+        summary = f"Ähnliche historische Setups: {count}, Trefferquote {hit_rate:.1f} %. Nur vorsichtig interpretieren; Gewichtungen bleiben unverändert."
+    else:
+        status = "belastbarer Hinweis"
+        summary = f"Ähnliche historische Setups: {count}, Trefferquote {hit_rate:.1f} %. Kalibrierungsvorschläge wären erlaubt, aber keine automatische Anpassung."
+    return {"count": count, "hits": hits, "hit_rate": hit_rate, "status": status, "summary": summary}
 
 def calibration_status_rows(
     trade_history: list[dict],
@@ -1896,6 +2155,18 @@ def percent_text(value: float | None) -> str:
     if value is None:
         return "n/a"
     return f"{value * 100:+.1f}%"
+
+
+def format_percent_or_missing(value: float | None) -> str:
+    if value is None:
+        return "Daten nicht verfügbar"
+    return f"{value * 100:.1f}%"
+
+
+def format_money_or_missing(value: float | None) -> str:
+    if value is None:
+        return "Daten nicht verfügbar"
+    return format_currency(value)
 
 
 def normalize_symbol(symbol: str) -> str:
@@ -2342,12 +2613,108 @@ def score_profitability_metric(value: float) -> float:
     return 2.5
 
 
+def stock_fundamental_snapshot(info: dict) -> StockFundamentalSnapshot:
+    return StockFundamentalSnapshot(
+        revenue_growth=value_or_none(info.get("revenueGrowth")),
+        earnings_growth=value_or_none(info.get("earningsGrowth")),
+        profit_margin=value_or_none(info.get("profitMargins")),
+        operating_margin=value_or_none(info.get("operatingMargins")),
+        gross_margin=value_or_none(info.get("grossMargins")),
+        return_on_equity=value_or_none(info.get("returnOnEquity")),
+        return_on_assets=value_or_none(info.get("returnOnAssets")),
+        total_cash=value_or_none(info.get("totalCash")),
+        total_debt=value_or_none(info.get("totalDebt")),
+        free_cashflow=value_or_none(info.get("freeCashflow")),
+        operating_cashflow=value_or_none(info.get("operatingCashflow")),
+        trailing_pe=value_or_none(info.get("trailingPE")),
+        forward_pe=value_or_none(info.get("forwardPE")),
+        price_to_sales=value_or_none(info.get("priceToSalesTrailing12Months")),
+        price_to_book=value_or_none(info.get("priceToBook")),
+        enterprise_to_ebitda=value_or_none(info.get("enterpriseToEbitda")),
+        market_cap=value_or_none(info.get("marketCap")),
+    )
+
+
+def score_valuation_multiple(value: float | None, thresholds: tuple[float, float, float]) -> tuple[float | None, str]:
+    if value is None or value <= 0:
+        return None, "Daten nicht verfügbar"
+    cheap, fair, expensive = thresholds
+    if value <= cheap:
+        return 8.0, "günstig"
+    if value <= fair:
+        return 6.5, "fair"
+    if value <= expensive:
+        return 4.5, "teuer"
+    return 3.0, "sehr teuer"
+
+
+def stock_fundamental_overview(snapshot: StockFundamentalSnapshot) -> list[str]:
+    net_cash_text = "Daten nicht verfügbar"
+    if snapshot.total_cash is not None and snapshot.total_debt is not None:
+        net_cash_text = format_currency(snapshot.total_cash - snapshot.total_debt)
+    return [
+        f"Umsatzwachstum: {format_percent_or_missing(snapshot.revenue_growth)}.",
+        f"Gewinnwachstum: {format_percent_or_missing(snapshot.earnings_growth)}.",
+        f"Nettomarge: {format_percent_or_missing(snapshot.profit_margin)}.",
+        f"Operative Marge: {format_percent_or_missing(snapshot.operating_margin)}.",
+        f"Bruttomarge: {format_percent_or_missing(snapshot.gross_margin)}.",
+        f"Free Cashflow: {format_money_or_missing(snapshot.free_cashflow)}.",
+        f"Operativer Cashflow: {format_money_or_missing(snapshot.operating_cashflow)}.",
+        f"Cashbestand: {format_money_or_missing(snapshot.total_cash)}.",
+        f"Verschuldung: {format_money_or_missing(snapshot.total_debt)}.",
+        f"Netto-Cash / Netto-Schulden: {net_cash_text}.",
+        f"KGV: {'Daten nicht verfügbar' if snapshot.trailing_pe is None else f'{snapshot.trailing_pe:.1f}'}",
+        f"Forward-KGV: {'Daten nicht verfügbar' if snapshot.forward_pe is None else f'{snapshot.forward_pe:.1f}'}",
+        f"Kurs-Umsatz-Verhältnis: {'Daten nicht verfügbar' if snapshot.price_to_sales is None else f'{snapshot.price_to_sales:.1f}'}",
+        f"Kurs-Buchwert-Verhältnis: {'Daten nicht verfügbar' if snapshot.price_to_book is None else f'{snapshot.price_to_book:.1f}'}",
+        f"EV/EBITDA: {'Daten nicht verfügbar' if snapshot.enterprise_to_ebitda is None else f'{snapshot.enterprise_to_ebitda:.1f}'}",
+    ]
+
+
+def etf_fundamental_snapshot(info: dict) -> EtfFundamentalSnapshot:
+    return EtfFundamentalSnapshot(
+        category=info.get("category") or None,
+        fund_family=info.get("fundFamily") or None,
+        annual_report_expense_ratio=value_or_none(info.get("annualReportExpenseRatio")),
+        expense_ratio=value_or_none(info.get("expenseRatio")),
+        total_assets=value_or_none(info.get("totalAssets")),
+        net_assets=value_or_none(info.get("netAssets")),
+        holdings_count=value_or_none(info.get("holdingsCount") or info.get("numberOfHoldings")),
+        fifty_two_week_change=value_or_none(info.get("52WeekChange")),
+        three_year_return=value_or_none(info.get("threeYearAverageReturn")),
+        five_year_return=value_or_none(info.get("fiveYearAverageReturn")),
+        beta_3y=value_or_none(info.get("beta3Year")),
+        ytd_return=value_or_none(info.get("ytdReturn")),
+    )
+
+
+def etf_fundamental_overview(snapshot: EtfFundamentalSnapshot) -> list[str]:
+    ter = snapshot.annual_report_expense_ratio or snapshot.expense_ratio
+    assets = snapshot.total_assets or snapshot.net_assets
+    return [
+        f"ETF-Kategorie / Region / Sektor: {snapshot.category or 'Daten nicht verfügbar'}.",
+        f"Fondsgesellschaft: {snapshot.fund_family or 'Daten nicht verfügbar'}.",
+        f"TER/Kostenquote: {format_percent_or_missing(ter)}.",
+        f"Fondsvolumen: {format_money_or_missing(assets)}.",
+        (
+            "Diversifikation / Anzahl Positionen: Daten nicht verfügbar."
+            if snapshot.holdings_count is None
+            else f"Diversifikation / Anzahl Positionen: {snapshot.holdings_count:.0f}."
+        ),
+        f"1J-Performance: {format_percent_or_missing(snapshot.fifty_two_week_change)}.",
+        f"YTD-Performance: {format_percent_or_missing(snapshot.ytd_return)}.",
+        f"3J-Durchschnittsrendite: {format_percent_or_missing(snapshot.three_year_return)}.",
+        f"5J-Durchschnittsrendite: {format_percent_or_missing(snapshot.five_year_return)}.",
+        "Beta 3 Jahre: Daten nicht verfügbar." if snapshot.beta_3y is None else f"Beta 3 Jahre: {snapshot.beta_3y:.2f}.",
+    ]
+
+
 def score_stock_fundamentals(info: dict) -> ModuleScore:
-    quote_type = str(info.get("quoteType", "")).upper()
+    snapshot = stock_fundamental_snapshot(info)
     details: list[str] = []
     points: list[float] = []
 
-    revenue_growth = value_or_none(info.get("revenueGrowth"))
+    revenue_growth = snapshot.revenue_growth
     if revenue_growth is not None:
         score = clamp(5 + revenue_growth * 20)
         points.append(score)
@@ -2355,7 +2722,7 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     else:
         details.append(data_missing("Umsatzwachstum"))
 
-    earnings_growth = value_or_none(info.get("earningsGrowth"))
+    earnings_growth = snapshot.earnings_growth
     if earnings_growth is not None:
         score = clamp(5 + earnings_growth * 18)
         points.append(score)
@@ -2363,8 +2730,8 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     else:
         details.append(data_missing("Gewinnwachstum"))
 
-    cash = value_or_none(info.get("totalCash"))
-    debt = value_or_none(info.get("totalDebt"))
+    cash = snapshot.total_cash
+    debt = snapshot.total_debt
     if cash is not None and debt is not None:
         cash_debt = cash / debt if debt > 0 else 3.0
         score = clamp(3 + cash_debt * 3)
@@ -2373,7 +2740,7 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     else:
         details.append(data_missing("Cashbestand oder Verschuldung"))
 
-    free_cashflow = value_or_none(info.get("freeCashflow"))
+    free_cashflow = snapshot.free_cashflow
     if free_cashflow is not None:
         score = 8.0 if free_cashflow > 0 else 3.0
         points.append(score)
@@ -2382,9 +2749,9 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
         details.append(data_missing("Free Cashflow"))
 
     margin_candidates = [
-        ("Nettomarge", info.get("profitMargins")),
-        ("Operative Marge", info.get("operatingMargins")),
-        ("Bruttomarge", info.get("grossMargins")),
+        ("Nettomarge", snapshot.profit_margin),
+        ("Operative Marge", snapshot.operating_margin),
+        ("Bruttomarge", snapshot.gross_margin),
     ]
     margin_label = None
     margin_value = None
@@ -2401,8 +2768,8 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     else:
         details.append(data_missing("Marge"))
 
-    roe = value_or_none(info.get("returnOnEquity"))
-    roa = value_or_none(info.get("returnOnAssets"))
+    roe = snapshot.return_on_equity
+    roa = snapshot.return_on_assets
     if roe is not None:
         score = score_profitability_metric(roe)
         points.append(score)
@@ -2414,7 +2781,7 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     else:
         details.append(data_missing("Eigenkapitalrendite / Kapitalrendite"))
 
-    pe = value_or_none(info.get("trailingPE") or info.get("forwardPE"))
+    pe = snapshot.trailing_pe or snapshot.forward_pe
     if pe is not None and pe > 0:
         if pe <= 15:
             score = 8.0
@@ -2429,7 +2796,7 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     else:
         details.append(data_missing("KGV"))
 
-    price_to_sales = value_or_none(info.get("priceToSalesTrailing12Months"))
+    price_to_sales = snapshot.price_to_sales
     if price_to_sales is not None and price_to_sales > 0:
         score = 8.0 if price_to_sales <= 3 else 6.5 if price_to_sales <= 8 else 4.5 if price_to_sales <= 15 else 3.0
         points.append(score)
@@ -2437,7 +2804,27 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     else:
         details.append(data_missing("Kurs-Umsatz-Verhältnis"))
 
-    market_cap = value_or_none(info.get("marketCap"))
+    price_to_book_score, price_to_book_label = score_valuation_multiple(snapshot.price_to_book, (2.5, 5.0, 10.0))
+    if price_to_book_score is not None:
+        points.append(price_to_book_score)
+        details.append(
+            f"Kurs-Buchwert-Verhältnis: {snapshot.price_to_book:.1f} ({price_to_book_label}) -> "
+            f"{price_to_book_score:.1f}/10."
+        )
+    else:
+        details.append(data_missing("Kurs-Buchwert-Verhältnis"))
+
+    ev_ebitda_score, ev_ebitda_label = score_valuation_multiple(snapshot.enterprise_to_ebitda, (10.0, 18.0, 30.0))
+    if ev_ebitda_score is not None:
+        points.append(ev_ebitda_score)
+        details.append(
+            f"EV/EBITDA: {snapshot.enterprise_to_ebitda:.1f} ({ev_ebitda_label}) -> "
+            f"{ev_ebitda_score:.1f}/10."
+        )
+    else:
+        details.append(data_missing("EV/EBITDA"))
+
+    market_cap = snapshot.market_cap
     if market_cap is not None:
         score = 7.5 if market_cap >= 10_000_000_000 else 6.0 if market_cap >= 1_000_000_000 else 4.5
         points.append(score)
@@ -2448,18 +2835,20 @@ def score_stock_fundamentals(info: dict) -> ModuleScore:
     if not points:
         return ModuleScore(5.0, "Aktien-Fundamentaldaten nicht ausreichend verfügbar. Der Score wird neutral gewertet.", details)
 
+    details.extend(stock_fundamental_overview(snapshot))
     final_score = round(float(np.mean(points)), 1)
     return ModuleScore(final_score, f"Aktien-Fundamentalscore {final_score}/10 aus {len(points)} verfügbaren Kennzahlen.", details)
 
 
 def score_etf_fundamentals(info: dict, df: pd.DataFrame | None = None) -> ModuleScore:
+    snapshot = etf_fundamental_snapshot(info)
     details: list[str] = []
     points: list[float] = []
 
-    category = info.get("category") or info.get("fundFamily") or info.get("longBusinessSummary")
+    category = snapshot.category or snapshot.fund_family
     details.append(f"Index/Region/Sektor: {category}" if category else data_missing("Index/Region/Sektor"))
 
-    ter = value_or_none(info.get("annualReportExpenseRatio") or info.get("expenseRatio"))
+    ter = snapshot.annual_report_expense_ratio or snapshot.expense_ratio
     if ter is not None:
         score = 8.5 if ter <= 0.0025 else 7.0 if ter <= 0.006 else 5.0 if ter <= 0.012 else 3.5
         points.append(score)
@@ -2467,7 +2856,7 @@ def score_etf_fundamentals(info: dict, df: pd.DataFrame | None = None) -> Module
     else:
         details.append(data_missing("TER/Kostenquote"))
 
-    total_assets = value_or_none(info.get("totalAssets") or info.get("netAssets"))
+    total_assets = snapshot.total_assets or snapshot.net_assets
     if total_assets is not None:
         score = 8.0 if total_assets >= 5_000_000_000 else 6.5 if total_assets >= 500_000_000 else 4.5
         points.append(score)
@@ -2475,7 +2864,7 @@ def score_etf_fundamentals(info: dict, df: pd.DataFrame | None = None) -> Module
     else:
         details.append(data_missing("Fondsvolumen"))
 
-    holdings = value_or_none(info.get("holdingsCount") or info.get("numberOfHoldings"))
+    holdings = snapshot.holdings_count
     if holdings is not None:
         score = 8.0 if holdings >= 500 else 6.5 if holdings >= 100 else 4.5
         points.append(score)
@@ -2483,14 +2872,26 @@ def score_etf_fundamentals(info: dict, df: pd.DataFrame | None = None) -> Module
     else:
         details.append(data_missing("Diversifikation / Anzahl Positionen"))
 
-    for label, key in [("1J-Performance", "52WeekChange"), ("3J-Performance", "threeYearAverageReturn"), ("5J-Performance", "fiveYearAverageReturn")]:
-        perf = value_or_none(info.get(key))
+    performance_metrics = [
+        ("1J-Performance", snapshot.fifty_two_week_change),
+        ("YTD-Performance", snapshot.ytd_return),
+        ("3J-Performance", snapshot.three_year_return),
+        ("5J-Performance", snapshot.five_year_return),
+    ]
+    for label, perf in performance_metrics:
         if perf is not None:
             score = clamp(5 + perf * 20)
             points.append(score)
             details.append(f"{label}: {perf * 100:.1f}% -> {score:.1f}/10.")
         else:
             details.append(data_missing(label))
+
+    if snapshot.beta_3y is not None:
+        beta_score = 8.0 if snapshot.beta_3y <= 1.0 else 6.5 if snapshot.beta_3y <= 1.2 else 5.0
+        points.append(beta_score)
+        details.append(f"Beta 3 Jahre: {snapshot.beta_3y:.2f} -> {beta_score:.1f}/10.")
+    else:
+        details.append(data_missing("Beta 3 Jahre"))
 
     if df is not None and not df.empty and "Volatility" in df.columns:
         volatility = value_or_none(df.iloc[-1].get("Volatility"))
@@ -2506,6 +2907,7 @@ def score_etf_fundamentals(info: dict, df: pd.DataFrame | None = None) -> Module
     if not points:
         return ModuleScore(5.0, "ETF-Daten nicht ausreichend verfügbar. Der Score wird neutral gewertet.", details)
 
+    details.extend(etf_fundamental_overview(snapshot))
     final_score = round(float(np.mean(points)), 1)
     return ModuleScore(final_score, f"ETF-Score {final_score}/10 aus verfügbaren Struktur- und Performance-Daten.", details)
 
@@ -2855,6 +3257,7 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
 
         crv = reward_pct / risk_pct if reward_pct is not None and risk_pct is not None and risk_pct > 0 else None
         chance = setup_probability(direction, buy_signal, confidence, crv)
+        historical_stats = similar_setup_statistics(profile.asset_type, market_phase.phase, direction, buy_signal.score)
         risks = [
             "Setup verliert Aussagekraft, wenn die Stop-Zone klar gebrochen wird.",
             "Hohe Volatilität kann Ziel und Stop schnell anlaufen.",
@@ -2879,6 +3282,9 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
             "Stop-Zone": stop,
             "Chance": chance,
             "Confidence": confidence,
+            "Ähnliche Setups": historical_stats["count"],
+            "Trefferquote ähnliche Setups": historical_stats["hit_rate"],
+            "Historienhinweis": historical_stats["summary"],
             "CRV": None if crv is None else round(crv, 2),
             "Zeithorizont": "2-8 Wochen",
             "Marktphase": market_phase.phase,
@@ -2905,6 +3311,8 @@ def setup_display_rows(setups: list[dict]) -> list[dict]:
                 "Richtung": setup["Richtung"],
                 "Chance": f"{setup['Chance']}%",
                 "Confidence": f"{setup['Confidence']:.1f}/10",
+                "Ähnliche Setups": setup.get("Ähnliche Setups", 0),
+                "Trefferquote ähnliche Setups": "Datenbasis zu klein" if setup.get("Trefferquote ähnliche Setups") is None else f"{setup['Trefferquote ähnliche Setups']:.1f}%",
                 "Einstieg": format_currency(float(setup["Einstieg"])),
                 "Zielzone": format_currency(float(setup["Zielzone"])) if setup.get("Zielzone") is not None else "Daten nicht verfügbar",
                 "Stop-Zone": format_currency(float(setup["Stop-Zone"])) if setup.get("Stop-Zone") is not None else "Daten nicht verfügbar",
@@ -3827,6 +4235,10 @@ def research_valuation_score(info: dict, profile: AssetProfile, df: pd.DataFrame
     operating_margin = value_or_none(info.get("operatingMargins"))
     profit_margin = value_or_none(info.get("profitMargins"))
     debt_to_equity = value_or_none(info.get("debtToEquity"))
+    snapshot = stock_fundamental_snapshot(info) if profile.asset_type == "Aktie" else None
+    trailing_pe = snapshot.trailing_pe if snapshot else value_or_none(info.get("trailingPE"))
+    forward_pe = snapshot.forward_pe if snapshot else value_or_none(info.get("forwardPE"))
+    price_to_sales = snapshot.price_to_sales if snapshot else value_or_none(info.get("priceToSalesTrailing12Months"))
     if trailing_pe is not None:
         score = 8.0 if trailing_pe <= 18 else 6.0 if trailing_pe <= 30 else 4.0 if trailing_pe <= 50 else 2.5
         points.append(score)
@@ -3900,6 +4312,23 @@ def research_valuation_score(info: dict, profile: AssetProfile, df: pd.DataFrame
         details.append(data_missing("Verschuldung / Debt-to-Equity"))
     details.append("Historische Bewertung: Daten nicht verfügbar.")
     details.append("Branchenvergleich: Daten nicht verfügbar.")
+    if snapshot:
+        price_to_book_score, price_to_book_label = score_valuation_multiple(snapshot.price_to_book, (2.5, 5.0, 10.0))
+        if price_to_book_score is not None:
+            points.append(price_to_book_score)
+            details.append(
+                f"Kurs-Buchwert-Verhältnis: {snapshot.price_to_book:.1f} ({price_to_book_label}) -> "
+                f"{price_to_book_score:.1f}/10."
+            )
+        else:
+            details.append(data_missing("Kurs-Buchwert-Verhältnis"))
+
+        ev_ebitda_score, ev_ebitda_label = score_valuation_multiple(snapshot.enterprise_to_ebitda, (10.0, 18.0, 30.0))
+        if ev_ebitda_score is not None:
+            points.append(ev_ebitda_score)
+            details.append(f"EV/EBITDA: {snapshot.enterprise_to_ebitda:.1f} ({ev_ebitda_label}) -> {ev_ebitda_score:.1f}/10.")
+        else:
+            details.append(data_missing("EV/EBITDA"))
     if profile.asset_type == "ETF":
         details.append("ETF-Bewertung über Index-KGV/Region: Daten nicht verfügbar.")
     score = score_from_optional(points)
@@ -4337,6 +4766,8 @@ def research_confidence_score(
     df: pd.DataFrame,
     modules: list[ResearchModule],
     institutional_modules: list[ResearchModule],
+    asset_type: str,
+    buy_signal_score: float,
 ) -> ResearchModule:
     data_sources = available_data_source_count(modules, institutional_modules)
     source_score = 8.0 if data_sources >= 8 else 6.5 if data_sources >= 5 else 4.5 if data_sources >= 3 else 3.0
@@ -4345,12 +4776,14 @@ def research_confidence_score(
     liquidity_score = liquidity.score if liquidity.score is not None else 4.0
     data_quality_score = data_quality.score if data_quality.score is not None else 4.0
     final_score = score_from_optional([data_quality_score, liquidity_score, source_score, phase_score, stability_score])
+    historical_stats = similar_setup_statistics(asset_type, market_phase.phase, "Long" if buy_signal_score >= 5 else "Beobachten", buy_signal_score)
     details = [
         f"Datenqualität: {data_quality_score:.1f}/10.",
         f"Liquidität: {liquidity_score:.1f}/10.",
         f"Verfügbare Datenquellen: {data_sources} -> {source_score:.1f}/10.",
         f"Klarheit der Marktphase: {phase_score:.1f}/10.",
         f"Stabilität der Signale: {stability_score:.1f}/10.",
+        str(historical_stats["summary"]),
     ]
     if final_score >= 7:
         summary = f"Vertrauen in Analyse: {final_score}/10. Die Analyse ist aktuell relativ belastbar, weil Datenqualität, Liquidität oder Signalstabilität ausreichend sind."
@@ -4779,7 +5212,7 @@ def build_research_pack(
     if asset_profile.asset_type == "Krypto":
         modules.insert(5, crypto_cycle)
     institutional_modules = [analyst, earnings, event_risk, institutional]
-    confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules)
+    confidence = research_confidence_score(data_quality, liquidity, market_phase, df, modules, institutional_modules, asset_profile.asset_type, buy_signal.score)
     uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, news, macro, latest, market_phase, supports)
     scenarios = build_scenarios(close, supports, resistances, buy_signal, asset_quality, risk_reward, market_phase, latest, original_currency, fx_rate, currency_mode)
     buy_zones = build_buy_zones(close, supports, resistances, latest, original_currency, fx_rate, currency_mode)
@@ -5846,14 +6279,8 @@ def render_analysis_card(title: str, status: str, explanation: str) -> None:
     )
 
 
-@st.cache_data
-def load_logo_data_uri(path: str) -> str:
-    encoded_logo = base64.b64encode(Path(path).read_bytes()).decode("ascii")
-    return f"data:image/svg+xml;base64,{encoded_logo}"
-
-
 def main() -> None:
-    st.set_page_config(page_title=APP_TITLE, page_icon="📈", layout="wide")
+    st.set_page_config(page_title=APP_TITLE, layout="wide")
 
     st.markdown(
         """
@@ -5919,48 +6346,19 @@ def main() -> None:
             margin-top: 10px;
             color: #e5e7eb;
         }
-        .app-header {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            margin: 0.1rem 0 1.2rem;
-            text-align: center;
-        }
-        .app-header-title {
-            margin: 0.25rem 0 0;
-            font-size: clamp(2.2rem, 5vw, 3.6rem);
-            font-weight: 700;
-            line-height: 1.1;
-        }
-        .hero-logo-svg {
-            width: min(86vw, 520px);
-            height: auto;
-            display: block;
-            filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.45));
-        }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    bonez_logo_data_uri = load_logo_data_uri(str(BONEZ_LOGO_PATH))
-    st.markdown(
-        f"""
-        <div class="app-header">
-            <img class="hero-logo-svg" src="{bonez_logo_data_uri}" alt="Bonez MC Logo" />
-            <h1 class="app-header-title">{APP_TITLE}</h1>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.title(APP_TITLE)
 
     st.warning(DISCLAIMER)
     st.caption("Keine Broker-Anbindung. Keine Kauf- oder Verkaufsautomatisierung. Die letzte Entscheidung trifft immer der Nutzer.")
 
     with st.sidebar:
         st.header("Analyse")
-        query = st.text_input("Asset-Name oder Ticker", value="Nvidia", placeholder="z. B. Xiaomi, PLTR, Bitcoin")
+        query = st.text_input("Asset-Name oder Ticker", value="", placeholder="z. B. Xiaomi, PLTR, Bitcoin")
         period_label = st.selectbox("Zeitraum", list(PERIOD_OPTIONS), index=2)
         interval = st.selectbox("Intervall", INTERVAL_OPTIONS, index=4)
         refresh_label = st.selectbox("Auto-Refresh", list(REFRESH_OPTIONS), index=0)
@@ -6102,7 +6500,11 @@ def main() -> None:
         st.info("Kein Ticker gefunden. Bitte gib einen Yahoo-Finance-Ticker manuell ein.")
         return
 
-    if analyze or symbol:
+    if not analyze:
+        st.info("Ticker ausgewählt. Starte die Analyse mit dem Button „Analysieren“.")
+        return
+
+    if analyze:
         selected_period = PERIOD_OPTIONS[period_label]
         if interval in {"1m", "5m", "15m"} and selected_period not in {"1d", "5d", "1mo"}:
             selected_period = "5d"
@@ -6203,6 +6605,12 @@ def main() -> None:
             prediction_history,
         )
         negative_cause_status, negative_cause_table = negative_case_cause_rows(
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
+        )
+        calibration_suggestion_status, calibration_suggestion_table = calibration_suggestion_rows(
             trade_history,
             forward_history,
             decision_history,
@@ -6582,6 +6990,13 @@ def main() -> None:
             st.write(negative_cause_status)
             st.dataframe(
                 pd.DataFrame(negative_cause_table),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Kalibrierungsvorschläge aus Fehlmustern**")
+            st.write(calibration_suggestion_status)
+            st.dataframe(
+                pd.DataFrame(calibration_suggestion_table),
                 use_container_width=True,
                 hide_index=True,
             )

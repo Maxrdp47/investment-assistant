@@ -3342,6 +3342,56 @@ def scanner_confidence(df: pd.DataFrame, market_phase: MarketPhase, latest: pd.S
     return round(score_from_optional(points), 1)
 
 
+def scanner_factor_snapshot(
+    info: dict,
+    profile: AssetProfile,
+    latest: pd.Series,
+    asset_quality: ModuleScore,
+    macro: ModuleScore,
+    news: ModuleScore,
+) -> dict[str, str]:
+    volume = value_or_none(latest.get("Volume"))
+    volume_avg = value_or_none(latest.get("Volume_SMA_20"))
+    if volume is not None and volume_avg is not None and volume_avg > 0:
+        liquidity_ratio = volume / volume_avg
+        liquidity_text = f"{liquidity_ratio:.2f}x 20T-Volumen"
+    else:
+        liquidity_text = "Daten nicht verfügbar"
+
+    valuation_fields = [
+        info.get("trailingPE"),
+        info.get("forwardPE"),
+        info.get("priceToSalesTrailing12Months"),
+        info.get("priceToBook"),
+        info.get("enterpriseToRevenue"),
+    ]
+    has_valuation = any(value_or_none(value) is not None for value in valuation_fields)
+    if profile.asset_type == "Krypto":
+        valuation_text = "Zyklus/On-Chain: Daten nicht verfügbar"
+    elif has_valuation:
+        valuation_text = f"Proxy über Asset-Qualität {asset_quality.score:.1f}/10"
+    else:
+        valuation_text = "Daten nicht verfügbar"
+
+    institutional_fields = [
+        info.get("heldPercentInstitutions"),
+        info.get("heldPercentInsiders"),
+        info.get("shortPercentOfFloat"),
+    ]
+    if any(value_or_none(value) is not None for value in institutional_fields):
+        institutional_text = "Yahoo-Daten teilweise verfügbar"
+    else:
+        institutional_text = "Daten nicht verfügbar"
+
+    return {
+        "News": f"{news.score:.1f}/10",
+        "Makro": f"{macro.score:.1f}/10",
+        "Liquidität": liquidity_text,
+        "Bewertung": valuation_text,
+        "Institutionelle Faktoren": institutional_text,
+    }
+
+
 def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
     results: list[dict] = []
     errors: list[str] = []
@@ -3372,6 +3422,8 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
             asset_quality = score_asset_quality(symbol, profile, df)
             buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
             confidence = scanner_confidence(df, market_phase, latest)
+            news = score_news(symbol)
+            factor_snapshot = scanner_factor_snapshot(info, profile, latest, asset_quality, macro, news)
 
             opportunity_score = round(clamp(buy_signal.score * 0.55 + asset_quality.score * 0.20 + risk_reward.score * 0.15 + confidence * 0.10), 1)
             direction = scanner_direction(buy_signal, market_phase)
@@ -3383,6 +3435,7 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
             ]
             if macro.summary:
                 reasons.append(f"Makro: {macro.summary}")
+            reasons.append(f"News: {news.summary}")
 
             results.append(
                 {
@@ -3395,6 +3448,11 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
                     "Zeithorizont": "2-8 Wochen",
                     "Kaufsignal": buy_signal.score,
                     "Asset-Qualität": asset_quality.score,
+                    "News": factor_snapshot["News"],
+                    "Makro": factor_snapshot["Makro"],
+                    "Liquidität": factor_snapshot["Liquidität"],
+                    "Bewertung": factor_snapshot["Bewertung"],
+                    "Institutionelle Faktoren": factor_snapshot["Institutionelle Faktoren"],
                     "CRV": "Daten nicht verfügbar" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}",
                     "Wichtigste Begründungen": " | ".join(reasons[:5]),
                 }

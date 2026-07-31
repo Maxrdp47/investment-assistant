@@ -341,6 +341,7 @@ Regeln:
 - Keine Broker-Anbindung.
 - Fehlende Daten werden als `Daten nicht verfügbar` gekennzeichnet.
 - Status: Basis umgesetzt am 2026-06-15. Eine Sidebar-Watchlist scannt bis zu 20 Yahoo-Finance-Ticker mit vorhandener Analyse-, Kaufsignal-, Asset-Qualitäts-, CRV- und Vertrauenslogik und zeigt Long-, Short-/Absicherungs- sowie Beobachtungskandidaten tabellarisch.
+- Status: Faktorabdeckung erweitert am 2026-07-31. Scanner-Ausgabe zeigt News, Makro, Liquidität, Bewertung und institutionelle Faktoren als verfügbare Scores/Proxies oder klar `Daten nicht verfügbar`.
 
 ### PRIO B: Trading-Modus
 
@@ -514,19 +515,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Opportunity-Scanner-Modulabdeckung transparenter machen.
+1. Scanner-Performance und Testbarkeit nach Faktorabdeckung prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Trade-Journal-Automatik ist umgesetzt: vorgeschlagene Trading-Setups werden lokal dokumentiert, dedupliziert und niemals ausgeführt.
-- Der Opportunity Scanner nutzt bereits Kernsignale, aber die Roadmap fordert sichtbare Bewertung von News, Makro, Liquidität, Bewertung und institutionellen Faktoren.
-- Der nächste größte Nutzen liegt darin, Scanner-Faktoren und fehlende Daten transparenter auszuweisen, ohne langsame oder erfundene Spezialdaten zu erzwingen.
+- Opportunity-Scanner-Faktoren sind jetzt sichtbar: News, Makro, Liquidität, Bewertung und institutionelle Faktoren werden als Score/Proxy oder `Daten nicht verfügbar` ausgewiesen.
+- Durch zusätzliche Faktorabfragen kann der Scanner bei großen Watchlists langsamer werden, insbesondere durch News- und Yahoo-Info-Aufrufe.
+- Der nächste größte Nutzen liegt darin, Scanner-Performance und Testbarkeit zu prüfen, ohne Analysequalität oder Transparenz zurückzunehmen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Scanner-Faktoren gegen Roadmap-Anforderungen prüfen.
-2. Fehlende oder nur indirekt genutzte Faktoren sichtbar als `Daten nicht verfügbar` oder begrenzte Proxy-Werte ausweisen.
-3. Scanner-Ausgabe erweitern, ohne automatische Käufe/Verkäufe oder Broker-Anbindung.
+1. Scanner-Durchlauf und relevante Helper mit Mocks prüfen.
+2. Performance-Risiken aus zusätzlichen Faktorabfragen dokumentieren oder begrenzen.
+3. Falls nötig, kleine Optimierung ohne Funktionsabbau umsetzen.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1076,6 +1077,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-31
 
+- Opportunity-Scanner-Faktorabdeckung erweitert: Scanner-Ergebnisse zeigen jetzt News, Makro, Liquidität, Bewertung und institutionelle Faktoren separat.
+- Fehlende Scanner-Daten bleiben transparent: Institutionelle Faktoren, Bewertung oder Liquidität werden als `Daten nicht verfügbar` angezeigt, wenn Yahoo/Marktdaten keine belastbare Quelle liefern.
+- Keine Handelsfunktion ergänzt: Scanner bleibt Vorschlags- und Vergleichswerkzeug; keine Käufe, Verkäufe oder Broker-Anbindung.
+- README aktualisiert: Opportunity Scanner beschreibt jetzt zusätzliche Faktorgruppen und fehlende Datenquellen.
+- Tests dokumentiert: direkte Scanner-Faktor-Mock-Tests erfolgreich; `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Opportunity-Scanner-Modulabdeckung transparenter machen` ist umgesetzt; neue Priorität ist `Scanner-Performance und Testbarkeit nach Faktorabdeckung prüfen`, weil zusätzliche News-/Yahoo-Faktorabfragen bei großen Watchlists Laufzeit erzeugen können.
 - Trade-Journal-Automatik umgesetzt: Trading-Setups aus Scanner-Kandidaten werden beim Scannerlauf automatisch lokal in `trade_history.json` dokumentiert.
 - Deduplizierung ergänzt: Setups werden nach Ticker, Richtung und Tag dedupliziert, damit Streamlit-Reruns nicht mehrere gleiche Journal-Einträge erzeugen.
 - Sicherheitsgrenzen beibehalten: Trade-Journal speichert nur lokale Analyse-/Trackingdaten; keine Order, keine Broker-Anbindung, keine Kauf-/Verkaufsautomatisierung.

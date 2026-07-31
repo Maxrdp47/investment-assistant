@@ -126,6 +126,44 @@ def test_trade_journal_allows_new_direction_or_day(tmp_path: Path, monkeypatch) 
     assert len(app.load_trade_history()) == 3
 
 
+def test_scanner_factor_snapshot_discloses_missing_and_available_sources() -> None:
+    latest = app.pd.Series({"Volume": 200_000, "Volume_SMA_20": 100_000})
+    info = {
+        "trailingPE": 24.0,
+        "heldPercentInstitutions": 0.52,
+    }
+    profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
+    asset_quality = app.ModuleScore(7.2, "Qualität", [])
+    macro = app.ModuleScore(6.0, "Makro", [])
+    news = app.ModuleScore(5.5, "News", [])
+
+    snapshot = app.scanner_factor_snapshot(info, profile, latest, asset_quality, macro, news)
+
+    assert snapshot["News"] == "5.5/10"
+    assert snapshot["Makro"] == "6.0/10"
+    assert snapshot["Liquidität"] == "2.00x 20T-Volumen"
+    assert snapshot["Bewertung"] == "Proxy über Asset-Qualität 7.2/10"
+    assert snapshot["Institutionelle Faktoren"] == "Yahoo-Daten teilweise verfügbar"
+
+
+def test_scanner_factor_snapshot_keeps_missing_data_explicit() -> None:
+    latest = app.pd.Series({"Volume": None, "Volume_SMA_20": None})
+    profile = app.AssetProfile("Krypto", "CRYPTOCURRENCY", "Krypto", {})
+
+    snapshot = app.scanner_factor_snapshot(
+        {},
+        profile,
+        latest,
+        app.ModuleScore(5.0, "Qualität", []),
+        app.ModuleScore(5.0, "Makro", []),
+        app.ModuleScore(5.0, "News", []),
+    )
+
+    assert snapshot["Liquidität"] == "Daten nicht verfügbar"
+    assert snapshot["Bewertung"] == "Zyklus/On-Chain: Daten nicht verfügbar"
+    assert snapshot["Institutionelle Faktoren"] == "Daten nicht verfügbar"
+
+
 def test_portfolio_loader_reports_empty_or_invalid_optional_file(tmp_path: Path, monkeypatch) -> None:
     portfolio_path = tmp_path / "portfolio.json"
     monkeypatch.setattr(app, "PORTFOLIO_PATH", portfolio_path)

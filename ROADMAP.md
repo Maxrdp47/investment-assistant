@@ -371,6 +371,7 @@ Beispielausgabe:
 ### PRIO B: Trade Journal
 
 Jeder vorgeschlagene Trade wird automatisch dokumentiert, aber niemals automatisch ausgeführt.
+Status: umgesetzt am 2026-07-31. Trading-Setups aus dem Scanner werden automatisch lokal in `trade_history.json` dokumentiert und nach Ticker, Richtung und Tag dedupliziert. Es gibt keine Orderfunktion und keine Broker-Anbindung.
 
 Datei:
 
@@ -513,19 +514,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Trade-Journal-Automatik gegen Roadmap-Anforderung prüfen.
+1. Opportunity-Scanner-Modulabdeckung transparenter machen.
 
 Warum diese Aufgabe zuerst:
 
-- Lernlogik-Guardrails machen jetzt dokumentierte Fälle, ausgewertete Fälle, Mindestdatenlogik und manuelle Kalibrierungsregeln zentral sichtbar.
-- In der Trade-Journal-Roadmap steht, dass jeder vorgeschlagene Trade automatisch dokumentiert werden soll; die App nutzt aktuell teilweise optionale Speicherung.
-- Der nächste größte Nutzen liegt darin, diese Anforderung zu prüfen und sicher umzusetzen, ohne Orderfunktion oder Broker-Anbindung einzubauen.
+- Trade-Journal-Automatik ist umgesetzt: vorgeschlagene Trading-Setups werden lokal dokumentiert, dedupliziert und niemals ausgeführt.
+- Der Opportunity Scanner nutzt bereits Kernsignale, aber die Roadmap fordert sichtbare Bewertung von News, Makro, Liquidität, Bewertung und institutionellen Faktoren.
+- Der nächste größte Nutzen liegt darin, Scanner-Faktoren und fehlende Daten transparenter auszuweisen, ohne langsame oder erfundene Spezialdaten zu erzwingen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehendes Trade-Journal-Verhalten prüfen.
-2. Klären, ob vorgeschlagene Trading-Setups automatisch lokal dokumentiert werden oder bewusst optional bleiben müssen.
-3. Roadmap-konforme Lösung umsetzen: lokale Dokumentation ja, automatische Ausführung nein.
+1. Bestehende Scanner-Faktoren gegen Roadmap-Anforderungen prüfen.
+2. Fehlende oder nur indirekt genutzte Faktoren sichtbar als `Daten nicht verfügbar` oder begrenzte Proxy-Werte ausweisen.
+3. Scanner-Ausgabe erweitern, ohne automatische Käufe/Verkäufe oder Broker-Anbindung.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1075,6 +1076,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-31
 
+- Trade-Journal-Automatik umgesetzt: Trading-Setups aus Scanner-Kandidaten werden beim Scannerlauf automatisch lokal in `trade_history.json` dokumentiert.
+- Deduplizierung ergänzt: Setups werden nach Ticker, Richtung und Tag dedupliziert, damit Streamlit-Reruns nicht mehrere gleiche Journal-Einträge erzeugen.
+- Sicherheitsgrenzen beibehalten: Trade-Journal speichert nur lokale Analyse-/Trackingdaten; keine Order, keine Broker-Anbindung, keine Kauf-/Verkaufsautomatisierung.
+- README aktualisiert: Trade Journal beschreibt jetzt automatische lokale Dokumentation mit Deduplizierung.
+- Tests dokumentiert: direkte Trade-Journal-Mock-Tests erfolgreich; `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Trade-Journal-Automatik gegen Roadmap-Anforderung prüfen` ist umgesetzt; neue Priorität ist `Opportunity-Scanner-Modulabdeckung transparenter machen`, weil die Roadmap zusätzliche Scanner-Faktoren wie News, Makro, Liquidität, Bewertung und institutionelle Faktoren fordert.
 - Lernlogik-Guardrails ergänzt: Die Analyse-Details zeigen jetzt dokumentierte Fälle, ausgewertete Fälle, Mindestdatenregeln und die aktuelle Freigabe für Lern-/Kalibrierungshinweise.
 - Testbarkeit verbessert: `learning_guardrail_rows()` kapselt die Mindestdatenlogik und macht prüfbar, dass unter 20 Fällen keine Kalibrierung erfolgt und über 50 Fällen nur manuelle Vorschläge erlaubt sind.
 - Keine Blackbox-Änderungen: Der Guardrail-Block zeigt explizit, dass Score-Gewichtungen, Kaufsignal-Schwellen und Portfolio-Logik niemals automatisch durch das Lernsystem geändert werden.

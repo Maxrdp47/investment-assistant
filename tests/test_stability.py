@@ -89,6 +89,43 @@ def test_review_schedule_repairs_invalid_legacy_shape_without_losing_record() ->
     assert review_after == {label: None for label in app.TRACKING_PERIODS}
 
 
+def test_trade_journal_auto_documentation_deduplicates_same_day(tmp_path: Path, monkeypatch) -> None:
+    trade_path = tmp_path / "trade_history.json"
+    monkeypatch.setattr(app, "TRADE_HISTORY_PATH", trade_path)
+    setup = {
+        "Datum": "2026-07-31T10:00:00",
+        "Ticker": "BTC-EUR",
+        "Richtung": "Long",
+        "Einstieg": 100.0,
+        "review_after": app.empty_review_schedule(),
+    }
+
+    added, message = app.auto_document_trade_setups([setup])
+    added_again, second_message = app.auto_document_trade_setups([{**setup, "Datum": "2026-07-31T12:00:00"}])
+
+    history = app.load_trade_history()
+    assert added == 1
+    assert "Keine Order" in message
+    assert added_again == 0
+    assert "bereits" in second_message
+    assert len(history) == 1
+
+
+def test_trade_journal_allows_new_direction_or_day(tmp_path: Path, monkeypatch) -> None:
+    trade_path = tmp_path / "trade_history.json"
+    monkeypatch.setattr(app, "TRADE_HISTORY_PATH", trade_path)
+    setups = [
+        {"Datum": "2026-07-31T10:00:00", "Ticker": "NVDA", "Richtung": "Long"},
+        {"Datum": "2026-07-31T10:00:00", "Ticker": "NVDA", "Richtung": "Short / Absicherung"},
+        {"Datum": "2026-08-01T10:00:00", "Ticker": "NVDA", "Richtung": "Long"},
+    ]
+
+    added, _ = app.auto_document_trade_setups(setups)
+
+    assert added == 3
+    assert len(app.load_trade_history()) == 3
+
+
 def test_portfolio_loader_reports_empty_or_invalid_optional_file(tmp_path: Path, monkeypatch) -> None:
     portfolio_path = tmp_path / "portfolio.json"
     monkeypatch.setattr(app, "PORTFOLIO_PATH", portfolio_path)

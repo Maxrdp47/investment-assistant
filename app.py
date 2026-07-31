@@ -368,16 +368,52 @@ def save_successful_search(query: str, candidate: dict) -> None:
         pass
 
 
+def trade_record_key(record: dict) -> tuple[str, str, str]:
+    raw_date = record.get("Datum") or record.get("created_at") or ""
+    try:
+        day = pd.Timestamp(raw_date).strftime("%Y-%m-%d")
+    except Exception:
+        day = str(raw_date)[:10]
+    return (
+        str(record.get("Ticker") or record.get("symbol") or "").upper(),
+        str(record.get("Richtung") or record.get("direction") or ""),
+        day,
+    )
+
+
 def append_trade_records(records: list[dict]) -> bool:
     if not records:
         return False
     history = load_trade_history()
-    history = records + history
+    existing_keys = {trade_record_key(record) for record in history}
+    new_records = []
+    for record in records:
+        key = trade_record_key(record)
+        if not key[0] or key in existing_keys:
+            continue
+        new_records.append(record)
+        existing_keys.add(key)
+    if not new_records:
+        return True
+    history = new_records + history
     try:
         TRADE_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
     except OSError:
         return False
     return True
+
+
+def auto_document_trade_setups(setups: list[dict]) -> tuple[int, str]:
+    if not setups:
+        return 0, "Keine Trading-Setups zur Dokumentation vorhanden."
+    before = len(load_trade_history())
+    if not append_trade_records(setups):
+        return 0, "Trading-Setups konnten nicht lokal dokumentiert werden."
+    after = len(load_trade_history())
+    added = max(after - before, 0)
+    if added == 0:
+        return 0, "Trading-Setups waren bereits im heutigen Trade Journal dokumentiert."
+    return added, f"{added} Trading-Setups automatisch lokal dokumentiert. Keine Order, keine Broker-Anbindung."
 
 
 def load_trade_history() -> list[dict]:
@@ -7080,6 +7116,11 @@ def main() -> None:
                         trading_setups.append(setup)
                     if setup_error:
                         trading_errors.append(setup_error)
+            documented_count, documented_message = auto_document_trade_setups(trading_setups)
+            if documented_count > 0:
+                st.success(documented_message)
+            elif trading_setups:
+                st.caption(documented_message)
             render_trading_mode(trading_setups, trading_errors)
             st.divider()
 

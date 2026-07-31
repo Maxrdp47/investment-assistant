@@ -104,23 +104,31 @@ def test_portfolio_loader_reports_empty_or_invalid_optional_file(tmp_path: Path,
     assert "kein gültiges JSON" in message
 
 
-def test_streamlit_start_page_and_primary_controls_render_without_exception() -> None:
+def test_streamlit_main_menu_and_primary_views_render_without_exception() -> None:
     app_test = AppTest.from_file("app.py", default_timeout=30).run()
 
     assert list(app_test.exception) == []
     assert [title.value for title in app_test.title] == ["Investment-Assistent"]
-    assert [header.value for header in app_test.sidebar.header] == ["Analyse"]
+    assert {button.label for button in app_test.button} == {"Analyse öffnen", "Scanner öffnen"}
+
+    next(button for button in app_test.button if button.label == "Analyse öffnen").click().run()
+    assert list(app_test.exception) == []
+    assert [header.value for header in app_test.sidebar.header] == ["Analyse Tool"]
     expander_labels = {expander.label for expander in app_test.expander}
-    assert {"Forward-Testing", "Opportunity Scanner"} <= expander_labels
+    assert "Forward-Testing" in expander_labels
     button_labels = {button.label for button in app_test.button}
     assert {
         "Analysieren",
-        "Watchlist scannen",
+        "← Zurück zum Hauptmenü",
         "Fällige Trading-Setups auswerten",
         "Fällige Entscheidungen auswerten",
         "Fällige Forward-Tests auswerten",
         "Fällige Prognosen auswerten",
     } <= button_labels
+
+    next(button for button in app_test.button if button.label == "← Zurück zum Hauptmenü").click().run()
+    assert list(app_test.exception) == []
+    assert {button.label for button in app_test.button} == {"Analyse öffnen", "Scanner öffnen"}
 
     history_buttons = [
         "Fällige Trading-Setups auswerten",
@@ -130,12 +138,23 @@ def test_streamlit_start_page_and_primary_controls_render_without_exception() ->
     ]
     for label in history_buttons:
         rerun = AppTest.from_file("app.py", default_timeout=30).run()
+        next(button for button in rerun.button if button.label == "Analyse öffnen").click().run()
         next(button for button in rerun.button if button.label == label).click().run()
         assert list(rerun.exception) == []
 
     empty_analysis = AppTest.from_file("app.py", default_timeout=30).run()
+    next(button for button in empty_analysis.button if button.label == "Analyse öffnen").click().run()
     next(button for button in empty_analysis.button if button.label == "Analysieren").click().run()
     assert list(empty_analysis.exception) == []
+
+    scanner = AppTest.from_file("app.py", default_timeout=30).run()
+    next(button for button in scanner.button if button.label == "Scanner öffnen").click().run()
+    assert list(scanner.exception) == []
+    assert "Opportunity Scanner" in [header.value for header in scanner.header]
+    assert "Chancen jetzt scannen" in {button.label for button in scanner.button}
+    next(button for button in scanner.button if button.label == "← Zurück zum Hauptmenü").click().run()
+    assert list(scanner.exception) == []
+    assert {button.label for button in scanner.button} == {"Analyse öffnen", "Scanner öffnen"}
 
 
 def test_calibration_suggestions_handle_empty_history() -> None:

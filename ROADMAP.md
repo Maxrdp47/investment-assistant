@@ -300,7 +300,7 @@ Transparenzregeln:
   - Status: Signalbasierte Kalibrierung umgesetzt am 2026-07-19: ähnliche Setups werden nach RSI, MACD, Marktphase, Volatilität, News, Makro und CRV aufgeschlüsselt; Hinweise bleiben ab Mindestfallzahlen transparent und verändern keine Gewichtungen automatisch.
   - Status: Backtest-Historie integriert am 2026-07-20: gespeicherte Backtest-Gruppen werden als separater Lernkontext mit Fallzahl, Trefferquote, Rendite und Drawdown angezeigt.
   - Status: Kalibrierungsvorschläge aus Fehlmustern umgesetzt am 2026-07-31: häufige Fehlmuster erzeugen manuelle Prüfhinweise mit Datenbasis, Fehlquote und Begründung; Gewichtungen werden nicht automatisch geändert.
-- Lernlogik transparent machen und keine Blackbox-Entscheidungen treffen.
+- Lernlogik transparent machen und keine Blackbox-Entscheidungen treffen. Status: konsolidiert am 2026-07-31; `Lernlogik-Guardrails` zeigen dokumentierte Fälle, ausgewertete Fälle, Mindestdatenlogik und das Verbot automatischer Gewichtungsänderungen.
 - Änderungen an Bewertungslogik erst nach Dokumentation und Tests übernehmen.
 
 ### PRIO B: Opportunity Scanner
@@ -513,19 +513,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Lernlogik-Dokumentation und Testbarkeit konsolidieren.
+1. Trade-Journal-Automatik gegen Roadmap-Anforderung prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Prognose-Tracking ist jetzt in Hauptliste und PRIO-B-Abschnitt konsistent: Speicherung, Auswertung, Asset-/Modultrefferquoten und Lernsystem-Anbindung sind dokumentiert.
-- Die Lernlogik ist über mehrere Tabellen verteilt und braucht eine konsolidierte Test-/Dokumentationssicht, damit spätere Kalibrierungsänderungen nachvollziehbar bleiben.
-- Der nächste größte Nutzen liegt darin, Lernstatus, Mindestdatenlogik und manuelle Kalibrierungsregeln noch klarer zu prüfen und zu dokumentieren.
+- Lernlogik-Guardrails machen jetzt dokumentierte Fälle, ausgewertete Fälle, Mindestdatenlogik und manuelle Kalibrierungsregeln zentral sichtbar.
+- In der Trade-Journal-Roadmap steht, dass jeder vorgeschlagene Trade automatisch dokumentiert werden soll; die App nutzt aktuell teilweise optionale Speicherung.
+- Der nächste größte Nutzen liegt darin, diese Anforderung zu prüfen und sicher umzusetzen, ohne Orderfunktion oder Broker-Anbindung einzubauen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Lern- und Kalibrierungstabellen gegen ROADMAP-Anforderungen prüfen.
-2. Fehlende Tests oder widersprüchliche Dokumentation identifizieren.
-3. Lernlogik transparent halten: keine automatische Gewichtungsänderung, keine Blackbox.
+1. Bestehendes Trade-Journal-Verhalten prüfen.
+2. Klären, ob vorgeschlagene Trading-Setups automatisch lokal dokumentiert werden oder bewusst optional bleiben müssen.
+3. Roadmap-konforme Lösung umsetzen: lokale Dokumentation ja, automatische Ausführung nein.
 4. Tests ausführen und ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1075,6 +1075,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ### 2026-07-31
 
+- Lernlogik-Guardrails ergänzt: Die Analyse-Details zeigen jetzt dokumentierte Fälle, ausgewertete Fälle, Mindestdatenregeln und die aktuelle Freigabe für Lern-/Kalibrierungshinweise.
+- Testbarkeit verbessert: `learning_guardrail_rows()` kapselt die Mindestdatenlogik und macht prüfbar, dass unter 20 Fällen keine Kalibrierung erfolgt und über 50 Fällen nur manuelle Vorschläge erlaubt sind.
+- Keine Blackbox-Änderungen: Der Guardrail-Block zeigt explizit, dass Score-Gewichtungen, Kaufsignal-Schwellen und Portfolio-Logik niemals automatisch durch das Lernsystem geändert werden.
+- README aktualisiert: Kalibrierungsbereich beschreibt jetzt Lernlogik-Guardrails, ausgewertete Fälle und Datenbasisgrenzen.
+- Tests dokumentiert: direkte Lernlogik-Mock-Tests erfolgreich; `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Lernlogik-Dokumentation und Testbarkeit konsolidieren` ist umgesetzt; neue Priorität ist `Trade-Journal-Automatik gegen Roadmap-Anforderung prüfen`, weil die Roadmap automatische lokale Dokumentation vorgeschlagener Trades fordert, aber keine automatische Orderfunktion erlaubt.
 - Prognose-Tracking konsolidiert: Neue Prognosen speichern jetzt Research-Modul-Scores zusätzlich zu Szenarien, Kurszielen, Wahrscheinlichkeiten, entscheidender Marke und Signal-Snapshot.
 - Trefferquoten je Asset und Modul ergänzt: Die Analyse-Details zeigen ausgewertete Prognosen nach Asset-Typ sowie Modul-/Signalgruppen; alte Prognosen ohne Modul-Scores bleiben über `signal_snapshot` kompatibel.
 - Mindestdatenlogik beibehalten: Unter 20 Fällen werden Prognosegruppen nur gezählt; ab 20 Fällen sind vorsichtige Hinweise möglich; Gewichtungen werden nie automatisch geändert.

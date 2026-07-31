@@ -262,13 +262,13 @@ Die Research-Tabellen übersetzen jeden Score zusätzlich in einfache Bänder:
 
 ### Kalibrierung
 
-Die App zeigt im Bereich **Analyse-Details anzeigen** einen Kalibrierungsstatus. In Version 1 werden Gewichtungen nicht automatisch geändert.
+Die App zeigt im Bereich **Analyse-Details anzeigen** zusätzlich **Lernlogik-Guardrails**. Dieser Block trennt dokumentierte Fälle von tatsächlich ausgewerteten Fällen und zeigt klar, ab wann nur gezählt, vorsichtig hingewiesen oder manuell kalibriert werden darf. In Version 1 werden Gewichtungen nicht automatisch geändert.
 
 - Unter 20 dokumentierten Fällen: `Datenbasis zu klein`
 - 20 bis 50 Fälle: nur vorsichtige Hinweise
 - Über 50 Fälle: Kalibrierungsvorschläge erlaubt
 
-Der Kalibrierungsstatus zählt lokale Trade-, Forward-Test-, Decision- und Prognosehistorien. Diese Dateien können persönliche Entscheidungen enthalten und werden nicht versioniert.
+Der Kalibrierungsstatus zählt lokale Trade-, Forward-Test-, Decision- und Prognosehistorien. Für Trefferquoten werden nur Fälle mit echter Review-Auswertung und Rendite/Hit genutzt. Diese Dateien können persönliche Entscheidungen enthalten und werden nicht versioniert.
 
 Die Signalanalyse wertet nur lokal bereits ausgewertete Forward-Tests, Trade-Journal-Setups, Entscheidungen und Prognosen aus. Neue Einträge speichern zusätzlich eine kompakte `signal_snapshot` für RSI, MACD, Volatilität, News, Makro und CRV. Unter 20 ähnlichen Fällen zeigt sie nur den Sammelstand; zwischen 20 und 50 Fällen nur vorsichtige Hinweise; ab über 50 Fällen dürfen transparente Kalibrierungsvorschläge angezeigt werden. Zusätzlich zeigt die App Trefferquoten nach Asset-Typ, Marktphase und Zeithorizont, damit sichtbar wird, wo die Analyse historisch stärker oder schwächer war. Fehlfälle werden zusätzlich nach möglicher Ursache gruppiert, zum Beispiel Marktphase, Kaufsignal, RSI, MACD, Volatilität, CRV, News und Makro. Daraus erzeugt die App manuelle Kalibrierungsvorschläge mit Datenbasis, Fehlquote und Begründung. Gewichtungen werden nie automatisch geändert.
 

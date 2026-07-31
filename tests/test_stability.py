@@ -195,6 +195,35 @@ def test_calibration_suggestions_allow_manual_proposal_after_large_error_basis()
     )
 
 
+def test_learning_guardrails_block_calibration_under_minimum() -> None:
+    status, rows = app.learning_guardrail_rows([], [], [], [])
+
+    rules = {row["Regel"]: row for row in rows}
+    assert "Datenbasis zu klein" in status
+    assert rules["Ausgewertete Fälle"]["Status"] == "0"
+    assert rules["Unter 20 Fällen"]["Status"] == "Nur zählen"
+    assert rules["Automatische Gewichtungsänderung"]["Status"] == "Nein"
+
+
+def test_learning_guardrails_allow_only_manual_suggestions_after_large_basis() -> None:
+    records = [
+        {
+            "action": "Long",
+            "asset_type": "Aktie",
+            "review_after": {"1m": {"return_pct": 3.0}},
+        }
+        for _ in range(55)
+    ]
+
+    status, rows = app.learning_guardrail_rows(records, [], [], [])
+    rules = {row["Regel"]: row for row in rows}
+
+    assert "manuelle Kalibrierungsvorschläge erlaubt" in status
+    assert rules["Ausgewertete Fälle"]["Status"] == "55"
+    assert rules["Aktuelle Freigabe"]["Status"] == "Manuelle Vorschläge erlaubt"
+    assert rules["Automatische Gewichtungsänderung"]["Status"] == "Nein"
+
+
 def test_research_valuation_score_discloses_relative_and_missing_peer_data() -> None:
     profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
     macro = app.ModuleScore(5.0, "Makro neutral", [])

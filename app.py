@@ -1927,6 +1927,65 @@ def calibration_status_rows(
     return status, rows
 
 
+def learning_guardrail_rows(
+    trade_history: list[dict],
+    forward_tests: list[dict],
+    decisions: list[dict],
+    predictions: list[dict],
+) -> tuple[str, list[dict[str, str]]]:
+    evaluated_cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
+    documented_cases = len(trade_history) + len(forward_tests) + len(decisions) + len(predictions)
+    evaluated_count = len(evaluated_cases)
+    if evaluated_count < 20:
+        status = "Lernmodus: nur sammeln. Datenbasis zu klein für belastbare Trefferquoten."
+        permission = "Keine Kalibrierung"
+    elif evaluated_count <= 50:
+        status = "Lernmodus: vorsichtige Hinweise erlaubt. Gewichtungen bleiben unverändert."
+        permission = "Vorsichtige Hinweise"
+    else:
+        status = "Lernmodus: manuelle Kalibrierungsvorschläge erlaubt. Änderungen bleiben dokumentations- und testpflichtig."
+        permission = "Manuelle Vorschläge erlaubt"
+
+    rows = [
+        {
+            "Regel": "Dokumentierte Fälle",
+            "Status": str(documented_cases),
+            "Bedeutung": "Gespeicherte Trade-, Forward-, Decision- und Prognoseeinträge. Nicht jeder Eintrag ist schon ausgewertet.",
+        },
+        {
+            "Regel": "Ausgewertete Fälle",
+            "Status": str(evaluated_count),
+            "Bedeutung": "Nur Fälle mit echter Review-Auswertung und Rendite/Hit werden für Trefferquoten genutzt.",
+        },
+        {
+            "Regel": "Unter 20 Fällen",
+            "Status": "Nur zählen",
+            "Bedeutung": "Keine belastbaren Trefferquoten und keine Kalibrierungsvorschläge.",
+        },
+        {
+            "Regel": "20 bis 50 Fälle",
+            "Status": "Vorsichtige Hinweise",
+            "Bedeutung": "Auffälligkeiten dürfen angezeigt werden, aber nicht als robuste Regel gelten.",
+        },
+        {
+            "Regel": "Über 50 Fälle",
+            "Status": "Manuelle Vorschläge erlaubt",
+            "Bedeutung": "Kalibrierungsvorschläge sind erlaubt, müssen aber dokumentiert und getestet werden.",
+        },
+        {
+            "Regel": "Automatische Gewichtungsänderung",
+            "Status": "Nein",
+            "Bedeutung": "Das Lernsystem analysiert nur. Es verändert keine Score-Gewichtungen, keine Kaufsignal-Schwellen und keine Portfolio-Logik automatisch.",
+        },
+        {
+            "Regel": "Aktuelle Freigabe",
+            "Status": permission,
+            "Bedeutung": status,
+        },
+    ]
+    return status, rows
+
+
 def signal_learning_rows(forward_tests: list[dict], predictions: list[dict]) -> tuple[str, list[dict[str, str]]]:
     evaluated: list[dict] = []
     for item in [*forward_tests, *predictions]:
@@ -7144,6 +7203,12 @@ def main() -> None:
             decision_history,
             prediction_history,
         )
+        learning_guardrail_status, learning_guardrail_table = learning_guardrail_rows(
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
+        )
         signal_learning_status, signal_learning_table = signal_learning_rows(forward_history, prediction_history)
         prediction_hit_status, prediction_hit_table = prediction_hit_rate_rows(prediction_history)
         segmented_learning_status, segmented_learning_table = segmented_learning_rows(
@@ -7513,6 +7578,13 @@ def main() -> None:
             st.markdown("**Kaufsignal-Gewichtung**")
             st.write("Das Kaufsignal nutzt den Technik-Score mit 70 %, den CRV-Score mit 20 % und danach begrenzte Zu- oder Abschläge für Marktphase, RSI, MACD und asset-typische Volatilität. Asset-Qualität und Depot-Effekt fließen nicht ein.")
 
+            st.markdown("**Lernlogik-Guardrails**")
+            st.write(learning_guardrail_status)
+            st.dataframe(
+                pd.DataFrame(learning_guardrail_table),
+                use_container_width=True,
+                hide_index=True,
+            )
             st.markdown("**Kalibrierungsstatus**")
             st.write(calibration_status)
             st.dataframe(

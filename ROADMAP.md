@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Lern-/Signalanalyse gegen Performance-Kalibrierungskontext prüfen.
+1. Confidence-System gegen Kalibrierungskontext aus Performance-Reviews prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Performance-Tracking übernimmt jetzt Kalibrierungskontext und Kalibrierungshinweis in Review-Ergebnisse.
-- Der nächste größte Nutzen liegt darin, zu prüfen, ob Lern- und Signalanalyse diese Review-Kontexte sinnvoll gruppieren oder zumindest als Kontext erhalten.
-- Dadurch kann das Lernsystem später erkennen, ob bestimmte Backtest-Warnungen tatsächlich mit schlechteren Ergebnissen zusammenfielen.
+- Lern- und Fehlmusteranalyse gruppieren jetzt Kalibrierungskontext und Kalibrierungshinweis aus Performance-Reviews.
+- Der nächste größte Nutzen liegt darin, zu prüfen, ob ähnliche-Setup-/Confidence-Ausgaben diese Kontexte ebenfalls transparent anzeigen.
+- Dadurch kann die App bei neuen Setups besser erklären, ob ähnliche Fälle nicht nur Trefferquoten, sondern auch wiederkehrende Backtest-Warnungen hatten.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Lern-/Signalanalyse gegen Performance-Kalibrierungskontext geprüft: `evaluated_history_cases()` übernimmt jetzt `calibration_context` und `calibration_hint` aus Review oder Setup.
+- Fehlmuster und Kalibrierung erweitert: `negative_case_cause_rows()` und `calibration_suggestion_rows()` können Kalibrierungskontext und Kalibrierungshinweis gruppieren.
+- README aktualisiert: Signalanalyse nennt Kalibrierungskontext als Fehlmuster-Dimension.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Lern-Kalibrierungskontext-Mock-Test erfolgreich.
+- Priorität angepasst: ursprüngliche Priorität `Lern-/Signalanalyse gegen Performance-Kalibrierungskontext prüfen` ist umgesetzt; neue Priorität ist `Confidence-System gegen Kalibrierungskontext aus Performance-Reviews prüfen`, weil ähnliche Setup-Ausgaben diese Warnkontexte ebenfalls anzeigen sollten.
 
 - Performance-Tracking-Auswertung gegen Kalibrierungskontext-Felder geprüft: Trade-Journal-Reviews speichern jetzt `calibration_context` und `calibration_hint` aus dem ursprünglichen Setup.
 - Setup-Kontext bleibt erhalten: Performance Reviews überschreiben die ursprünglichen Kalibrierungshinweise nicht, sondern führen sie als Auswertungskontext mit.

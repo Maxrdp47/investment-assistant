@@ -1158,6 +1158,8 @@ def evaluated_history_cases(
                         "miss_reason": str(review.get("miss_reason") or "Daten nicht verfügbar"),
                         "decision_alignment": str(review.get("decision_alignment") or "Daten nicht verfügbar"),
                         "history_status": str(review.get("history_status") or record.get("Historienstatus") or record.get("history_status") or "Daten nicht verfügbar"),
+                        "calibration_context": str(review.get("calibration_context") or record.get("Kalibrierungskontext") or record.get("calibration_context") or "Daten nicht verfügbar"),
+                        "calibration_hint": str(review.get("calibration_hint") or record.get("Kalibrierungshinweis") or record.get("calibration_hint") or "Daten nicht verfügbar"),
                         "signals": {
                             name: signal_bucket_from_record(record, name)
                             for name in ["RSI", "MACD", "Marktphase", "Volatilität", "News", "Makro", "CRV"]
@@ -1437,6 +1439,8 @@ def negative_case_cause_rows(
         ("Szenario-Lesart", lambda case: case.get("scenario_read") or "Daten nicht verfügbar"),
         ("Fehlursache", lambda case: case.get("miss_reason") or "Daten nicht verfügbar"),
         ("Decision-Alignment", lambda case: case.get("decision_alignment") or "Daten nicht verfügbar"),
+        ("Kalibrierungskontext", lambda case: case.get("calibration_context") or "Daten nicht verfügbar"),
+        ("Kalibrierungshinweis", lambda case: case.get("calibration_hint") or "Daten nicht verfügbar"),
     ]
 
     rows: list[dict[str, str]] = [
@@ -1601,6 +1605,8 @@ def calibration_suggestion_rows(
         ("Szenario-Lesart", lambda case: case.get("scenario_read") or "Daten nicht verfügbar", "Prüfen, ob Szenario-Wahrscheinlichkeiten zu optimistisch oder zu defensiv gesetzt werden."),
         ("Fehlursache", lambda case: case.get("miss_reason") or "Daten nicht verfügbar", "Prüfen, ob wiederkehrende Fehlursachen eine Modulverbesserung statt eine Gewichtungsänderung erfordern."),
         ("Decision-Alignment", lambda case: case.get("decision_alignment") or "Daten nicht verfügbar", "Prüfen, ob Nutzerentscheidungen gegen die App systematisch bessere oder schlechtere Ergebnisse liefern."),
+        ("Kalibrierungskontext", lambda case: case.get("calibration_context") or "Daten nicht verfügbar", "Prüfen, ob frühere Backtest-Warnungen tatsächlich mit schwächeren Ergebnissen zusammenfielen."),
+        ("Kalibrierungshinweis", lambda case: case.get("calibration_hint") or "Daten nicht verfügbar", "Prüfen, ob wiederkehrende Backtest-Hinweise bessere Warntexte oder manuelle Regelprüfungen erfordern."),
     ]
 
     for dimension, getter, suggestion in dimensions:

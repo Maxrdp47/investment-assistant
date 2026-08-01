@@ -647,6 +647,8 @@ def test_calibration_suggestions_include_new_review_fields() -> None:
                     "scenario_read": "Bear wahrscheinlicher",
                     "miss_reason": "Signalproblem: Makro",
                     "decision_alignment": "gegen App-Einschätzung",
+                    "calibration_context": "Belastbarer Lernkontext (negativ)",
+                    "calibration_hint": "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.",
                 }
             },
         }
@@ -659,6 +661,8 @@ def test_calibration_suggestions_include_new_review_fields() -> None:
     assert ("Szenario-Lesart", "Bear wahrscheinlicher") in dimensions
     assert ("Fehlursache", "Signalproblem: Makro") in dimensions
     assert ("Decision-Alignment", "gegen App-Einschätzung") in dimensions
+    assert ("Kalibrierungskontext", "Belastbarer Lernkontext (negativ)") in dimensions
+    assert ("Kalibrierungshinweis", "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.") in dimensions
 
 
 def test_negative_case_cause_rows_include_new_review_fields() -> None:
@@ -671,6 +675,7 @@ def test_negative_case_cause_rows_include_new_review_fields() -> None:
                     "decision_return_pct": -1.0,
                     "decision_alignment": "gegen App-Einschätzung",
                     "miss_reason": "Kursentwicklung gegen Prognose",
+                    "calibration_context": "Belastbarer Lernkontext (negativ)",
                 }
             },
         }
@@ -681,6 +686,7 @@ def test_negative_case_cause_rows_include_new_review_fields() -> None:
 
     assert ("Decision-Alignment", "gegen App-Einschätzung") in dimensions
     assert ("Fehlursache", "Kursentwicklung gegen Prognose") in dimensions
+    assert ("Kalibrierungskontext", "Belastbarer Lernkontext (negativ)") in dimensions
 
 
 def test_learning_guardrails_block_calibration_under_minimum() -> None:

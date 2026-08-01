@@ -696,6 +696,48 @@ def test_similar_setup_rows_surface_extended_review_context() -> None:
     assert context["Häufigster Kontext: Historienstatus"] == "vorsichtiger Hinweis"
 
 
+def test_backtest_confidence_context_uses_minimum_data_rules() -> None:
+    small_status, small_hint = app.backtest_confidence_context(19, 80.0, 5.0)
+    medium_status, medium_hint = app.backtest_confidence_context(35, 60.0, 2.0)
+    large_status, large_hint = app.backtest_confidence_context(80, 40.0, -1.0)
+
+    assert small_status == "Datenbasis zu klein"
+    assert "gezählt" in small_hint
+    assert medium_status == "Vorsichtiger Lernhinweis (positiv)"
+    assert "keinen automatischen" in medium_hint
+    assert large_status == "Belastbarer Lernkontext (negativ)"
+    assert "nicht automatisch" in large_hint
+
+
+def test_backtest_history_learning_rows_include_confidence_context() -> None:
+    history = [
+        {
+            "symbol": "NVDA",
+            "rows": [
+                {
+                    "Zeithorizont": "1m",
+                    "Marktphase": "Bullenmarkt",
+                    "Kaufsignal-Bucket": "hoch",
+                    "RSI-Bucket": "neutral",
+                    "MACD-Bucket": "positiv",
+                    "CRV-Bucket": "stark",
+                    "Faelle": "60",
+                    "Trefferquote": "61.7%",
+                    "Durchschnittsrendite": "+4.20%",
+                    "Max. Drawdown": "-6.40%",
+                }
+            ],
+        }
+    ]
+
+    status, rows = app.backtest_history_learning_rows(history)
+    values = {row["Messpunkt"]: row["Wert"] for row in rows}
+
+    assert "Backtest-Lernkontext" in status
+    assert values["Confidence-Kontext"] == "Belastbarer Lernkontext (positiv)"
+    assert values["Kalibrierungsregel"] == "Kalibrierungsvorschlag erlaubt"
+
+
 def test_research_valuation_score_discloses_relative_and_missing_peer_data() -> None:
     profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
     macro = app.ModuleScore(5.0, "Makro neutral", [])

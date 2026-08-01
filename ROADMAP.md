@@ -246,6 +246,7 @@ Transparenzregeln:
 - Drawdown-Analyse ergänzen. Status: Basis umgesetzt am 2026-07-20 als maximaler Drawdown je Backtest-Gruppe.
 - Verschiedene Signal-Kombinationen vergleichen. Status: Basis umgesetzt am 2026-07-20 für Kaufsignal, RSI, MACD und CRV.
 - Backtesting-Tabelle verdichten und interpretieren. Status: umgesetzt am 2026-07-20 mit Kompaktansicht für beste Trefferquote, schwächste Rendite, größten Drawdown und größte Datenbasis.
+- Backtesting-Ausgabe gegen Lern-/Confidence-Kontext prüfen. Status: umgesetzt am 2026-08-01; Backtest-Gruppen zeigen jetzt Historienstatus und Lernhinweis nach Mindestdatenregeln, gespeicherte Backtests zeigen zusätzlich einen Confidence-Kontext.
 
 ### Priorität 6: Prognose-Tracking
 
@@ -532,13 +533,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Backtesting-Ausgabe gegen Lern-/Confidence-Kontext prüfen.
+1. Kalibrierungsvorschläge mit Backtest-Historie verbinden.
 
 Warum diese Aufgabe zuerst:
 
-- Confidence-System nutzt jetzt Review-Kontexte aus Trade-, Decision- und Prediction-Historien.
-- Backtesting ist die nächste PRIO-B-Messebene und sollte gegen denselben Lern-/Confidence-Kontext geprüft werden.
-- Der nächste größte Nutzen liegt darin, historische Signaltests besser mit Confidence, Review-Kontext und späterer Kalibrierung zu verbinden, ohne daraus automatische Handelsfunktionen oder Blackbox-Gewichtungen abzuleiten.
+- Backtesting zeigt jetzt eigenen Confidence- und Lernkontext pro Gruppe.
+- Der nächste größte Nutzen liegt darin, gespeicherte Backtest-Muster auch in den manuellen Kalibrierungsvorschlägen sichtbar zu machen.
+- Dadurch kann die App später besser erklären, welche Signalkombinationen historisch schwach oder stark waren, ohne Score-Gewichtungen automatisch zu ändern.
 
 Nächste konkrete Umsetzung:
 
@@ -1026,6 +1027,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Backtesting-Ausgabe gegen Lern-/Confidence-Kontext konsolidiert: Backtest-Gruppen zeigen jetzt `Historienstatus` und `Lernhinweis`; gespeicherte Backtest-Historie zeigt zusätzlich einen `Confidence-Kontext`.
+- Mindestdatenregel vereinheitlicht: Unter 20 Fällen bleibt der Kontext `Datenbasis zu klein`, 20 bis 50 Fälle sind vorsichtige Lernhinweise, über 50 Fälle sind nur manuell prüfbare Kalibrierungshinweise.
+- README aktualisiert: Backtesting-Basis beschreibt Historienstatus, Confidence-Kontext und Lernhinweis.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Backtest-Confidence-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Backtesting-Ausgabe gegen Lern-/Confidence-Kontext prüfen` ist umgesetzt; neue Priorität ist `Kalibrierungsvorschläge mit Backtest-Historie verbinden`, weil die Backtest-Ergebnisse nun als Lernkontext strukturiert vorliegen.
 
 - Confidence-System gegen erweiterten Historienkontext konsolidiert: `similar_setup_rows()` zeigt jetzt häufigste Szenario-Lesart, Fehlursache, Decision-Alignment und Historienstatus aus ähnlichen lokalen Review-Fällen.
 - Keine Blackbox-Änderung: Die neuen Context-Felder erklären ähnliche Setups, verändern aber keine Score-Gewichtungen automatisch.

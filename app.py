@@ -1717,6 +1717,7 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
             avg_return = float(np.mean(returns))
             max_drawdown = float(np.min(drawdowns))
             permission, meaning = calibration_permission(count)
+            history_status, learning_hint = backtest_confidence_context(count, hit_rate, avg_return)
             rows.append(
                 {
                     "Zeithorizont": label,
@@ -1731,6 +1732,8 @@ def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[st
                     "Durchschnittsrendite": "Datenbasis zu klein" if count < 20 else f"{avg_return:+.2f}%",
                     "Max. Drawdown": "Datenbasis zu klein" if count < 20 else f"{max_drawdown:+.2f}%",
                     "Status": permission,
+                    "Historienstatus": history_status,
+                    "Lernhinweis": learning_hint,
                     "Bedeutung": f"{meaning} Backtest nutzt nur historische Kursdaten und ändert keine Gewichtungen automatisch.",
                 }
             )
@@ -1762,6 +1765,35 @@ def row_value(row: dict[str, str], *keys: str) -> str | None:
         if any(alias.lower() in normalized for alias in keys):
             return str(value)
     return None
+
+
+def backtest_confidence_context(count: int, hit_rate: float | None = None, avg_return: float | None = None) -> tuple[str, str]:
+    if count < 20:
+        return (
+            "Datenbasis zu klein",
+            "Unter 20 historischen Fällen wird diese Backtest-Gruppe nur gezählt und nicht als belastbarer Lernhinweis genutzt.",
+        )
+    if count <= 50:
+        direction = "neutral"
+        if hit_rate is not None and avg_return is not None:
+            if hit_rate >= 55 and avg_return > 0:
+                direction = "positiv"
+            elif hit_rate < 45 or avg_return < 0:
+                direction = "negativ"
+        return (
+            f"Vorsichtiger Lernhinweis ({direction})",
+            "20 bis 50 Fälle liefern Kontext für Confidence und Lernsystem, aber noch keinen automatischen Kalibrierungsgrund.",
+        )
+    direction = "neutral"
+    if hit_rate is not None and avg_return is not None:
+        if hit_rate >= 55 and avg_return > 0:
+            direction = "positiv"
+        elif hit_rate < 45 or avg_return < 0:
+            direction = "negativ"
+    return (
+        f"Belastbarer Lernkontext ({direction})",
+        "Über 50 Fälle dürfen als manueller Kalibrierungshinweis geprüft werden; Gewichtungen ändern sich nicht automatisch.",
+    )
 
 
 def backtest_compact_rows(backtest_rows: list[dict[str, str]]) -> tuple[str, list[dict[str, str]]]:
@@ -1825,6 +1857,7 @@ def backtest_compact_rows(backtest_rows: list[dict[str, str]]) -> tuple[str, lis
                 "Trefferquote": row.get("Trefferquote", "Datenbasis zu klein"),
                 "Durchschnittsrendite": row.get("Durchschnittsrendite", "Datenbasis zu klein"),
                 "Max. Drawdown": row.get("Max. Drawdown", "Datenbasis zu klein"),
+                "Historienstatus": row.get("Historienstatus", backtest_confidence_context(item["count"], item["hit_rate"], item["avg_return"])[0]),
                 "Bedeutung": meaning,
             }
         )
@@ -1908,6 +1941,7 @@ def backtest_history_learning_rows(history: list[dict]) -> tuple[str, list[dict[
     best = max(groups, key=lambda group: (group["hit_rate"], group["avg_return"], group["count"]))
     weakest = min(groups, key=lambda group: (group["avg_return"], group["hit_rate"]))
     permission, meaning = calibration_permission(total_cases)
+    history_status, learning_hint = backtest_confidence_context(total_cases, weighted_hit_rate, weighted_return)
     if total_cases < 20:
         status = "Datenbasis zu klein. Backtest-Historie wird nur gezählt."
     elif total_cases <= 50:
@@ -1955,6 +1989,11 @@ def backtest_history_learning_rows(history: list[dict]) -> tuple[str, list[dict[
             "Messpunkt": "Schwächste gespeicherte Gruppe",
             "Wert": backtest_group_label(weakest["record"], weakest["row"]),
             "Bedeutung": f"{weakest['hit_rate']:.1f}% Treffer, {weakest['avg_return']:+.2f}% Ø, {weakest['count']} Fälle.",
+        },
+        {
+            "Messpunkt": "Confidence-Kontext",
+            "Wert": history_status,
+            "Bedeutung": learning_hint,
         },
         {
             "Messpunkt": "Kalibrierungsregel",

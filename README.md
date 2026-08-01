@@ -67,7 +67,7 @@ Auf dem Handy gilt:
 - Die App analysiert weiterhin nur und handelt nicht automatisch.
 - Es gibt keine Broker-Anbindung.
 - Wenn `search_history.json` auf Streamlit Cloud fehlt, startet die App trotzdem und beginnt mit leerer Suchhistorie.
-- Änderungen an lokalen Laufzeitdateien sind auf Streamlit Cloud nicht als dauerhafte Datensicherung gedacht.
+- Änderungen an lokalen Laufzeitdateien sind auf Streamlit Cloud nicht als dauerhafte Datensicherung gedacht. Für dauerhaftes Lernen sollten die Historien lokal gesichert oder bewusst exportiert werden.
 
 Für den Depot-Modus darf `portfolio.json` im Repository liegen, solange die Datei nur diese GitHub-kompatiblen Minimaldaten enthält:
 
@@ -79,7 +79,9 @@ Für den Depot-Modus darf `portfolio.json` im Repository liegen, solange die Dat
 
 Nicht in das Repository gehören Kontonummern, Depotnummern, Broker-Zugangsdaten, API-Keys, Passwörter oder persönliche Identifikationsdaten.
 
-Hinweis: Laufzeitdateien wie `search_history.json`, `trade_history.json`, `forward_tests.json`, `decision_history.json` und `prediction_history.json` sind auf Streamlit Cloud nicht als dauerhaftes Speichersystem gedacht. Sie bleiben lokale Analysehilfen und lösen niemals eine Order aus.
+Hinweis: Laufzeitdateien wie `search_history.json`, `trade_history.json`, `forward_tests.json`, `decision_history.json`, `prediction_history.json` und `backtest_history.json` sind auf Streamlit Cloud nicht als dauerhaftes Speichersystem gedacht. Sie bleiben lokale Analysehilfen und lösen niemals eine Order aus.
+
+Diese Historien dürfen keine Broker-Zugangsdaten, API-Keys, Passwörter, Kontonummern oder persönlichen Identifikationsdaten enthalten. `trade_history.json` speichert nur vorgeschlagene Setups und spätere Auswertungen; `forward_tests.json`, `decision_history.json`, `prediction_history.json` und `backtest_history.json` speichern nur Analyse-, Entscheidungs- und Testergebnisse. Die Dateien sind in `.gitignore` eingetragen und sollen nicht versehentlich veröffentlicht werden.
 
 ## Asset-Suche
 

@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Lernhistorien-Dateien mit Datenschutz-/Cloud-Hinweisen in README präzisieren.
+1. Historienqualität in Smoke-Test oder Testskript sichtbar machen.
 
 Warum diese Aufgabe zuerst:
 
-- Defekte lokale Historien zeigen jetzt Reparaturhinweise, ohne Dateien automatisch zu löschen oder zu verändern.
-- Der nächste größte Nutzen liegt darin, README/Cloud-Hinweise für diese lokalen Lernhistorien noch präziser zu machen.
-- Dadurch versteht der Nutzer besser, welche JSON-Dateien lokal, privat, versioniert oder nicht dauerhaft auf Streamlit Cloud nutzbar sind.
+- README erklärt jetzt alle lokalen Lernhistorien inklusive `backtest_history.json`, Datenschutzgrenzen, `.gitignore` und Streamlit-Cloud-Einschränkung.
+- Der nächste größte Nutzen liegt darin, Historienqualität auch in automatisierten Smoke-/Stabilitätschecks sichtbar zu machen.
+- Dadurch fällt früher auf, wenn lokale JSON-Historien defekt sind oder unerwartet versioniert werden.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Lernhistorien-Dateien mit Datenschutz-/Cloud-Hinweisen in README präzisiert: `backtest_history.json` ergänzt und Rollen der Historien erklärt.
+- Datenschutz klargestellt: Lernhistorien dürfen keine Broker-Zugangsdaten, API-Keys, Passwörter, Kontonummern oder persönlichen Identifikationsdaten enthalten.
+- Streamlit-Cloud-Einschränkung präzisiert: Laufzeitdateien sind keine dauerhafte Datensicherung; lokale Sicherung oder bewusster Export bleibt Nutzerentscheidung.
+- Tests dokumentiert: reine README/ROADMAP-Änderung; `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erneut vorgesehen vor Commit.
+- Priorität angepasst: ursprüngliche Priorität `Lernhistorien-Dateien mit Datenschutz-/Cloud-Hinweisen in README präzisieren` ist umgesetzt; neue Priorität ist `Historienqualität in Smoke-Test oder Testskript sichtbar machen`, weil Qualität lokaler JSON-Historien nun zentraler Analysekontext ist.
 
 - Defekte lokale Historien in Lernansicht mit Reparaturhinweisen ergänzt: `local_history_quality_rows()` zeigt jetzt eine Spalte `Reparaturhinweis`.
 - Sicherheitsregel beibehalten: Die App löscht oder verändert lokale Historien nicht automatisch; defekte Einträge werden nur erklärt und ignoriert.

@@ -1745,6 +1745,100 @@ def calibration_context_summary_rows(
     return status, rows
 
 
+def local_history_quality_rows(
+    trade_history: list[dict],
+    forward_tests: list[dict],
+    decisions: list[dict],
+    predictions: list[dict],
+    backtest_history: list[dict],
+) -> tuple[str, list[dict[str, str]]]:
+    history_groups = [
+        ("Trade Journal", trade_history),
+        ("Forward-Tests", forward_tests),
+        ("Entscheidungen", decisions),
+        ("Prognosen", predictions),
+    ]
+    evaluated_cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
+    rows: list[dict[str, str]] = []
+    issues = 0
+    total_records = 0
+    total_reviews = 0
+
+    for label, records in history_groups:
+        total_records += len(records)
+        review_records = 0
+        completed_reviews = 0
+        malformed = 0
+        for record in records:
+            review_after = record.get("review_after")
+            if not isinstance(review_after, dict):
+                malformed += 1
+                continue
+            if review_after:
+                review_records += 1
+            completed_reviews += sum(1 for review in review_after.values() if isinstance(review, dict))
+        total_reviews += completed_reviews
+        if malformed:
+            issues += 1
+        rows.append(
+            {
+                "Historie": label,
+                "Einträge": str(len(records)),
+                "Auswertungen": str(completed_reviews),
+                "Datenqualität": "Eingeschränkt" if malformed else "OK",
+                "Hinweis": (
+                    f"{malformed} Einträge haben kein gültiges `review_after` und werden im Lernsystem ignoriert."
+                    if malformed
+                    else "Struktur lesbar; fehlende einzelne Daten bleiben `Daten nicht verfügbar`."
+                ),
+            }
+        )
+
+    backtest_rows = 0
+    usable_backtest_rows = 0
+    malformed_backtests = 0
+    for record in backtest_history:
+        rows_raw = record.get("rows")
+        if not isinstance(rows_raw, list):
+            malformed_backtests += 1
+            continue
+        for row in rows_raw:
+            if not isinstance(row, dict):
+                malformed_backtests += 1
+                continue
+            backtest_rows += 1
+            count = value_or_none(row_value(row, "Fälle", "Faelle", "Falle"))
+            hit_rate = percent_value(row_value(row, "Trefferquote") or "")
+            avg_return = percent_value(row_value(row, "Durchschnittsrendite") or "")
+            if count is not None and count >= 20 and hit_rate is not None and avg_return is not None:
+                usable_backtest_rows += 1
+    if malformed_backtests or (backtest_history and usable_backtest_rows == 0):
+        issues += 1
+    rows.append(
+        {
+            "Historie": "Backtests",
+            "Einträge": str(len(backtest_history)),
+            "Auswertungen": str(usable_backtest_rows),
+            "Datenqualität": "Eingeschränkt" if malformed_backtests or (backtest_history and usable_backtest_rows == 0) else "OK",
+            "Hinweis": (
+                f"{malformed_backtests} Backtest-Einträge sind unvollständig; {backtest_rows} Tabellenzeilen gefunden, {usable_backtest_rows} belastbar."
+                if malformed_backtests
+                else f"{backtest_rows} Tabellenzeilen gefunden, {usable_backtest_rows} mit mindestens 20 Fällen und vollständigen Kennzahlen."
+            ),
+        }
+    )
+
+    if total_records == 0 and not backtest_history:
+        status = "Keine lokalen Lernhistorien vorhanden. Lernmodule zeigen deshalb nur `Datenbasis zu klein`."
+    elif issues:
+        status = "Datenqualität der lokalen Lernhistorien eingeschränkt. Einzelne Einträge werden ignoriert, fehlende Werte nicht geschätzt."
+    elif len(evaluated_cases) < 20:
+        status = "Lokale Lernhistorien lesbar, aber Datenbasis für belastbare Lernhinweise noch zu klein."
+    else:
+        status = "Lokale Lernhistorien lesbar. Lernhinweise bleiben trotzdem nur Kontext und ändern keine Gewichtungen automatisch."
+    return status, rows
+
+
 def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[str, list[dict[str, str]]]:
     required_columns = {"Close", "Low", "High"}
     if df.empty or not required_columns.issubset(df.columns):
@@ -7757,6 +7851,13 @@ def main() -> None:
             decision_history,
             prediction_history,
         )
+        local_history_quality_status, local_history_quality_table = local_history_quality_rows(
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
+            backtest_history,
+        )
         calibration_context_status, calibration_context_table = calibration_context_summary_rows(
             trade_history,
             forward_history,
@@ -8133,6 +8234,13 @@ def main() -> None:
             st.markdown("**Kaufsignal-Gewichtung**")
             st.write("Das Kaufsignal nutzt den Technik-Score mit 70 %, den CRV-Score mit 20 % und danach begrenzte Zu- oder Abschläge für Marktphase, RSI, MACD und asset-typische Volatilität. Asset-Qualität und Depot-Effekt fließen nicht ein.")
 
+            st.markdown("**Datenqualität lokaler Lernhistorien**")
+            st.write(local_history_quality_status)
+            st.dataframe(
+                pd.DataFrame(local_history_quality_table),
+                use_container_width=True,
+                hide_index=True,
+            )
             st.markdown("**Lernlogik-Guardrails**")
             st.write(learning_guardrail_status)
             st.dataframe(

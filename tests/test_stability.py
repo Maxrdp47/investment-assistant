@@ -745,6 +745,45 @@ def test_calibration_context_summary_rows_explains_contexts() -> None:
     assert "Keine automatische" in rows[0]["Bedeutung"]
 
 
+def test_local_history_quality_rows_reports_empty_and_malformed_histories() -> None:
+    status, rows = app.local_history_quality_rows(
+        [{"Asset-Typ": "Aktie", "review_after": []}],
+        [],
+        [],
+        [],
+        [{"symbol": "NVDA", "rows": "legacy"}],
+    )
+    quality = {row["Historie"]: row for row in rows}
+
+    assert "eingeschränkt" in status.lower()
+    assert quality["Trade Journal"]["Datenqualität"] == "Eingeschränkt"
+    assert quality["Backtests"]["Datenqualität"] == "Eingeschränkt"
+
+
+def test_local_history_quality_rows_accepts_usable_learning_data() -> None:
+    trade_history = [reviewed_case(return_pct=2.0) for _ in range(20)]
+    backtest_history = [
+        {
+            "symbol": "NVDA",
+            "rows": [
+                {
+                    "Zeithorizont": "1m",
+                    "Faelle": "30",
+                    "Trefferquote": "60.0%",
+                    "Durchschnittsrendite": "+2.00%",
+                }
+            ],
+        }
+    ]
+
+    status, rows = app.local_history_quality_rows(trade_history, [], [], [], backtest_history)
+    quality = {row["Historie"]: row for row in rows}
+
+    assert "lesbar" in status
+    assert quality["Trade Journal"]["Datenqualität"] == "OK"
+    assert quality["Backtests"]["Auswertungen"] == "1"
+
+
 def test_similar_setup_rows_surface_extended_review_context() -> None:
     trade_history = [reviewed_case(return_pct=-2.0) for _ in range(20)]
 

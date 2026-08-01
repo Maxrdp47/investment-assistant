@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Datenqualitäts-Check für Lern-/Backtest-Historien ausbauen.
+1. Lernhistorien-Datenqualität in Confidence-/Kalibrierungsstatus einfließen lassen.
 
 Warum diese Aufgabe zuerst:
 
-- Tests für Lern-, Confidence- und Kalibrierungskontext nutzen jetzt gemeinsame Mock-Historien.
-- Der nächste größte Nutzen liegt wieder in PRIO A/B: Datenqualität der lokalen Lern- und Backtest-Historien klarer prüfen und fehlerhafte Einträge besser erklären.
-- Dadurch erkennt die App früher, ob historische Lernsignale belastbar sind oder durch defekte lokale Dateien verfälscht werden könnten.
+- Analyse-Details zeigen jetzt Datenqualität lokaler Lernhistorien für Trade Journal, Forward-Tests, Entscheidungen, Prognosen und Backtests.
+- Der nächste größte Nutzen liegt darin, diese Qualitätsprüfung in Confidence- und Kalibrierungsstatus einzubeziehen, damit eingeschränkte Historien nicht zu stark interpretiert werden.
+- Dadurch bleiben Lernhinweise datenbasiert und alte/defekte lokale Dateien werden transparenter begrenzt.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Datenqualitäts-Check für Lern-/Backtest-Historien ausgebaut: neue `local_history_quality_rows()` prüft Review-Strukturen, abgeschlossene Auswertungen und belastbare Backtest-Zeilen.
+- Analyse-Details erweitert: Die App zeigt `Datenqualität lokaler Lernhistorien` vor den Lernlogik-Guardrails.
+- README aktualisiert: lokale Lernhistorienqualität und Teststrategie ergänzt.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Local-History-Quality-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Datenqualitäts-Check für Lern-/Backtest-Historien ausbauen` ist umgesetzt; neue Priorität ist `Lernhistorien-Datenqualität in Confidence-/Kalibrierungsstatus einfließen lassen`, weil eingeschränkte Historien die Belastbarkeit von Lernhinweisen reduzieren sollten.
 
 - Testbarkeit der neuen Lern-/Confidence-Kontextfunktionen gebündelt: `tests/test_stability.py` nutzt jetzt gemeinsame Konstanten und `reviewed_case()` für Kalibrierungskontext-Mocks.
 - Wartbarkeit verbessert: Mehrere Tests für Kalibrierungsvorschläge, Fehlmuster, Kalibrierungskontext-Zusammenfassung und ähnliche Setups verwenden dieselbe Mock-Historie.

@@ -1151,6 +1151,7 @@ def evaluated_history_cases(
                         "scenario_read": str(review.get("scenario_read") or "Daten nicht verfügbar"),
                         "miss_reason": str(review.get("miss_reason") or "Daten nicht verfügbar"),
                         "decision_alignment": str(review.get("decision_alignment") or "Daten nicht verfügbar"),
+                        "history_status": str(review.get("history_status") or record.get("Historienstatus") or record.get("history_status") or "Daten nicht verfügbar"),
                         "signals": {
                             name: signal_bucket_from_record(record, name)
                             for name in ["RSI", "MACD", "Marktphase", "Volatilität", "News", "Makro", "CRV"]
@@ -2036,6 +2037,27 @@ def similar_setup_rows(
         {"Messpunkt": "Mindestdatenmenge", "Wert": "20 ähnliche Setups", "Bedeutung": "Unter 20 ähnlichen Fällen bleibt die Aussage rein explorativ."},
         {"Messpunkt": "Kalibrierungsregel", "Wert": permission, "Bedeutung": "Version 1 ändert Score-Gewichtungen niemals automatisch."},
     ]
+    context_fields = [
+        ("Szenario-Lesart", "scenario_read"),
+        ("Fehlursache", "miss_reason"),
+        ("Decision-Alignment", "decision_alignment"),
+        ("Historienstatus", "history_status"),
+    ]
+    for label, key in context_fields:
+        values = [
+            str(case.get(key))
+            for case in similar
+            if str(case.get(key) or "").lower() not in {"", "none", "daten nicht verfügbar"}
+        ]
+        if values:
+            top_value = max(set(values), key=values.count)
+            rows.append(
+                {
+                    "Messpunkt": f"Häufigster Kontext: {label}",
+                    "Wert": top_value,
+                    "Bedeutung": f"{values.count(top_value)} ähnliche Fälle mit diesem Kontext; nur Hinweis, keine automatische Gewichtung.",
+                }
+            )
     rows.extend(signal_calibration_rows(similar))
     return status, rows
 

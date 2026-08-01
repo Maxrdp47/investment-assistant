@@ -654,6 +654,48 @@ def test_learning_guardrails_allow_only_manual_suggestions_after_large_basis() -
     assert rules["Automatische Gewichtungsänderung"]["Status"] == "Nein"
 
 
+def test_similar_setup_rows_surface_extended_review_context() -> None:
+    trade_history = [
+        {
+            "Richtung": "Long",
+            "Asset-Typ": "Aktie",
+            "Marktphase": "Bullenmarkt",
+            "Kaufsignal": 8.0,
+            "Asset-Qualität": 7.5,
+            "Historienstatus": "vorsichtiger Hinweis",
+            "review_after": {
+                "1m": {
+                    "return_pct": -2.0,
+                    "scenario_read": "Bear wahrscheinlicher",
+                    "miss_reason": "Signalproblem: Makro",
+                    "decision_alignment": "gegen App-Einschätzung",
+                    "history_status": "vorsichtiger Hinweis",
+                }
+            },
+        }
+        for _ in range(20)
+    ]
+
+    status, rows = app.similar_setup_rows(
+        app.AssetProfile("Aktie", "EQUITY", "Aktie", {}),
+        app.MarketPhase("Bullenmarkt", "Trend positiv", []),
+        "Long",
+        app.ModuleScore(7.5, "Qualität", []),
+        app.ModuleScore(8.0, "Kaufsignal", []),
+        trade_history,
+        [],
+        [],
+        [],
+    )
+    context = {row["Messpunkt"]: row["Wert"] for row in rows}
+
+    assert "Vorsichtige Hinweise" in status
+    assert context["Häufigster Kontext: Szenario-Lesart"] == "Bear wahrscheinlicher"
+    assert context["Häufigster Kontext: Fehlursache"] == "Signalproblem: Makro"
+    assert context["Häufigster Kontext: Decision-Alignment"] == "gegen App-Einschätzung"
+    assert context["Häufigster Kontext: Historienstatus"] == "vorsichtiger Hinweis"
+
+
 def test_research_valuation_score_discloses_relative_and_missing_peer_data() -> None:
     profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
     macro = app.ModuleScore(5.0, "Makro neutral", [])

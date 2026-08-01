@@ -453,6 +453,8 @@ Berechnen:
 
 Status: ähnliche historische Setups und Trefferquoten aus `trade_history.json`, `forward_tests.json` und `prediction_history.json` umgesetzt am 2026-07-01. Unter 20 ähnlichen Fällen zeigt die App `Datenbasis zu klein`; Gewichtungen werden nicht automatisch geändert.
 
+Status: konsolidiert am 2026-08-01; ähnliche Setup-Auswertungen zeigen zusätzlich häufigste Szenario-Lesart, Fehlursache, Decision-Alignment und Historienstatus aus Review-Daten, sofern vorhanden. Diese Felder dienen nur als Transparenzkontext und verändern keine Scores automatisch.
+
 Zusätzlich zur Chance immer einen Confidence Score anzeigen.
 
 Beispiel:
@@ -530,13 +532,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Confidence-System gegen erweiterten Trade-/Decision-/Prediction-Historienkontext prüfen.
+1. Backtesting-Ausgabe gegen Lern-/Confidence-Kontext prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Performance Tracking normalisiert Journal-Felder vor der Auswertung und speichert Historienkontext im Review-Ergebnis.
-- Confidence-System und ähnliche Setup-Auswertung sind die nächste Ebene, die diese neuen Review- und Historienfelder nutzen sollte.
-- Der nächste größte Nutzen liegt darin, historische Confidence-Ausgaben auf die erweiterten Kontexte zu prüfen, ohne Score-Gewichtungen automatisch zu verändern.
+- Confidence-System nutzt jetzt Review-Kontexte aus Trade-, Decision- und Prediction-Historien.
+- Backtesting ist die nächste PRIO-B-Messebene und sollte gegen denselben Lern-/Confidence-Kontext geprüft werden.
+- Der nächste größte Nutzen liegt darin, historische Signaltests besser mit Confidence, Review-Kontext und späterer Kalibrierung zu verbinden, ohne daraus automatische Handelsfunktionen oder Blackbox-Gewichtungen abzuleiten.
 
 Nächste konkrete Umsetzung:
 
@@ -1024,6 +1026,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Confidence-System gegen erweiterten Historienkontext konsolidiert: `similar_setup_rows()` zeigt jetzt häufigste Szenario-Lesart, Fehlursache, Decision-Alignment und Historienstatus aus ähnlichen lokalen Review-Fällen.
+- Keine Blackbox-Änderung: Die neuen Context-Felder erklären ähnliche Setups, verändern aber keine Score-Gewichtungen automatisch.
+- README aktualisiert: Confidence-System beschreibt die zusätzlichen Review-Kontexte.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Confidence-Kontext-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Confidence-System gegen erweiterten Trade-/Decision-/Prediction-Historienkontext prüfen` ist umgesetzt; neue Priorität ist `Backtesting-Ausgabe gegen Lern-/Confidence-Kontext prüfen`, weil Backtesting die nächste Messschicht für die Analysequalität ist.
 
 - Performance-Tracking gegen normalisierte Journal-Felder konsolidiert: `evaluate_due_trade_history()` normalisiert Trade-Records vor der Auswertung und hält Legacy-Felder kompatibel.
 - Historienkontext im Review ergänzt: Trade-Journal-Auswertungen speichern jetzt ähnliche Setups, Treffer ähnlicher Setups, Trefferquote, Historienstatus und Historienhinweis im jeweiligen Review-Ergebnis.

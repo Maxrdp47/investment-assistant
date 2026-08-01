@@ -498,6 +498,8 @@ Auswerten, welche Signale historisch nützlich waren:
 
 Der Bot darf Vorschläge machen, aber Gewichtungen in Version 1 nicht automatisch ändern.
 
+- Backtest-Historie in Kalibrierungsvorschläge einbeziehen. Status: umgesetzt am 2026-08-01; schwache gespeicherte Backtest-Gruppen mit ausreichender Datenbasis werden als `Backtest-Signal` in manuellen Kalibrierungshinweisen angezeigt.
+
 Beispiele:
 
 - RSI bei Krypto stärker gewichten
@@ -533,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Kalibrierungsvorschläge mit Backtest-Historie verbinden.
+1. Scanner- und Trading-Ausgaben mit Backtest-/Kalibrierungskontext verbinden.
 
 Warum diese Aufgabe zuerst:
 
-- Backtesting zeigt jetzt eigenen Confidence- und Lernkontext pro Gruppe.
-- Der nächste größte Nutzen liegt darin, gespeicherte Backtest-Muster auch in den manuellen Kalibrierungsvorschlägen sichtbar zu machen.
-- Dadurch kann die App später besser erklären, welche Signalkombinationen historisch schwach oder stark waren, ohne Score-Gewichtungen automatisch zu ändern.
+- Kalibrierungsvorschläge nutzen jetzt schwache gespeicherte Backtest-Gruppen als manuelle Hinweise.
+- Der nächste größte Nutzen liegt darin, diese Lernhinweise dort sichtbar zu machen, wo neue Chancen entstehen: Opportunity Scanner und Trading-Modus.
+- Dadurch kann die App bessere Research-Warnungen geben, ohne Kaufsignale automatisch umzubauen oder Trades auszuführen.
 
 Nächste konkrete Umsetzung:
 
@@ -1027,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Kalibrierungsvorschläge mit Backtest-Historie verbunden: schwache gespeicherte Backtest-Gruppen mit ausreichender Datenbasis erscheinen jetzt als Bereich `Backtest-Signal`.
+- Keine automatische Kalibrierung: Backtest-Hinweise bleiben manuelle Vorschläge mit Datenbasis, Fehlquote, Begründung und Umsetzungshinweis.
+- README aktualisiert: Signalanalyse beschreibt Backtest-basierte manuelle Kalibrierungshinweise.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Backtest-Kalibrierungs-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Kalibrierungsvorschläge mit Backtest-Historie verbinden` ist umgesetzt; neue Priorität ist `Scanner- und Trading-Ausgaben mit Backtest-/Kalibrierungskontext verbinden`, weil Lernhinweise bei neuen Chancen sichtbar sein sollten.
 
 - Backtesting-Ausgabe gegen Lern-/Confidence-Kontext konsolidiert: Backtest-Gruppen zeigen jetzt `Historienstatus` und `Lernhinweis`; gespeicherte Backtest-Historie zeigt zusätzlich einen `Confidence-Kontext`.
 - Mindestdatenregel vereinheitlicht: Unter 20 Fällen bleibt der Kontext `Datenbasis zu klein`, 20 bis 50 Fälle sind vorsichtige Lernhinweise, über 50 Fälle sind nur manuell prüfbare Kalibrierungshinweise.

@@ -738,6 +738,36 @@ def test_backtest_history_learning_rows_include_confidence_context() -> None:
     assert values["Kalibrierungsregel"] == "Kalibrierungsvorschlag erlaubt"
 
 
+def test_calibration_suggestions_include_weak_backtest_history() -> None:
+    backtest_history = [
+        {
+            "symbol": "NVDA",
+            "rows": [
+                {
+                    "Zeithorizont": "3m",
+                    "Marktphase": "Seitwärtsmarkt",
+                    "Kaufsignal-Bucket": "hoch",
+                    "RSI-Bucket": "überhitzt",
+                    "MACD-Bucket": "negativ",
+                    "CRV-Bucket": "knapp",
+                    "Faelle": "55",
+                    "Trefferquote": "38.0%",
+                    "Durchschnittsrendite": "-2.50%",
+                    "Max. Drawdown": "-12.0%",
+                }
+            ],
+        }
+    ]
+
+    status, rows = app.calibration_suggestion_rows([], [], [], [], backtest_history)
+    backtest_rows = [row for row in rows if row["Bereich"] == "Backtest-Signal"]
+
+    assert "Kalibrierungsvorschläge erlaubt" in status
+    assert backtest_rows
+    assert backtest_rows[0]["Vorschlag"] == "Manueller Kalibrierungsvorschlag erlaubt"
+    assert "Nicht automatisch ändern" in backtest_rows[0]["Umsetzung"]
+
+
 def test_research_valuation_score_discloses_relative_and_missing_peer_data() -> None:
     profile = app.AssetProfile("Aktie", "EQUITY", "Aktie", {})
     macro = app.ModuleScore(5.0, "Makro neutral", [])

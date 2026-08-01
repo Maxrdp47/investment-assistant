@@ -1488,14 +1488,49 @@ def negative_case_cause_rows(
     return status, rows
 
 
+def backtest_calibration_candidates(history: list[dict]) -> list[dict[str, object]]:
+    candidates: list[dict[str, object]] = []
+    for record in history:
+        rows = record.get("rows", [])
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            count = value_or_none(row_value(row, "Fälle", "Faelle", "Falle"))
+            hit_rate = percent_value(row_value(row, "Trefferquote") or "")
+            avg_return = percent_value(row_value(row, "Durchschnittsrendite") or "")
+            if count is None or count < 20 or hit_rate is None or avg_return is None:
+                continue
+            if hit_rate >= 45 and avg_return >= 0:
+                continue
+            miss_rate = max(0.0, 100.0 - hit_rate)
+            miss_count = max(1, int(round(int(count) * miss_rate / 100.0)))
+            label = backtest_group_label(record, row)
+            candidates.append(
+                {
+                    "dimension": "Backtest-Signal",
+                    "group": label,
+                    "count": int(count),
+                    "miss_count": miss_count,
+                    "miss_rate": miss_rate,
+                    "avg_return": avg_return,
+                    "suggestion": "Prüfen, ob diese historische Signalkombination im Kaufsignal, Confidence-Kontext oder in Warnhinweisen stärker sichtbar sein sollte.",
+                }
+            )
+    return candidates
+
+
 def calibration_suggestion_rows(
     trade_history: list[dict],
     forward_tests: list[dict],
     decisions: list[dict],
     predictions: list[dict],
+    backtest_history: list[dict] | None = None,
 ) -> tuple[str, list[dict[str, str]]]:
     cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
-    if not cases:
+    candidates: list[dict[str, object]] = backtest_calibration_candidates(backtest_history or [])
+    if not cases and not candidates:
         return "Keine Kalibrierungsvorschläge möglich: keine ausgewerteten Historienfälle vorhanden.", [
             {
                 "Bereich": "Gesamt",
@@ -1523,7 +1558,6 @@ def calibration_suggestion_rows(
         ("Decision-Alignment", lambda case: case.get("decision_alignment") or "Daten nicht verfügbar", "Prüfen, ob Nutzerentscheidungen gegen die App systematisch bessere oder schlechtere Ergebnisse liefern."),
     ]
 
-    candidates: list[dict[str, object]] = []
     for dimension, getter, suggestion in dimensions:
         grouped: dict[str, list[dict]] = {}
         for case in cases:
@@ -7619,6 +7653,7 @@ def main() -> None:
             forward_history,
             decision_history,
             prediction_history,
+            backtest_history,
         )
         backtest_learning_status, backtest_learning_table = backtest_history_learning_rows(backtest_history)
         backtest_status, backtest_table = backtest_signal_buckets(df, asset_profile)

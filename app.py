@@ -3574,6 +3574,7 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
 
             opportunity_score = round(clamp(buy_signal.score * 0.55 + asset_quality.score * 0.20 + risk_reward.score * 0.15 + confidence * 0.10), 1)
             direction = scanner_direction(buy_signal, market_phase)
+            historical_stats = similar_setup_statistics(profile.asset_type, market_phase.phase, direction, buy_signal.score)
             reasons = [
                 f"Kaufsignal {buy_signal.score:.1f}/10",
                 f"Asset-Qualität {asset_quality.score:.1f}/10",
@@ -3600,8 +3601,11 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
                     "Liquidität": factor_snapshot["Liquidität"],
                     "Bewertung": factor_snapshot["Bewertung"],
                     "Institutionelle Faktoren": factor_snapshot["Institutionelle Faktoren"],
+                    "Ähnliche Setups": historical_stats["count"],
+                    "Trefferquote ähnliche Setups": historical_stats["hit_rate"],
+                    "Historienstatus": historical_stats["status"],
                     "CRV": "Daten nicht verfügbar" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}",
-                    "Wichtigste Begründungen": " | ".join(reasons[:5]),
+                    "Wichtigste Begründungen": " | ".join([*reasons[:5], str(historical_stats["summary"])]),
                 }
             )
         except Exception as exc:

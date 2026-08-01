@@ -316,6 +316,7 @@ Transparenzregeln:
 ### PRIO B: Opportunity Scanner
 
 Ziel: Die App soll langfristig nicht nur einzelne Assets analysieren, sondern regelmäßig verfügbare Aktien, ETFs und Kryptowährungen durchsuchen und die attraktivsten Chancen identifizieren.
+Status: erweitert am 2026-08-01; Scanner-Ergebnisse zeigen zusätzlich ähnliche historische Setups, Trefferquote ähnlicher Setups und Historienstatus als Transparenzfeld ohne automatische Score-Änderung.
 
 Der Scanner bewertet:
 
@@ -526,18 +527,18 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Opportunity-Scanner-Ergebnisliste gegen Lern-/Confidence-Kontext prüfen.
+1. Trading-Modus-Ergebnisliste gegen Lern-/Confidence-Kontext und Journal-Felder prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Lern- und Kalibrierungsansichten nutzen jetzt die neuen Review-Felder aus Forward-, Decision- und Prognosehistorien.
-- Der Opportunity Scanner ist der Einstiegspunkt für neue Vorschläge; er sollte den vorhandenen Lern-/Confidence-Kontext sichtbar nutzen, ohne automatische Trades auszulösen.
-- Der nächste größte Nutzen liegt darin, Scanner-Kandidaten mit vorhandener Historie/Confidence transparenter zu bewerten.
+- Opportunity-Scanner-Ergebnisse zeigen jetzt ähnliche historische Setups, Trefferquote und Historienstatus, ohne den Opportunity Score automatisch umzubauen.
+- Der Trading-Modus nutzt Scanner-Kandidaten und schreibt Setups ins lokale Journal; er sollte die gleichen Lern-/Confidence-Felder vollständig und konsistent ausgeben.
+- Der nächste größte Nutzen liegt darin, Trading-Setups gegen aktuelle Journal- und Performance-Tracking-Felder zu prüfen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Opportunity-Scanner-Ausgabe gegen Confidence- und Lernkontext prüfen.
-2. Fehlende Hinweise zu historischen ähnlichen Fällen oder Datenbasis ergänzen, falls sinnvoll.
+1. Bestehende Trading-Modus-Ausgabe und gespeicherte Setups gegen Roadmap-Anforderungen prüfen.
+2. Fehlende Historien-/Confidence- oder Performance-Felder ergänzen, falls sinnvoll.
 3. Keine automatische Kauf-/Verkaufsfunktion einbauen.
 4. Tests ausführen und README/ROADMAP aktualisieren.
 
@@ -1020,6 +1021,13 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Opportunity Scanner mit Lern-/Confidence-Kontext erweitert: Scanner-Ergebnisse zeigen jetzt ähnliche historische Setups, Trefferquote ähnlicher Setups und Historienstatus.
+- Score-Trennung beibehalten: Der Historienkontext verändert den Opportunity Score nicht automatisch, sondern wird als Transparenzfeld und Begründung angezeigt.
+- Testbarkeit ergänzt: Scanner-Mock-Test prüft weiter einmalige Yahoo-Stammdatennutzung und zusätzlich die neuen Historienfelder.
+- README aktualisiert: Opportunity Scanner beschreibt jetzt historische Setup-Anzahl und Trefferquote.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Scanner-Historien-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Opportunity-Scanner-Ergebnisliste gegen Lern-/Confidence-Kontext prüfen` ist umgesetzt; neue Priorität ist `Trading-Modus-Ergebnisliste gegen Lern-/Confidence-Kontext und Journal-Felder prüfen`, weil Trading-Setups direkt aus Scanner-Kandidaten entstehen und ins Journal fließen.
 
 - Kalibrierungs- und Lernmodul konsolidiert: `evaluated_history_cases()` normalisiert jetzt zusätzlich Szenario-Lesart, Fehlursache und Decision-Alignment aus Review-Daten.
 - Fehlfall- und Kalibrierungstabellen erweitert: negative Fälle und Kalibrierungsvorschläge können nun nach Szenario-Lesart, Fehlursache und Decision-Alignment gruppiert werden.

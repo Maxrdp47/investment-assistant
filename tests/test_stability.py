@@ -348,13 +348,35 @@ def test_opportunity_scanner_reuses_loaded_ticker_info(monkeypatch) -> None:
     monkeypatch.setattr(app, "load_ticker_info", fake_load_ticker_info)
     monkeypatch.setattr(app, "score_macro", lambda: app.ModuleScore(5.0, "Makro neutral", []))
     monkeypatch.setattr(app, "score_news", lambda symbol: app.ModuleScore(5.0, "News neutral", []))
+    monkeypatch.setattr(
+        app,
+        "similar_setup_statistics",
+        lambda asset_type, market_phase, direction, buy_signal_score: {
+            "count": 3,
+            "hits": 2,
+            "hit_rate": 66.7,
+            "status": "Datenbasis zu klein",
+            "summary": "Ähnliche historische Setups: 3. Datenbasis zu klein.",
+        },
+    )
 
     rows, errors = app.scan_opportunities(["NVDA"])
 
     assert errors == []
     assert calls["ticker_info"] == 1
     assert rows[0]["Ticker"] == "NVDA"
-    assert {"News", "Makro", "Liquidität", "Bewertung", "Institutionelle Faktoren"} <= set(rows[0])
+    assert {
+        "News",
+        "Makro",
+        "Liquidität",
+        "Bewertung",
+        "Institutionelle Faktoren",
+        "Ähnliche Setups",
+        "Trefferquote ähnliche Setups",
+        "Historienstatus",
+    } <= set(rows[0])
+    assert rows[0]["Ähnliche Setups"] == 3
+    assert rows[0]["Trefferquote ähnliche Setups"] == 66.7
 
 
 def test_portfolio_loader_reports_empty_or_invalid_optional_file(tmp_path: Path, monkeypatch) -> None:

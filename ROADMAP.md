@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Confidence-System gegen Kalibrierungskontext aus Performance-Reviews prüfen.
+1. Lernsystem-Ausgabe für Kalibrierungskontext verständlicher zusammenfassen.
 
 Warum diese Aufgabe zuerst:
 
-- Lern- und Fehlmusteranalyse gruppieren jetzt Kalibrierungskontext und Kalibrierungshinweis aus Performance-Reviews.
-- Der nächste größte Nutzen liegt darin, zu prüfen, ob ähnliche-Setup-/Confidence-Ausgaben diese Kontexte ebenfalls transparent anzeigen.
-- Dadurch kann die App bei neuen Setups besser erklären, ob ähnliche Fälle nicht nur Trefferquoten, sondern auch wiederkehrende Backtest-Warnungen hatten.
+- Confidence-Ausgaben zeigen jetzt häufigsten Kalibrierungskontext und Kalibrierungshinweis aus ähnlichen Performance-Reviews.
+- Der nächste größte Nutzen liegt darin, diese Lerninformationen in der Analyseansicht knapper und anfängerfreundlicher zusammenzufassen.
+- Dadurch werden die zusätzlichen Lernfelder nutzbar, ohne die Oberfläche mit reinen Detailtabellen zu überladen.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Confidence-System gegen Kalibrierungskontext aus Performance-Reviews geprüft: `similar_setup_rows()` zeigt jetzt häufigsten `Kalibrierungskontext` und `Kalibrierungshinweis` aus ähnlichen lokalen Fällen.
+- Score-Trennung beibehalten: Die neuen Confidence-Kontexte sind reine Transparenzhinweise und verändern keine Gewichtungen.
+- README aktualisiert: Confidence-System nennt Kalibrierungskontext als zusätzlichen Review-Kontext.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Confidence-Kalibrierungskontext-Mock-Test erfolgreich.
+- Priorität angepasst: ursprüngliche Priorität `Confidence-System gegen Kalibrierungskontext aus Performance-Reviews prüfen` ist umgesetzt; neue Priorität ist `Lernsystem-Ausgabe für Kalibrierungskontext verständlicher zusammenfassen`, weil die neuen Kontexte jetzt über mehrere Tabellen verteilt sind.
 
 - Lern-/Signalanalyse gegen Performance-Kalibrierungskontext geprüft: `evaluated_history_cases()` übernimmt jetzt `calibration_context` und `calibration_hint` aus Review oder Setup.
 - Fehlmuster und Kalibrierung erweitert: `negative_case_cause_rows()` und `calibration_suggestion_rows()` können Kalibrierungskontext und Kalibrierungshinweis gruppieren.

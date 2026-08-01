@@ -734,6 +734,8 @@ def test_similar_setup_rows_surface_extended_review_context() -> None:
                     "miss_reason": "Signalproblem: Makro",
                     "decision_alignment": "gegen App-Einschätzung",
                     "history_status": "vorsichtiger Hinweis",
+                    "calibration_context": "Belastbarer Lernkontext (negativ)",
+                    "calibration_hint": "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.",
                 }
             },
         }
@@ -758,6 +760,8 @@ def test_similar_setup_rows_surface_extended_review_context() -> None:
     assert context["Häufigster Kontext: Fehlursache"] == "Signalproblem: Makro"
     assert context["Häufigster Kontext: Decision-Alignment"] == "gegen App-Einschätzung"
     assert context["Häufigster Kontext: Historienstatus"] == "vorsichtiger Hinweis"
+    assert context["Häufigster Kontext: Kalibrierungskontext"] == "Belastbarer Lernkontext (negativ)"
+    assert context["Häufigster Kontext: Kalibrierungshinweis"] == "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis."
 
 
 def test_backtest_confidence_context_uses_minimum_data_rules() -> None:

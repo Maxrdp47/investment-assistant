@@ -2166,6 +2166,8 @@ def similar_setup_rows(
         ("Fehlursache", "miss_reason"),
         ("Decision-Alignment", "decision_alignment"),
         ("Historienstatus", "history_status"),
+        ("Kalibrierungskontext", "calibration_context"),
+        ("Kalibrierungshinweis", "calibration_hint"),
     ]
     for label, key in context_fields:
         values = [

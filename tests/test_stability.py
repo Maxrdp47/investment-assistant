@@ -257,6 +257,8 @@ def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, mon
                     "similar_setup_hit_rate": 62.5,
                     "history_status": "vorsichtiger Hinweis",
                     "history_summary": "Ähnliche historische Setups: 24, Trefferquote 62.5 %.",
+                    "calibration_context": "Belastbarer Lernkontext (negativ)",
+                    "calibration_hint": "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.",
                     "review_after": app.empty_review_schedule(),
                 }
             ],
@@ -289,6 +291,8 @@ def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, mon
     assert review["similar_setup_hits"] == 15
     assert review["similar_setup_hit_rate"] == 62.5
     assert review["history_status"] == "vorsichtiger Hinweis"
+    assert review["calibration_context"] == "Belastbarer Lernkontext (negativ)"
+    assert review["calibration_hint"] == "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis."
 
 
 def test_decision_alignment_maps_user_decision_against_app_action() -> None:

@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Performance-Tracking-Auswertung gegen Kalibrierungskontext-Felder prüfen.
+1. Lern-/Signalanalyse gegen Performance-Kalibrierungskontext prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Trade-Journal-Speicherung erhält jetzt Kalibrierungskontext und Kalibrierungshinweis über deutsche Felder und Legacy-Aliase.
-- Der nächste größte Nutzen liegt darin, zu prüfen, ob Performance-Tracking diese Felder bei späteren Reviews erhält und nicht überschreibt.
-- Dadurch bleiben spätere Lern-Auswertungen vollständig, ohne die ursprüngliche Setup-Begründung zu verlieren.
+- Performance-Tracking übernimmt jetzt Kalibrierungskontext und Kalibrierungshinweis in Review-Ergebnisse.
+- Der nächste größte Nutzen liegt darin, zu prüfen, ob Lern- und Signalanalyse diese Review-Kontexte sinnvoll gruppieren oder zumindest als Kontext erhalten.
+- Dadurch kann das Lernsystem später erkennen, ob bestimmte Backtest-Warnungen tatsächlich mit schlechteren Ergebnissen zusammenfielen.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Performance-Tracking-Auswertung gegen Kalibrierungskontext-Felder geprüft: Trade-Journal-Reviews speichern jetzt `calibration_context` und `calibration_hint` aus dem ursprünglichen Setup.
+- Setup-Kontext bleibt erhalten: Performance Reviews überschreiben die ursprünglichen Kalibrierungshinweise nicht, sondern führen sie als Auswertungskontext mit.
+- README aktualisiert: Performance Tracking beschreibt jetzt den ursprünglichen Kalibrierungskontext.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Performance-Kalibrierungskontext-Mock-Test erfolgreich.
+- Priorität angepasst: ursprüngliche Priorität `Performance-Tracking-Auswertung gegen Kalibrierungskontext-Felder prüfen` ist umgesetzt; neue Priorität ist `Lern-/Signalanalyse gegen Performance-Kalibrierungskontext prüfen`, weil diese Review-Felder für spätere Signalqualität relevant sind.
 
 - Trade-Journal-Speicherung gegen neue Kalibrierungskontext-Felder geprüft: `normalize_trade_record()` übernimmt `calibration_context` und `calibration_hint` in `Kalibrierungskontext` und `Kalibrierungshinweis`.
 - Default-Verhalten ergänzt: Fehlen die Felder, zeigt das Trade Journal `Daten nicht verfügbar` und verändert keine Einschätzung.

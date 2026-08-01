@@ -585,6 +585,8 @@ def evaluate_due_trade_history() -> tuple[int, str]:
             "similar_setup_hit_rate": record.get("Trefferquote ähnliche Setups"),
             "history_status": record.get("Historienstatus"),
             "history_summary": record.get("Historienhinweis"),
+            "calibration_context": record.get("Kalibrierungskontext"),
+            "calibration_hint": record.get("Kalibrierungshinweis"),
         }
 
         for label in due_periods:

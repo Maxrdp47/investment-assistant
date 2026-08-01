@@ -46,6 +46,8 @@ Der Test kompiliert `app.py`, startet Streamlit kurz auf einem freien lokalen Po
 .\.venv\Scripts\python.exe scripts\smoke_test.py --skip-live-data
 ```
 
+Für GitHub ist zusätzlich ein Workflow unter `.github/workflows/smoke.yml` vorbereitet. Er installiert die Abhängigkeiten und führt den Offline-Smoke-Test ohne private Laufzeitdateien aus.
+
 ## Deployment auf Streamlit Community Cloud
 
 Die App ist für Streamlit Community Cloud vorbereitet und kann im Handy-Browser genutzt werden.

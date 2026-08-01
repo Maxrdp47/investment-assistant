@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Lokale Historienqualität in CI-/GitHub-Check vorbereiten.
+1. GitHub-Workflow nach erstem Remote-Lauf auswerten.
 
 Warum diese Aufgabe zuerst:
 
-- `scripts/smoke_test.py` zeigt jetzt lokale Historienqualität im Smoke-Test an.
-- Der nächste größte Nutzen liegt darin, diesen Check CI-tauglich zu machen oder für GitHub Actions vorzubereiten, ohne private Laufzeitdateien zu benötigen.
-- Dadurch kann das Repository später automatisch prüfen, dass die App startet und Historienlogik auch ohne lokale Nutzerdaten stabil bleibt.
+- GitHub Actions Smoke-Workflow ist vorbereitet und nutzt den Offline-Smoke-Test ohne private Laufzeitdateien.
+- Der nächste größte Nutzen liegt darin, nach dem nächsten Push den ersten Remote-Lauf auszuwerten und mögliche CI-spezifische Fehler zu beheben.
+- Dadurch wird klar, ob Streamlit-Start, Dependencies und Historienqualität auch in GitHub Actions stabil sind.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Lokale Historienqualität in CI-/GitHub-Check vorbereitet: neuer Workflow `.github/workflows/smoke.yml` installiert Dependencies und führt `python scripts/smoke_test.py --skip-live-data` aus.
+- Datenschutz beibehalten: Der Workflow benötigt keine `portfolio.json`, keine Lernhistorien, keine Secrets, keine Brokerdaten und keine API-Keys.
+- README aktualisiert: Smoke-Test-Abschnitt nennt den GitHub-Workflow.
+- Tests dokumentiert: lokaler `scripts\smoke_test.py --skip-live-data` vorgesehen vor Commit; Remote-Auswertung folgt nach Push.
+- Priorität angepasst: ursprüngliche Priorität `Lokale Historienqualität in CI-/GitHub-Check vorbereiten` ist umgesetzt; neue Priorität ist `GitHub-Workflow nach erstem Remote-Lauf auswerten`, weil CI-Ergebnisse erst nach Push sichtbar sind.
 
 - Historienqualität in Smoke-Test sichtbar gemacht: `scripts/smoke_test.py` ruft jetzt `local_history_quality_rows()` auf und gibt Status sowie eingeschränkte Historien aus.
 - README aktualisiert: Smoke-Test-Beschreibung nennt lokale Historienqualität.

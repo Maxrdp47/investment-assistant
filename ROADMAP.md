@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Testbarkeit der neuen Lern-/Confidence-Kontextfunktionen bündeln.
+1. Datenqualitäts-Check für Lern-/Backtest-Historien ausbauen.
 
 Warum diese Aufgabe zuerst:
 
-- Analyse-Details zeigen jetzt eine kompakte Kalibrierungskontext-Zusammenfassung mit Fallzahl, Fehlquote, Durchschnittsrendite und praktischer Bedeutung.
-- Der nächste größte Nutzen liegt darin, die neu entstandenen Lern-/Confidence-Helfer in stabilen Tests zusammenzufassen und wiederkehrende Mock-Muster zu reduzieren.
-- Dadurch sinkt Wartungsaufwand, während die Analysequalität weiter ausgebaut werden kann.
+- Tests für Lern-, Confidence- und Kalibrierungskontext nutzen jetzt gemeinsame Mock-Historien.
+- Der nächste größte Nutzen liegt wieder in PRIO A/B: Datenqualität der lokalen Lern- und Backtest-Historien klarer prüfen und fehlerhafte Einträge besser erklären.
+- Dadurch erkennt die App früher, ob historische Lernsignale belastbar sind oder durch defekte lokale Dateien verfälscht werden könnten.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Testbarkeit der neuen Lern-/Confidence-Kontextfunktionen gebündelt: `tests/test_stability.py` nutzt jetzt gemeinsame Konstanten und `reviewed_case()` für Kalibrierungskontext-Mocks.
+- Wartbarkeit verbessert: Mehrere Tests für Kalibrierungsvorschläge, Fehlmuster, Kalibrierungskontext-Zusammenfassung und ähnliche Setups verwenden dieselbe Mock-Historie.
+- README aktualisiert: Teststrategie für Lern-/Confidence-Kontexte ergänzt.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich.
+- Priorität angepasst: ursprüngliche Priorität `Testbarkeit der neuen Lern-/Confidence-Kontextfunktionen bündeln` ist umgesetzt; neue Priorität ist `Datenqualitäts-Check für Lern-/Backtest-Historien ausbauen`, weil belastbare Historien die Grundlage der Lernmodule sind.
 
 - Lernsystem-Ausgabe für Kalibrierungskontext verständlicher zusammengefasst: neue `calibration_context_summary_rows()` erzeugt eine kompakte Tabelle mit Fallzahl, Fehlquote, Durchschnittsrendite und praktischer Bedeutung.
 - Analyse-Details erweitert: Direkt nach den Lernlogik-Guardrails zeigt die App `Kalibrierungskontext kurz erklärt`.

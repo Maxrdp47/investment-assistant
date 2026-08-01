@@ -6,6 +6,41 @@ from pathlib import Path
 import app
 from streamlit.testing.v1 import AppTest
 
+CALIBRATION_CONTEXT = "Belastbarer Lernkontext (negativ)"
+CALIBRATION_HINT = "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis."
+
+
+def reviewed_case(
+    *,
+    return_pct: float = -4.0,
+    action: str = "Long",
+    asset_type: str = "Aktie",
+    market_phase: str = "Bullenmarkt",
+    buy_signal: float = 8.0,
+    asset_quality: float = 7.5,
+    review: dict | None = None,
+) -> dict:
+    review_data = {
+        "return_pct": return_pct,
+        "scenario_read": "Bear wahrscheinlicher",
+        "miss_reason": "Signalproblem: Makro",
+        "decision_alignment": "gegen App-Einschätzung",
+        "history_status": "vorsichtiger Hinweis",
+        "calibration_context": CALIBRATION_CONTEXT,
+        "calibration_hint": CALIBRATION_HINT,
+    }
+    if review:
+        review_data.update(review)
+    return {
+        "Richtung": action,
+        "Asset-Typ": asset_type,
+        "Marktphase": market_phase,
+        "Kaufsignal": buy_signal,
+        "Asset-Qualität": asset_quality,
+        "Historienstatus": "vorsichtiger Hinweis",
+        "review_after": {"1m": review_data},
+    }
+
 
 def test_evaluated_history_cases_accepts_empty_histories() -> None:
     assert app.evaluated_history_cases() == []
@@ -142,8 +177,8 @@ def test_trade_journal_normalizes_legacy_and_history_fields(tmp_path: Path, monk
         "similar_setup_hit_rate": 62.5,
         "history_status": "vorsichtiger Hinweis",
         "history_summary": "Ähnliche historische Setups: 24, Trefferquote 62.5 %.",
-        "calibration_context": "Belastbarer Lernkontext (negativ)",
-        "calibration_hint": "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.",
+        "calibration_context": CALIBRATION_CONTEXT,
+        "calibration_hint": CALIBRATION_HINT,
     }
 
     added, _ = app.auto_document_trade_setups([setup])
@@ -161,8 +196,8 @@ def test_trade_journal_normalizes_legacy_and_history_fields(tmp_path: Path, monk
     assert saved["Treffer ähnliche Setups"] == 15
     assert saved["Trefferquote ähnliche Setups"] == 62.5
     assert saved["Historienstatus"] == "vorsichtiger Hinweis"
-    assert saved["Kalibrierungskontext"] == "Belastbarer Lernkontext (negativ)"
-    assert saved["Kalibrierungshinweis"] == "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis."
+    assert saved["Kalibrierungskontext"] == CALIBRATION_CONTEXT
+    assert saved["Kalibrierungshinweis"] == CALIBRATION_HINT
     assert set(saved["review_after"]) == set(app.TRACKING_PERIODS)
 
 
@@ -257,8 +292,8 @@ def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, mon
                     "similar_setup_hit_rate": 62.5,
                     "history_status": "vorsichtiger Hinweis",
                     "history_summary": "Ähnliche historische Setups: 24, Trefferquote 62.5 %.",
-                    "calibration_context": "Belastbarer Lernkontext (negativ)",
-                    "calibration_hint": "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.",
+                    "calibration_context": CALIBRATION_CONTEXT,
+                    "calibration_hint": CALIBRATION_HINT,
                     "review_after": app.empty_review_schedule(),
                 }
             ],
@@ -291,8 +326,8 @@ def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, mon
     assert review["similar_setup_hits"] == 15
     assert review["similar_setup_hit_rate"] == 62.5
     assert review["history_status"] == "vorsichtiger Hinweis"
-    assert review["calibration_context"] == "Belastbarer Lernkontext (negativ)"
-    assert review["calibration_hint"] == "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis."
+    assert review["calibration_context"] == CALIBRATION_CONTEXT
+    assert review["calibration_hint"] == CALIBRATION_HINT
 
 
 def test_decision_alignment_maps_user_decision_against_app_action() -> None:
@@ -637,23 +672,7 @@ def test_calibration_suggestions_allow_manual_proposal_after_large_error_basis()
 
 
 def test_calibration_suggestions_include_new_review_fields() -> None:
-    records = [
-        {
-            "action": "Long",
-            "asset_type": "Aktie",
-            "review_after": {
-                "1m": {
-                    "return_pct": -4.0,
-                    "scenario_read": "Bear wahrscheinlicher",
-                    "miss_reason": "Signalproblem: Makro",
-                    "decision_alignment": "gegen App-Einschätzung",
-                    "calibration_context": "Belastbarer Lernkontext (negativ)",
-                    "calibration_hint": "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.",
-                }
-            },
-        }
-        for _ in range(20)
-    ]
+    records = [reviewed_case() for _ in range(20)]
 
     _, rows = app.calibration_suggestion_rows([], [], [], records)
     dimensions = {(row["Bereich"], row["Muster"]) for row in rows}
@@ -661,24 +680,16 @@ def test_calibration_suggestions_include_new_review_fields() -> None:
     assert ("Szenario-Lesart", "Bear wahrscheinlicher") in dimensions
     assert ("Fehlursache", "Signalproblem: Makro") in dimensions
     assert ("Decision-Alignment", "gegen App-Einschätzung") in dimensions
-    assert ("Kalibrierungskontext", "Belastbarer Lernkontext (negativ)") in dimensions
-    assert ("Kalibrierungshinweis", "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.") in dimensions
+    assert ("Kalibrierungskontext", CALIBRATION_CONTEXT) in dimensions
+    assert ("Kalibrierungshinweis", CALIBRATION_HINT) in dimensions
 
 
 def test_negative_case_cause_rows_include_new_review_fields() -> None:
     decisions = [
-        {
-            "decision": "Nicht kaufen",
-            "asset_type": "Aktie",
-            "review_after": {
-                "1m": {
-                    "decision_return_pct": -1.0,
-                    "decision_alignment": "gegen App-Einschätzung",
-                    "miss_reason": "Kursentwicklung gegen Prognose",
-                    "calibration_context": "Belastbarer Lernkontext (negativ)",
-                }
-            },
-        }
+        reviewed_case(
+            action="Nicht kaufen",
+            review={"decision_return_pct": -1.0, "miss_reason": "Kursentwicklung gegen Prognose"},
+        )
     ]
 
     _, rows = app.negative_case_cause_rows([], [], decisions, [])
@@ -686,7 +697,7 @@ def test_negative_case_cause_rows_include_new_review_fields() -> None:
 
     assert ("Decision-Alignment", "gegen App-Einschätzung") in dimensions
     assert ("Fehlursache", "Kursentwicklung gegen Prognose") in dimensions
-    assert ("Kalibrierungskontext", "Belastbarer Lernkontext (negativ)") in dimensions
+    assert ("Kalibrierungskontext", CALIBRATION_CONTEXT) in dimensions
 
 
 def test_learning_guardrails_block_calibration_under_minimum() -> None:
@@ -720,23 +731,14 @@ def test_learning_guardrails_allow_only_manual_suggestions_after_large_basis() -
 
 def test_calibration_context_summary_rows_explains_contexts() -> None:
     records = [
-        {
-            "action": "Long",
-            "asset_type": "Aktie",
-            "review_after": {
-                "1m": {
-                    "return_pct": -3.0 if index < 14 else 2.0,
-                    "calibration_context": "Belastbarer Lernkontext (negativ)",
-                }
-            },
-        }
+        reviewed_case(return_pct=-3.0 if index < 14 else 2.0)
         for index in range(20)
     ]
 
     status, rows = app.calibration_context_summary_rows(records, [], [], [])
 
     assert "Zusammenfassung" in status
-    assert rows[0]["Kalibrierungskontext"] == "Belastbarer Lernkontext (negativ)"
+    assert rows[0]["Kalibrierungskontext"] == CALIBRATION_CONTEXT
     assert rows[0]["Fälle"] == "20"
     assert rows[0]["Fehlquote"] == "70.0%"
     assert "Warnhinweis ernst nehmen" in rows[0]["Bedeutung"]
@@ -744,28 +746,7 @@ def test_calibration_context_summary_rows_explains_contexts() -> None:
 
 
 def test_similar_setup_rows_surface_extended_review_context() -> None:
-    trade_history = [
-        {
-            "Richtung": "Long",
-            "Asset-Typ": "Aktie",
-            "Marktphase": "Bullenmarkt",
-            "Kaufsignal": 8.0,
-            "Asset-Qualität": 7.5,
-            "Historienstatus": "vorsichtiger Hinweis",
-            "review_after": {
-                "1m": {
-                    "return_pct": -2.0,
-                    "scenario_read": "Bear wahrscheinlicher",
-                    "miss_reason": "Signalproblem: Makro",
-                    "decision_alignment": "gegen App-Einschätzung",
-                    "history_status": "vorsichtiger Hinweis",
-                    "calibration_context": "Belastbarer Lernkontext (negativ)",
-                    "calibration_hint": "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.",
-                }
-            },
-        }
-        for _ in range(20)
-    ]
+    trade_history = [reviewed_case(return_pct=-2.0) for _ in range(20)]
 
     status, rows = app.similar_setup_rows(
         app.AssetProfile("Aktie", "EQUITY", "Aktie", {}),
@@ -785,8 +766,8 @@ def test_similar_setup_rows_surface_extended_review_context() -> None:
     assert context["Häufigster Kontext: Fehlursache"] == "Signalproblem: Makro"
     assert context["Häufigster Kontext: Decision-Alignment"] == "gegen App-Einschätzung"
     assert context["Häufigster Kontext: Historienstatus"] == "vorsichtiger Hinweis"
-    assert context["Häufigster Kontext: Kalibrierungskontext"] == "Belastbarer Lernkontext (negativ)"
-    assert context["Häufigster Kontext: Kalibrierungshinweis"] == "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis."
+    assert context["Häufigster Kontext: Kalibrierungskontext"] == CALIBRATION_CONTEXT
+    assert context["Häufigster Kontext: Kalibrierungshinweis"] == CALIBRATION_HINT
 
 
 def test_backtest_confidence_context_uses_minimum_data_rules() -> None:

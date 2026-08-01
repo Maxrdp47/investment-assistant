@@ -379,6 +379,7 @@ Beispielausgabe:
 - Zeithorizont: 2-6 Wochen
 - CRV: 3,1
 - Status: Basis umgesetzt am 2026-06-15. Aus Scanner-Kandidaten werden Trading-Setups mit Richtung, Chance, Confidence, Zielzone, Stop-Zone, Zeithorizont, CRV, Risiken und Chancen erzeugt. Speichern ins lokale Trade Journal ist optional und löst keine Order aus.
+- Status: konsolidiert am 2026-08-01. Trading-Setups speichern und zeigen zusätzlich ähnliche Setups, Treffer ähnlicher Setups, Trefferquote, Historienstatus und Historienhinweis; Yahoo-Stammdaten werden für Asset-Qualität wiederverwendet.
 
 ### PRIO B: Trade Journal
 
@@ -527,18 +528,18 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Trading-Modus-Ergebnisliste gegen Lern-/Confidence-Kontext und Journal-Felder prüfen.
+1. Trade-Journal-Datenmodell gegen neue Trading-/Performance-Felder konsolidieren.
 
 Warum diese Aufgabe zuerst:
 
-- Opportunity-Scanner-Ergebnisse zeigen jetzt ähnliche historische Setups, Trefferquote und Historienstatus, ohne den Opportunity Score automatisch umzubauen.
-- Der Trading-Modus nutzt Scanner-Kandidaten und schreibt Setups ins lokale Journal; er sollte die gleichen Lern-/Confidence-Felder vollständig und konsistent ausgeben.
-- Der nächste größte Nutzen liegt darin, Trading-Setups gegen aktuelle Journal- und Performance-Tracking-Felder zu prüfen.
+- Trading-Modus zeigt und speichert jetzt Historienstatus, ähnliche Setups und Trefferquote konsistent zum Scanner.
+- Trade Journal ist die persistente Grundlage für Performance Tracking; das Datenmodell sollte alte und neue Setup-Felder robust normalisieren.
+- Der nächste größte Nutzen liegt darin, Journal-Speicherung und spätere Auswertung gegen fehlende oder ältere Felder abzusichern.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Trading-Modus-Ausgabe und gespeicherte Setups gegen Roadmap-Anforderungen prüfen.
-2. Fehlende Historien-/Confidence- oder Performance-Felder ergänzen, falls sinnvoll.
+1. Bestehende Trade-Journal-Speicherung und Auswertung gegen neue Setup-Felder prüfen.
+2. Fehlende Normalisierung für ältere Journal-Einträge ergänzen, falls sinnvoll.
 3. Keine automatische Kauf-/Verkaufsfunktion einbauen.
 4. Tests ausführen und README/ROADMAP aktualisieren.
 
@@ -1021,6 +1022,13 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Trading-Modus gegen Lern-/Confidence-Kontext konsolidiert: Trading-Setups zeigen und speichern jetzt Treffer ähnlicher Setups, Trefferquote, Historienstatus und Historienhinweis.
+- Performance verbessert: `build_trading_setup()` verwendet bereits geladene Yahoo-Stammdaten für die Asset-Qualität und vermeidet eine doppelte Stammdatenabfrage pro Setup.
+- Trade-Journal-Kontext erweitert: Die neuen Felder werden beim automatischen lokalen Dokumentieren mitgespeichert; keine Order, keine Broker-Anbindung.
+- README aktualisiert: Trading-Modus beschreibt jetzt Historienstatus und ähnliche Setups.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Trading-Setup-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Trading-Modus-Ergebnisliste gegen Lern-/Confidence-Kontext und Journal-Felder prüfen` ist umgesetzt; neue Priorität ist `Trade-Journal-Datenmodell gegen neue Trading-/Performance-Felder konsolidieren`, weil gespeicherte Setups die Basis für spätere Performance-Auswertungen sind.
 
 - Opportunity Scanner mit Lern-/Confidence-Kontext erweitert: Scanner-Ergebnisse zeigen jetzt ähnliche historische Setups, Trefferquote ähnlicher Setups und Historienstatus.
 - Score-Trennung beibehalten: Der Historienkontext verändert den Opportunity Score nicht automatisch, sondern wird als Transparenzfeld und Begründung angezeigt.

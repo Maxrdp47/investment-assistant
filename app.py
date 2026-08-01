@@ -3649,7 +3649,7 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
         profile = detect_asset_type(symbol, info)
         market_phase = detect_market_phase(df)
         risk_reward = calculate_risk_reward(close, supports, resistances)
-        asset_quality = score_asset_quality(symbol, profile, df)
+        asset_quality = score_asset_quality_from_info(symbol, profile, df, info)
         buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
         confidence = scanner_confidence(df, market_phase, latest)
         direction = scanner_direction(buy_signal, market_phase)
@@ -3698,7 +3698,9 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
             "Chance": chance,
             "Confidence": confidence,
             "Ähnliche Setups": historical_stats["count"],
+            "Treffer ähnliche Setups": historical_stats["hits"],
             "Trefferquote ähnliche Setups": historical_stats["hit_rate"],
+            "Historienstatus": historical_stats["status"],
             "Historienhinweis": historical_stats["summary"],
             "CRV": None if crv is None else round(crv, 2),
             "Zeithorizont": "2-8 Wochen",
@@ -3727,6 +3729,7 @@ def setup_display_rows(setups: list[dict]) -> list[dict]:
                 "Chance": f"{setup['Chance']}%",
                 "Confidence": f"{setup['Confidence']:.1f}/10",
                 "Ähnliche Setups": setup.get("Ähnliche Setups", 0),
+                "Historienstatus": setup.get("Historienstatus", "Datenbasis zu klein"),
                 "Trefferquote ähnliche Setups": "Datenbasis zu klein" if setup.get("Trefferquote ähnliche Setups") is None else f"{setup['Trefferquote ähnliche Setups']:.1f}%",
                 "Einstieg": format_currency(float(setup["Einstieg"])),
                 "Zielzone": format_currency(float(setup["Zielzone"])) if setup.get("Zielzone") is not None else "Daten nicht verfügbar",

@@ -126,6 +126,54 @@ def test_trade_journal_allows_new_direction_or_day(tmp_path: Path, monkeypatch) 
     assert len(app.load_trade_history()) == 3
 
 
+def test_trading_setup_reuses_info_and_keeps_history_context(monkeypatch) -> None:
+    calls = {"ticker_info": 0}
+    index = app.pd.date_range("2025-01-01", periods=260, freq="D")
+    prices = app.pd.DataFrame(
+        {
+            "Close": list(range(100, 360)),
+            "High": list(range(101, 361)),
+            "Low": list(range(99, 359)),
+            "Volume": [100_000] * 260,
+        },
+        index=index,
+    )
+
+    def fake_load_ticker_info(symbol: str) -> dict:
+        calls["ticker_info"] += 1
+        return {
+            "quoteType": "EQUITY",
+            "shortName": "Nvidia",
+            "trailingPE": 24.0,
+            "heldPercentInstitutions": 0.52,
+        }
+
+    monkeypatch.setattr(app, "load_price_data", lambda symbol, period, interval: prices.copy())
+    monkeypatch.setattr(app, "load_ticker_info", fake_load_ticker_info)
+    monkeypatch.setattr(
+        app,
+        "similar_setup_statistics",
+        lambda asset_type, market_phase, direction, buy_signal_score: {
+            "count": 24,
+            "hits": 15,
+            "hit_rate": 62.5,
+            "status": "vorsichtiger Hinweis",
+            "summary": "Ähnliche historische Setups: 24, Trefferquote 62.5 %. Nur vorsichtig interpretieren.",
+        },
+    )
+
+    setup, error = app.build_trading_setup("NVDA")
+
+    assert error is None
+    assert setup is not None
+    assert calls["ticker_info"] == 1
+    assert setup["Ähnliche Setups"] == 24
+    assert setup["Treffer ähnliche Setups"] == 15
+    assert setup["Trefferquote ähnliche Setups"] == 62.5
+    assert setup["Historienstatus"] == "vorsichtiger Hinweis"
+    assert app.setup_display_rows([setup])[0]["Historienstatus"] == "vorsichtiger Hinweis"
+
+
 def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, monkeypatch) -> None:
     trade_path = tmp_path / "trade_history.json"
     monkeypatch.setattr(app, "TRADE_HISTORY_PATH", trade_path)

@@ -819,6 +819,7 @@ def test_prediction_hit_rate_rows_group_by_asset_and_module() -> None:
                 "1m": {
                     "return_pct": 6.2,
                     "scenario_read": "Bull/Base wahrscheinlicher",
+                    "miss_reason": "Keine Fehlprognose",
                 }
             },
         }
@@ -831,6 +832,41 @@ def test_prediction_hit_rate_rows_group_by_asset_and_module() -> None:
     assert ("Asset-Typ", "Aktie") in dimensions
     assert ("Modul", "Makro-Score (hoch)") in dimensions
     assert ("Modul", "News-Score (niedrig)") in dimensions
+    assert ("Szenario-Lesart", "Bull/Base wahrscheinlicher") in dimensions
+
+
+def test_prediction_hit_rate_rows_group_miss_reasons() -> None:
+    predictions = [
+        {
+            "asset_type": "Aktie",
+            "market_phase": "Seitwärtsmarkt",
+            "module_scores": [{"name": "News-Score", "score": 3.0}],
+            "review_after": {
+                "1m": {
+                    "return_pct": -5.0,
+                    "scenario_read": "Bear wahrscheinlicher",
+                    "miss_reason": "Schwaches Modul: News-Score",
+                }
+            },
+        }
+    ]
+
+    _, rows = app.prediction_hit_rate_rows(predictions)
+    dimensions = {(row["Dimension"], row["Gruppe"]) for row in rows}
+
+    assert ("Szenario-Lesart", "Bear wahrscheinlicher") in dimensions
+    assert ("Fehlursache", "Schwaches Modul: News-Score") in dimensions
+
+
+def test_prediction_miss_reason_uses_available_signals_only() -> None:
+    record = {
+        "market_phase": "Seitwärtsmarkt",
+        "signal_snapshot": {"Makro": "niedrig", "News": "neutral"},
+        "module_scores": [{"name": "News-Score", "score": 3.0}],
+    }
+
+    assert app.prediction_miss_reason(record, -4.0) == "Signalproblem: Makro"
+    assert app.prediction_miss_reason(record, 2.0) == "Keine Fehlprognose"
 
 
 def test_prediction_hit_rate_rows_keeps_legacy_signal_snapshots() -> None:

@@ -252,6 +252,7 @@ Transparenzregeln:
 - Prognosen speichern. Status: umgesetzt am 2026-06-15; neue Prognosen speichern zusätzlich Modul-Scores seit 2026-07-31.
 - Szenarien und Kursziele später mit echten Ergebnissen vergleichen. Status: umgesetzt am 2026-07-20 für 1 Woche, 1 Monat, 3 Monate, 6 Monate und 12 Monate.
 - Trefferquote je Asset und Modul ausweisen. Status: erweitert am 2026-07-31; Prognose-Tracking zeigt Asset-Typ- und Modul-/Signalgruppen aus ausgewerteten Prognosen, mit Mindestdatenlogik.
+- Szenario-Lesart und Fehlursachen ausweisen. Status: erweitert am 2026-08-01; Prognoseauswertungen speichern `scenario_read` und `miss_reason`, Trefferquoten gruppieren zusätzlich nach Szenario-Lesart und Fehlursache.
 - Grundlage für ein späteres Lernsystem vorbereiten. Status: umgesetzt; Prognosen fließen in Confidence, Signalanalyse, Segmentanalyse, Fehlmuster und Kalibrierungsvorschläge ein.
 
 ### PRIO B: Forward-Testing-Modul
@@ -295,6 +296,7 @@ Transparenzregeln:
 - Trefferquote je Modul, Signalart, Asset-Typ und Marktphase berechnen.
 - Fehlprognosen sichtbar machen und Ursachen kategorisieren.
   - Status: Basis umgesetzt am 2026-07-20: verfehlte Historienfälle werden nach Asset-Typ, Marktphase, Kaufsignal, RSI, MACD, Volatilität, CRV, News und Makro gruppiert.
+  - Status: erweitert am 2026-08-01; einzelne Prognose-Reviews speichern eine einfache Fehlursache aus Marktphase, Signal-Snapshot, Modul-Scores oder Kursentwicklung.
 - Nur echte nachträgliche Kursdaten verwenden; fehlende Daten als `Daten nicht verfügbar` kennzeichnen.
 
 ### PRIO B: Kalibrierungs- und Lernmodul
@@ -523,19 +525,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Prognose-Tracking-Hauptliste gegen Szenario-Treffer, Modulgruppen und Fehlursachen konsolidieren.
+1. Kalibrierungs- und Lernmodul gegen Prognose-/Decision-/Forward-Erweiterungen konsolidieren.
 
 Warum diese Aufgabe zuerst:
 
-- Decision-Tracking ist jetzt konsolidiert: Nutzerkommentar, Score-Kontext, App-Alignment, beste Alternative und Opportunitätskosten sind im lokalen Review nachvollziehbar.
-- Prognose-Tracking ist die nächste Messschicht, weil Bull/Base/Bear-Szenarien und Modulgruppen zeigen sollen, welche Prognosen tatsächlich belastbar waren.
-- Der nächste größte Nutzen liegt darin, Prognose-Trefferquoten und Fehlursachen gegen die Roadmap-Anforderungen zu prüfen.
+- Prognose-Tracking ist jetzt konsolidiert: Szenario-Lesart, Modulgruppen und einfache Fehlursachen sind in Auswertung und Trefferquoten nutzbar.
+- Die letzten Arbeitseinheiten haben Forward-, Decision- und Prognosehistorien erweitert.
+- Der nächste größte Nutzen liegt darin, das Kalibrierungs-/Lernmodul gegen diese neuen Felder zu prüfen, damit neue Daten tatsächlich transparent nutzbar werden.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Prognose-Speicherung und Auswertung gegen ROADMAP-Anforderungen prüfen.
-2. Fehlende Felder für Szenario-Treffer, Modulgruppen oder Fehlursachen ergänzen, falls noch nicht vollständig.
-3. Kompatibilität alter Prognosehistorien beibehalten.
+1. Bestehende Lern- und Kalibrierungsansichten gegen neue Review-Felder prüfen.
+2. Fehlende Gruppierungen für App-Alignment, Szenario-Lesart oder Fehlursachen ergänzen, falls sinnvoll.
+3. Mindestdatenlogik und Verbot automatischer Gewichtungsänderungen beibehalten.
 4. Tests ausführen und README/ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1017,6 +1019,13 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Prognose-Tracking konsolidiert: Prognose-Auswertungen speichern jetzt neben `scenario_read` auch eine einfache `miss_reason` aus vorhandener Marktphase, Signal-Snapshot, Modul-Scores oder Kursentwicklung.
+- Trefferquoten erweitert: `prediction_hit_rate_rows()` gruppiert ausgewertete Prognosen zusätzlich nach Szenario-Lesart und Fehlursache.
+- Keine Daten erfunden: Fehlursachen werden nur aus bereits gespeicherten Signalen/Modul-Scores oder echter Kursentwicklung abgeleitet; fehlende Felder bleiben kompatibel.
+- README aktualisiert: Prognose-Tracking beschreibt jetzt Szenario-Lesart und mögliche Fehlursachen.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Prognose-Tracking-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Prognose-Tracking-Hauptliste gegen Szenario-Treffer, Modulgruppen und Fehlursachen konsolidieren` ist umgesetzt; neue Priorität ist `Kalibrierungs- und Lernmodul gegen Prognose-/Decision-/Forward-Erweiterungen konsolidieren`, weil die neuen Review-Felder nun in der Lernlogik nutzbar gemacht werden sollten.
 
 - Decision-Tracking konsolidiert: Decision-Reviews speichern jetzt zusätzlich App-Exposure, Entscheidungsexposure und ob die Nutzerentscheidung mit oder gegen die App-Einschätzung getroffen wurde.
 - Nutzerkontext bleibt erhalten: `user_note`, App-Aktion, Professional-Decision-Kontext, Asset-Qualität, Kaufsignal, Confidence, Marktphase, Signal-Snapshot und Modul-Scores bleiben im lokalen Decision-Datensatz.

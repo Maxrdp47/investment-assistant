@@ -725,6 +725,32 @@ def scenario_read_from_return(return_pct: float) -> str:
     return "Base wahrscheinlicher"
 
 
+def prediction_miss_reason(record: dict, return_pct: float) -> str:
+    if return_pct > 0:
+        return "Keine Fehlprognose"
+    market_phase = str(record.get("market_phase") or record.get("Marktphase") or "")
+    if "Bär" in market_phase or "Bear" in market_phase:
+        return "Schwache Marktphase"
+
+    snapshot = record.get("signal_snapshot")
+    if isinstance(snapshot, dict):
+        for signal_name in ["Makro", "News", "MACD", "CRV", "Volatilität"]:
+            value = str(snapshot.get(signal_name) or "").lower()
+            if any(marker in value for marker in ["niedrig", "negativ", "schwach", "hoch", "sehr hoch"]):
+                return f"Signalproblem: {signal_name}"
+
+    module_scores = record.get("module_scores")
+    if isinstance(module_scores, list):
+        for module in module_scores:
+            if not isinstance(module, dict):
+                continue
+            score = value_or_none(module.get("score"))
+            if score is not None and score < 4:
+                return f"Schwaches Modul: {module.get('name') or 'Unbekanntes Modul'}"
+
+    return "Kursentwicklung gegen Prognose"
+
+
 def evaluate_due_predictions() -> tuple[int, str]:
     history = load_prediction_history()
     if not history:
@@ -767,6 +793,7 @@ def evaluate_due_predictions() -> tuple[int, str]:
         max_negative = (float(lows.min()) - entry_price) / entry_price * 100
         return_pct = (current_price - entry_price) / entry_price * 100
         scenario_hit = scenario_read_from_return(return_pct)
+        miss_reason = prediction_miss_reason(record, return_pct)
         for label in due_periods:
             review_after[label] = {
                 "reviewed_at": now.isoformat(),
@@ -775,6 +802,7 @@ def evaluate_due_predictions() -> tuple[int, str]:
                 "max_positive_pct": round(max_positive, 2),
                 "max_negative_pct": round(max_negative, 2),
                 "scenario_read": scenario_hit,
+                "miss_reason": miss_reason,
                 "note": "Prognose-Auswertung mit Kursdaten; keine Kauf- oder Verkaufsautomatisierung.",
             }
             updated += 1
@@ -2189,6 +2217,15 @@ def prediction_hit_rate_rows(predictions: list[dict]) -> tuple[str, list[dict[st
     for case in evaluated:
         record = case["record"]
         grouped.setdefault(("Asset-Typ", str(record.get("asset_type") or "Unbekannt")), []).append(case)
+        review_after = record.get("review_after", {})
+        period_result = review_after.get(case["period"]) if isinstance(review_after, dict) else None
+        if isinstance(period_result, dict):
+            scenario_read = period_result.get("scenario_read")
+            if scenario_read:
+                grouped.setdefault(("Szenario-Lesart", str(scenario_read)), []).append(case)
+            miss_reason = period_result.get("miss_reason")
+            if miss_reason and not case["hit"]:
+                grouped.setdefault(("Fehlursache", str(miss_reason)), []).append(case)
         module_scores = record.get("module_scores")
         if isinstance(module_scores, list):
             for module in module_scores:

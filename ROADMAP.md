@@ -540,15 +540,17 @@ Aktuelle höchste offene Priorität:
 Warum diese Aufgabe zuerst:
 
 - GitHub Actions Smoke-Workflow ist vorbereitet und nutzt den Offline-Smoke-Test ohne private Laufzeitdateien.
+- Vor dem Remote-Lauf prüft ein lokaler und CI-fähiger Repository-Sicherheitscheck, ob verbotene Laufzeitdateien getrackt sind und ob `portfolio.json` nur Minimaldaten enthält.
 - Der nächste größte Nutzen liegt darin, nach dem nächsten Push den ersten Remote-Lauf auszuwerten und mögliche CI-spezifische Fehler zu beheben.
 - Dadurch wird klar, ob Streamlit-Start, Dependencies und Historienqualität auch in GitHub Actions stabil sind.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Confidence- und ähnliche-Setup-Auswertungen gegen neue Review-Felder prüfen.
-2. Fehlende Gruppierungen oder Hinweise zu Historienstatus, Decision-Alignment und Fehlursachen ergänzen, falls sinnvoll.
-3. Keine automatische Kauf-/Verkaufsfunktion einbauen.
-4. Tests ausführen und README/ROADMAP aktualisieren.
+1. Nach Push den ersten GitHub-Actions-Lauf prüfen.
+2. Falls der Lauf scheitert, Workflow-, Dependency- oder Linux-spezifische Fehler beheben.
+3. Falls der Lauf stabil ist, nächste offene PRIO-A-/PRIO-B-Aufgabe nach tatsächlichem Nutzen auswählen.
+4. Keine automatische Kauf-/Verkaufsfunktion einbauen.
+5. Tests ausführen und README/ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
 
@@ -1029,6 +1031,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Repository-Sicherheitscheck ergänzt: `scripts/repo_safety_check.py` prüft getrackte private Laufzeitdateien, Secret-Dateien und das Minimalformat von `portfolio.json` sowie `portfolio.example.json`.
+- GitHub-Smoke-Workflow erweitert: Vor dem Offline-Smoke-Test läuft jetzt der Repository-Sicherheitscheck.
+- README aktualisiert: Smoke-Test-Abschnitt dokumentiert den neuen Sicherheitscheck.
+- Tests dokumentiert: `scripts\repo_safety_check.py` erfolgreich; `python -m py_compile app.py scripts\smoke_test.py scripts\repo_safety_check.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; `git diff --check` ohne Whitespace-Fehler; Korruptions-/Merge-Marker-Suche ohne Treffer; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: `GitHub-Workflow nach erstem Remote-Lauf auswerten` bleibt offen, ist lokal aber bis zum Push blockiert; der Sicherheitscheck wurde als PRIO-C/Datenschutz-Schutzschritt vorgezogen, weil er GitHub-Deployment und CI stabiler macht.
 
 - Lokale Historienqualität in CI-/GitHub-Check vorbereitet: neuer Workflow `.github/workflows/smoke.yml` installiert Dependencies und führt `python scripts/smoke_test.py --skip-live-data` aus.
 - Datenschutz beibehalten: Der Workflow benötigt keine `portfolio.json`, keine Lernhistorien, keine Secrets, keine Brokerdaten und keine API-Keys.

@@ -40,13 +40,21 @@ Für eine schnelle technische Prüfung:
 .\.venv\Scripts\python.exe scripts\smoke_test.py
 ```
 
+Zusätzlich gibt es einen Repository-Sicherheitscheck:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\repo_safety_check.py
+```
+
+Der Check prüft, ob private Laufzeitdateien versehentlich versioniert sind, ob `portfolio.json` nur GitHub-kompatible Minimalfelder enthält und ob Secret-Dateien wie `.env` oder `.streamlit/secrets.toml` nicht getrackt werden.
+
 Der Test kompiliert `app.py`, startet Streamlit kurz auf einem freien lokalen Port, prüft den Analysefluss mit `BTC-EUR`, `NVDA` und `1810.HK` und zeigt die Datenqualität lokaler Lernhistorien. Ohne Live-Daten:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\smoke_test.py --skip-live-data
 ```
 
-Für GitHub ist zusätzlich ein Workflow unter `.github/workflows/smoke.yml` vorbereitet. Er installiert die Abhängigkeiten und führt den Offline-Smoke-Test ohne private Laufzeitdateien aus.
+Für GitHub ist zusätzlich ein Workflow unter `.github/workflows/smoke.yml` vorbereitet. Er installiert die Abhängigkeiten, führt den Repository-Sicherheitscheck aus und startet danach den Offline-Smoke-Test ohne private Laufzeitdateien.
 
 ## Deployment auf Streamlit Community Cloud
 

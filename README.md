@@ -40,7 +40,7 @@ Für eine schnelle technische Prüfung:
 .\.venv\Scripts\python.exe scripts\smoke_test.py
 ```
 
-Der Test kompiliert `app.py`, startet Streamlit kurz auf einem freien lokalen Port und prüft den Analysefluss mit `BTC-EUR`, `NVDA` und `1810.HK`. Ohne Live-Daten:
+Der Test kompiliert `app.py`, startet Streamlit kurz auf einem freien lokalen Port, prüft den Analysefluss mit `BTC-EUR`, `NVDA` und `1810.HK` und zeigt die Datenqualität lokaler Lernhistorien. Ohne Live-Daten:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\smoke_test.py --skip-live-data

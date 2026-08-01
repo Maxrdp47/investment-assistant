@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Historienqualität in Smoke-Test oder Testskript sichtbar machen.
+1. Lokale Historienqualität in CI-/GitHub-Check vorbereiten.
 
 Warum diese Aufgabe zuerst:
 
-- README erklärt jetzt alle lokalen Lernhistorien inklusive `backtest_history.json`, Datenschutzgrenzen, `.gitignore` und Streamlit-Cloud-Einschränkung.
-- Der nächste größte Nutzen liegt darin, Historienqualität auch in automatisierten Smoke-/Stabilitätschecks sichtbar zu machen.
-- Dadurch fällt früher auf, wenn lokale JSON-Historien defekt sind oder unerwartet versioniert werden.
+- `scripts/smoke_test.py` zeigt jetzt lokale Historienqualität im Smoke-Test an.
+- Der nächste größte Nutzen liegt darin, diesen Check CI-tauglich zu machen oder für GitHub Actions vorzubereiten, ohne private Laufzeitdateien zu benötigen.
+- Dadurch kann das Repository später automatisch prüfen, dass die App startet und Historienlogik auch ohne lokale Nutzerdaten stabil bleibt.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,11 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Historienqualität in Smoke-Test sichtbar gemacht: `scripts/smoke_test.py` ruft jetzt `local_history_quality_rows()` auf und gibt Status sowie eingeschränkte Historien aus.
+- README aktualisiert: Smoke-Test-Beschreibung nennt lokale Historienqualität.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich inklusive Historienqualitätsausgabe.
+- Priorität angepasst: ursprüngliche Priorität `Historienqualität in Smoke-Test oder Testskript sichtbar machen` ist umgesetzt; neue Priorität ist `Lokale Historienqualität in CI-/GitHub-Check vorbereiten`, weil der Smoke-Test jetzt ohne private Historien laufen kann.
 
 - Lernhistorien-Dateien mit Datenschutz-/Cloud-Hinweisen in README präzisiert: `backtest_history.json` ergänzt und Rollen der Historien erklärt.
 - Datenschutz klargestellt: Lernhistorien dürfen keine Broker-Zugangsdaten, API-Keys, Passwörter, Kontonummern oder persönlichen Identifikationsdaten enthalten.

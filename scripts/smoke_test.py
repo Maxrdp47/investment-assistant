@@ -95,6 +95,26 @@ def run_analysis_flow(symbols: list[str]) -> None:
         print(f"{symbol}: OK | Asset-Qualität {asset_quality.score}/10 | Kaufsignal {buy_signal.score}/10 | {phase.phase}")
 
 
+def run_history_quality_check() -> None:
+    sys.path.insert(0, str(ROOT))
+    import app
+
+    status, rows = app.local_history_quality_rows(
+        app.load_trade_history(),
+        app.load_forward_tests(),
+        app.load_decision_history(),
+        app.load_prediction_history(),
+        app.load_backtest_history(),
+    )
+    limited = [row for row in rows if str(row.get("Datenqualität", "")).lower().startswith("eingesch")]
+    print(f"Historienqualität: {status}")
+    if limited:
+        names = ", ".join(row.get("Historie", "Unbekannt") for row in limited)
+        print(f"Historienqualität eingeschränkt: {names}")
+    else:
+        print("Historienqualität: OK")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke-Test für den Investment-Assistenten.")
     parser.add_argument("--skip-streamlit", action="store_true", help="Streamlit-Starttest überspringen.")
@@ -109,6 +129,7 @@ def main() -> int:
         print("Streamlit-Start: OK")
     if not args.skip_live_data:
         run_analysis_flow(args.symbols)
+    run_history_quality_check()
     return 0
 
 

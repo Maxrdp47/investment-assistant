@@ -385,6 +385,7 @@ Beispielausgabe:
 
 Jeder vorgeschlagene Trade wird automatisch dokumentiert, aber niemals automatisch ausgeführt.
 Status: umgesetzt am 2026-07-31. Trading-Setups aus dem Scanner werden automatisch lokal in `trade_history.json` dokumentiert und nach Ticker, Richtung und Tag dedupliziert. Es gibt keine Orderfunktion und keine Broker-Anbindung.
+Status: konsolidiert am 2026-08-01. Neue und ältere Trade-Journal-Feldnamen werden beim Speichern defensiv normalisiert, inklusive Review-Plan, Einstieg, Ziel, Stop, Historienstatus und ähnlichen Setups.
 
 Datei:
 
@@ -528,18 +529,18 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Trade-Journal-Datenmodell gegen neue Trading-/Performance-Felder konsolidieren.
+1. Performance-Tracking-Ausgabe gegen normalisierte Journal-Felder und Historienkontext prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Trading-Modus zeigt und speichert jetzt Historienstatus, ähnliche Setups und Trefferquote konsistent zum Scanner.
-- Trade Journal ist die persistente Grundlage für Performance Tracking; das Datenmodell sollte alte und neue Setup-Felder robust normalisieren.
-- Der nächste größte Nutzen liegt darin, Journal-Speicherung und spätere Auswertung gegen fehlende oder ältere Felder abzusichern.
+- Trade Journal normalisiert neue und ältere Setup-Felder jetzt defensiv.
+- Performance Tracking liest diese Daten später aus; es sollte den Historienkontext und die normalisierten Felder sauber erhalten oder ausgeben.
+- Der nächste größte Nutzen liegt darin, die Performance-Auswertung gegen die normalisierten Journal-Felder zu prüfen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Trade-Journal-Speicherung und Auswertung gegen neue Setup-Felder prüfen.
-2. Fehlende Normalisierung für ältere Journal-Einträge ergänzen, falls sinnvoll.
+1. Bestehende Performance-Auswertung gegen normalisierte Journal-Felder prüfen.
+2. Fehlende Review-Felder oder Historienkontext in Auswertung ergänzen, falls sinnvoll.
 3. Keine automatische Kauf-/Verkaufsfunktion einbauen.
 4. Tests ausführen und README/ROADMAP aktualisieren.
 
@@ -1022,6 +1023,13 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Trade-Journal-Datenmodell konsolidiert: `append_trade_records()` normalisiert neue und ältere Feldnamen beim Speichern in `trade_history.json`.
+- Legacy-Kompatibilität verbessert: Alias-Felder wie `created_at`, `symbol`, `entry_price`, `target`, `stop`, `similar_setups` und `history_status` werden in die deutschen Journal-Felder übernommen.
+- Performance-Tracking vorbereitet: Neue Journal-Einträge erhalten defensiv `review_after`, Historienstatus, ähnliche Setups und Sicherheits-Hinweis, ohne bestehende Werte zu überschreiben.
+- README aktualisiert: Trade Journal beschreibt jetzt defensive Feldnormalisierung.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Trade-Journal-Normalisierungscheck erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Trade-Journal-Datenmodell gegen neue Trading-/Performance-Felder konsolidieren` ist umgesetzt; neue Priorität ist `Performance-Tracking-Ausgabe gegen normalisierte Journal-Felder und Historienkontext prüfen`, weil die Auswertung auf den normalisierten Journal-Daten aufsetzt.
 
 - Trading-Modus gegen Lern-/Confidence-Kontext konsolidiert: Trading-Setups zeigen und speichern jetzt Treffer ähnlicher Setups, Trefferquote, Historienstatus und Historienhinweis.
 - Performance verbessert: `build_trading_setup()` verwendet bereits geladene Yahoo-Stammdaten für die Asset-Qualität und vermeidet eine doppelte Stammdatenabfrage pro Setup.

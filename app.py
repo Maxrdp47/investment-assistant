@@ -381,6 +381,40 @@ def trade_record_key(record: dict) -> tuple[str, str, str]:
     )
 
 
+def normalize_trade_record(record: dict) -> dict:
+    normalized = dict(record)
+    field_aliases = {
+        "Datum": ["created_at", "date"],
+        "Ticker": ["symbol"],
+        "Richtung": ["direction"],
+        "Einstieg": ["entry_price"],
+        "Zielzone": ["target"],
+        "Stop-Zone": ["stop"],
+        "Asset-Typ": ["asset_type"],
+        "Ähnliche Setups": ["similar_setups"],
+        "Treffer ähnliche Setups": ["similar_setup_hits"],
+        "Trefferquote ähnliche Setups": ["similar_setup_hit_rate"],
+        "Historienstatus": ["history_status"],
+        "Historienhinweis": ["history_summary"],
+    }
+    for canonical, aliases in field_aliases.items():
+        if canonical in normalized:
+            continue
+        for alias in aliases:
+            if alias in normalized:
+                normalized[canonical] = normalized[alias]
+                break
+
+    normalized.setdefault("review_after", empty_review_schedule())
+    normalized.setdefault("Ähnliche Setups", 0)
+    normalized.setdefault("Treffer ähnliche Setups", 0)
+    normalized.setdefault("Trefferquote ähnliche Setups", None)
+    normalized.setdefault("Historienstatus", "Datenbasis zu klein")
+    normalized.setdefault("Historienhinweis", "Ähnliche historische Setups: 0. Datenbasis zu klein; Trefferquote wird nicht als belastbar gewertet.")
+    normalized.setdefault("Hinweis", "Nur Analyse und Dokumentation. Keine automatische Kauf- oder Verkaufsfunktion.")
+    return normalized
+
+
 def append_trade_records(records: list[dict]) -> bool:
     if not records:
         return False
@@ -388,10 +422,11 @@ def append_trade_records(records: list[dict]) -> bool:
     existing_keys = {trade_record_key(record) for record in history}
     new_records = []
     for record in records:
-        key = trade_record_key(record)
+        normalized_record = normalize_trade_record(record)
+        key = trade_record_key(normalized_record)
         if not key[0] or key in existing_keys:
             continue
-        new_records.append(record)
+        new_records.append(normalized_record)
         existing_keys.add(key)
     if not new_records:
         return True

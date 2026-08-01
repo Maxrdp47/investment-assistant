@@ -126,6 +126,42 @@ def test_trade_journal_allows_new_direction_or_day(tmp_path: Path, monkeypatch) 
     assert len(app.load_trade_history()) == 3
 
 
+def test_trade_journal_normalizes_legacy_and_history_fields(tmp_path: Path, monkeypatch) -> None:
+    trade_path = tmp_path / "trade_history.json"
+    monkeypatch.setattr(app, "TRADE_HISTORY_PATH", trade_path)
+    setup = {
+        "created_at": "2026-08-01T10:00:00",
+        "symbol": "NVDA",
+        "direction": "Long",
+        "entry_price": 100.0,
+        "target": 120.0,
+        "stop": 90.0,
+        "asset_type": "Aktie",
+        "similar_setups": 24,
+        "similar_setup_hits": 15,
+        "similar_setup_hit_rate": 62.5,
+        "history_status": "vorsichtiger Hinweis",
+        "history_summary": "Ähnliche historische Setups: 24, Trefferquote 62.5 %.",
+    }
+
+    added, _ = app.auto_document_trade_setups([setup])
+    saved = app.load_trade_history()[0]
+
+    assert added == 1
+    assert saved["Datum"] == "2026-08-01T10:00:00"
+    assert saved["Ticker"] == "NVDA"
+    assert saved["Richtung"] == "Long"
+    assert saved["Einstieg"] == 100.0
+    assert saved["Zielzone"] == 120.0
+    assert saved["Stop-Zone"] == 90.0
+    assert saved["Asset-Typ"] == "Aktie"
+    assert saved["Ähnliche Setups"] == 24
+    assert saved["Treffer ähnliche Setups"] == 15
+    assert saved["Trefferquote ähnliche Setups"] == 62.5
+    assert saved["Historienstatus"] == "vorsichtiger Hinweis"
+    assert set(saved["review_after"]) == set(app.TRACKING_PERIODS)
+
+
 def test_trading_setup_reuses_info_and_keeps_history_context(monkeypatch) -> None:
     calls = {"ticker_info": 0}
     index = app.pd.date_range("2025-01-01", periods=260, freq="D")

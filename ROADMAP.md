@@ -427,6 +427,7 @@ Bewerten:
 - Status: Basis umgesetzt am 2026-06-15. Gespeicherte Trading-Setups werden nach 1 Woche, 1 Monat und 3 Monaten mit echten Kursdaten ausgewertet; Ziel/Stop, Rendite sowie maximale positive und negative Entwicklung werden gespeichert.
 - Status: Erweiterte Zeiträume umgesetzt am 2026-07-20. Trade-Journal, Forward-Tests, Prognosen und Entscheidungen unterstützen 6- und 12-Monats-Reviews kompatibel zu alten Historien.
 - Status: Beste Alternative umgesetzt am 2026-08-01. Trade-Journal-Auswertungen speichern zusätzlich gewählte Aktion, beste Alternative und Opportunitätskosten.
+- Status: Historienkontext umgesetzt am 2026-08-01. Trade-Journal-Auswertungen normalisieren ältere Setup-Felder vor der Auswertung und speichern ähnliche Setups, Treffer, Trefferquote, Historienstatus und Historienhinweis im Review-Ergebnis.
 
 ### PRIO B: Erweitertes Decision Tracking
 
@@ -529,18 +530,18 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Performance-Tracking-Ausgabe gegen normalisierte Journal-Felder und Historienkontext prüfen.
+1. Confidence-System gegen erweiterten Trade-/Decision-/Prediction-Historienkontext prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Trade Journal normalisiert neue und ältere Setup-Felder jetzt defensiv.
-- Performance Tracking liest diese Daten später aus; es sollte den Historienkontext und die normalisierten Felder sauber erhalten oder ausgeben.
-- Der nächste größte Nutzen liegt darin, die Performance-Auswertung gegen die normalisierten Journal-Felder zu prüfen.
+- Performance Tracking normalisiert Journal-Felder vor der Auswertung und speichert Historienkontext im Review-Ergebnis.
+- Confidence-System und ähnliche Setup-Auswertung sind die nächste Ebene, die diese neuen Review- und Historienfelder nutzen sollte.
+- Der nächste größte Nutzen liegt darin, historische Confidence-Ausgaben auf die erweiterten Kontexte zu prüfen, ohne Score-Gewichtungen automatisch zu verändern.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Performance-Auswertung gegen normalisierte Journal-Felder prüfen.
-2. Fehlende Review-Felder oder Historienkontext in Auswertung ergänzen, falls sinnvoll.
+1. Bestehende Confidence- und ähnliche-Setup-Auswertungen gegen neue Review-Felder prüfen.
+2. Fehlende Gruppierungen oder Hinweise zu Historienstatus, Decision-Alignment und Fehlursachen ergänzen, falls sinnvoll.
 3. Keine automatische Kauf-/Verkaufsfunktion einbauen.
 4. Tests ausführen und README/ROADMAP aktualisieren.
 
@@ -1023,6 +1024,13 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Performance-Tracking gegen normalisierte Journal-Felder konsolidiert: `evaluate_due_trade_history()` normalisiert Trade-Records vor der Auswertung und hält Legacy-Felder kompatibel.
+- Historienkontext im Review ergänzt: Trade-Journal-Auswertungen speichern jetzt ähnliche Setups, Treffer ähnlicher Setups, Trefferquote, Historienstatus und Historienhinweis im jeweiligen Review-Ergebnis.
+- Ergebnislogik unverändert: Ziel/Stop, Rendite, maximale positive/negative Bewegung, beste Alternative und Opportunitätskosten bleiben reine Nachauswertung mit echten Kursdaten.
+- README aktualisiert: Performance Tracking beschreibt jetzt Historienkontext aus ähnlichen Setups.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Performance-Tracking-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Performance-Tracking-Ausgabe gegen normalisierte Journal-Felder und Historienkontext prüfen` ist umgesetzt; neue Priorität ist `Confidence-System gegen erweiterten Trade-/Decision-/Prediction-Historienkontext prüfen`, weil Confidence-Ausgaben die erweiterten Review-Felder transparent nutzen sollten.
 
 - Trade-Journal-Datenmodell konsolidiert: `append_trade_records()` normalisiert neue und ältere Feldnamen beim Speichern in `trade_history.json`.
 - Legacy-Kompatibilität verbessert: Alias-Felder wie `created_at`, `symbol`, `entry_price`, `target`, `stop`, `similar_setups` und `history_status` werden in die deutschen Journal-Felder übernommen.

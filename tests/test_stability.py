@@ -217,12 +217,17 @@ def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, mon
         json.dumps(
             [
                 {
-                    "Datum": "2025-01-01T10:00:00",
-                    "Ticker": "NVDA",
-                    "Richtung": "Long",
-                    "Einstieg": 100.0,
-                    "Zielzone": 120.0,
-                    "Stop-Zone": 90.0,
+                    "created_at": "2025-01-01T10:00:00",
+                    "symbol": "NVDA",
+                    "direction": "Long",
+                    "entry_price": 100.0,
+                    "target": 120.0,
+                    "stop": 90.0,
+                    "similar_setups": 24,
+                    "similar_setup_hits": 15,
+                    "similar_setup_hit_rate": 62.5,
+                    "history_status": "vorsichtiger Hinweis",
+                    "history_summary": "Ähnliche historische Setups: 24, Trefferquote 62.5 %.",
                     "review_after": app.empty_review_schedule(),
                 }
             ],
@@ -251,6 +256,10 @@ def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, mon
     assert review["best_alternative"] == "Short / Absicherung"
     assert review["best_alternative_return_pct"] == 15.0
     assert review["opportunity_cost_pct"] == 30.0
+    assert review["similar_setups"] == 24
+    assert review["similar_setup_hits"] == 15
+    assert review["similar_setup_hit_rate"] == 62.5
+    assert review["history_status"] == "vorsichtiger Hinweis"
 
 
 def test_decision_alignment_maps_user_decision_against_app_action() -> None:

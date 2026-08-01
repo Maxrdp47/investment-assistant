@@ -511,6 +511,7 @@ def evaluate_due_trade_history() -> tuple[int, str]:
     now = pd.Timestamp.now(tz=None)
     updated = 0
     for record in history:
+        record.update(normalize_trade_record(record))
         symbol = record.get("Ticker") or record.get("symbol")
         entry_price = value_or_none(record.get("Einstieg") or record.get("entry_price"))
         target_price = value_or_none(record.get("Zielzone") or record.get("target"))
@@ -574,6 +575,13 @@ def evaluate_due_trade_history() -> tuple[int, str]:
             result = "neutral"
 
         alternative = trade_best_alternative(direction, return_pct)
+        history_context = {
+            "similar_setups": record.get("Ähnliche Setups"),
+            "similar_setup_hits": record.get("Treffer ähnliche Setups"),
+            "similar_setup_hit_rate": record.get("Trefferquote ähnliche Setups"),
+            "history_status": record.get("Historienstatus"),
+            "history_summary": record.get("Historienhinweis"),
+        }
 
         for label in due_periods:
             review_after[label] = {
@@ -586,6 +594,7 @@ def evaluate_due_trade_history() -> tuple[int, str]:
                 "stop_hit": bool(stop_hit),
                 "result": result,
                 **alternative,
+                **history_context,
                 "note": "Trade-Journal-Auswertung mit Kursdaten; keine Kauf- oder Verkaufsautomatisierung.",
             }
             updated += 1

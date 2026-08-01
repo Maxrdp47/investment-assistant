@@ -262,7 +262,7 @@ Die Research-Tabellen übersetzen jeden Score zusätzlich in einfache Bänder:
 
 ### Kalibrierung
 
-Die App zeigt im Bereich **Analyse-Details anzeigen** zusätzlich **Lernlogik-Guardrails**. Dieser Block trennt dokumentierte Fälle von tatsächlich ausgewerteten Fällen und zeigt klar, ab wann nur gezählt, vorsichtig hingewiesen oder manuell kalibriert werden darf. In Version 1 werden Gewichtungen nicht automatisch geändert.
+Die App zeigt im Bereich **Analyse-Details anzeigen** zusätzlich **Lernlogik-Guardrails**. Dieser Block trennt dokumentierte Fälle von tatsächlich ausgewerteten Fällen und zeigt klar, ab wann nur gezählt, vorsichtig hingewiesen oder manuell kalibriert werden darf. Direkt darunter fasst die App Kalibrierungskontexte aus Performance-Reviews einfach zusammen: Fallzahl, Fehlquote, Durchschnittsrendite und praktische Bedeutung. In Version 1 werden Gewichtungen nicht automatisch geändert.
 
 - Unter 20 dokumentierten Fällen: `Datenbasis zu klein`
 - 20 bis 50 Fälle: nur vorsichtige Hinweise

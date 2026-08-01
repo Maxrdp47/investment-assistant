@@ -1685,6 +1685,66 @@ def calibration_suggestion_rows(
     return status, rows
 
 
+def calibration_context_summary_rows(
+    trade_history: list[dict],
+    forward_tests: list[dict],
+    decisions: list[dict],
+    predictions: list[dict],
+) -> tuple[str, list[dict[str, str]]]:
+    cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
+    grouped: dict[str, list[dict]] = {}
+    for case in cases:
+        context = str(case.get("calibration_context") or "")
+        if context.lower() in {"", "none", "daten nicht verfügbar"}:
+            continue
+        grouped.setdefault(context, []).append(case)
+
+    if not grouped:
+        return "Keine zusammenfassbaren Kalibrierungskontexte vorhanden.", [
+            {
+                "Kalibrierungskontext": "Daten nicht verfügbar",
+                "Fälle": "0",
+                "Fehlquote": "Datenbasis zu klein",
+                "Durchschnittsrendite": "Datenbasis zu klein",
+                "Bedeutung": "Es gibt noch keine ausgewerteten Performance-Reviews mit Kalibrierungskontext.",
+            }
+        ]
+
+    rows: list[dict[str, str]] = []
+    for context, context_cases in sorted(grouped.items(), key=lambda item: len(item[1]), reverse=True)[:6]:
+        count = len(context_cases)
+        misses = sum(1 for case in context_cases if case.get("hit") is False)
+        miss_rate = misses / count * 100
+        avg_return = float(np.mean([case["return_pct"] for case in context_cases]))
+        permission, meaning = calibration_permission(count)
+        if count < 20:
+            practical = "Nur zählen; für Entscheidungen noch nicht belastbar."
+        elif miss_rate >= 55:
+            practical = "Warnhinweis ernst nehmen und Setup genauer prüfen."
+        elif miss_rate <= 35 and avg_return > 0:
+            practical = "Warnhinweis war historisch weniger kritisch, bleibt aber nur Kontext."
+        else:
+            practical = "Gemischtes Bild; weitere Fälle sammeln."
+        rows.append(
+            {
+                "Kalibrierungskontext": context,
+                "Fälle": str(count),
+                "Fehlquote": "Datenbasis zu klein" if count < 20 else f"{miss_rate:.1f}%",
+                "Durchschnittsrendite": "Datenbasis zu klein" if count < 20 else f"{avg_return:+.2f}%",
+                "Bedeutung": f"{permission}. {meaning} {practical} Keine automatische Gewichtungsänderung.",
+            }
+        )
+
+    largest = max(len(items) for items in grouped.values())
+    if largest < 20:
+        status = "Kalibrierungskontexte werden gezählt, aber wegen kleiner Datenbasis nicht interpretiert."
+    elif largest <= 50:
+        status = "Vorsichtige Zusammenfassung der Kalibrierungskontexte verfügbar. Gewichtungen bleiben unverändert."
+    else:
+        status = "Belastbarere Kalibrierungskontext-Zusammenfassung verfügbar. Änderungen bleiben manuell und testpflichtig."
+    return status, rows
+
+
 def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[str, list[dict[str, str]]]:
     required_columns = {"Close", "Low", "High"}
     if df.empty or not required_columns.issubset(df.columns):
@@ -7697,6 +7757,12 @@ def main() -> None:
             decision_history,
             prediction_history,
         )
+        calibration_context_status, calibration_context_table = calibration_context_summary_rows(
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
+        )
         signal_learning_status, signal_learning_table = signal_learning_rows(forward_history, prediction_history)
         prediction_hit_status, prediction_hit_table = prediction_hit_rate_rows(prediction_history)
         segmented_learning_status, segmented_learning_table = segmented_learning_rows(
@@ -8071,6 +8137,13 @@ def main() -> None:
             st.write(learning_guardrail_status)
             st.dataframe(
                 pd.DataFrame(learning_guardrail_table),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Kalibrierungskontext kurz erklärt**")
+            st.write(calibration_context_status)
+            st.dataframe(
+                pd.DataFrame(calibration_context_table),
                 use_container_width=True,
                 hide_index=True,
             )

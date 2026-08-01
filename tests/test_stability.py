@@ -718,6 +718,31 @@ def test_learning_guardrails_allow_only_manual_suggestions_after_large_basis() -
     assert rules["Automatische Gewichtungsänderung"]["Status"] == "Nein"
 
 
+def test_calibration_context_summary_rows_explains_contexts() -> None:
+    records = [
+        {
+            "action": "Long",
+            "asset_type": "Aktie",
+            "review_after": {
+                "1m": {
+                    "return_pct": -3.0 if index < 14 else 2.0,
+                    "calibration_context": "Belastbarer Lernkontext (negativ)",
+                }
+            },
+        }
+        for index in range(20)
+    ]
+
+    status, rows = app.calibration_context_summary_rows(records, [], [], [])
+
+    assert "Zusammenfassung" in status
+    assert rows[0]["Kalibrierungskontext"] == "Belastbarer Lernkontext (negativ)"
+    assert rows[0]["Fälle"] == "20"
+    assert rows[0]["Fehlquote"] == "70.0%"
+    assert "Warnhinweis ernst nehmen" in rows[0]["Bedeutung"]
+    assert "Keine automatische" in rows[0]["Bedeutung"]
+
+
 def test_similar_setup_rows_surface_extended_review_context() -> None:
     trade_history = [
         {

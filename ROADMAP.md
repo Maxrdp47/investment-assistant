@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Lernsystem-Ausgabe für Kalibrierungskontext verständlicher zusammenfassen.
+1. Testbarkeit der neuen Lern-/Confidence-Kontextfunktionen bündeln.
 
 Warum diese Aufgabe zuerst:
 
-- Confidence-Ausgaben zeigen jetzt häufigsten Kalibrierungskontext und Kalibrierungshinweis aus ähnlichen Performance-Reviews.
-- Der nächste größte Nutzen liegt darin, diese Lerninformationen in der Analyseansicht knapper und anfängerfreundlicher zusammenzufassen.
-- Dadurch werden die zusätzlichen Lernfelder nutzbar, ohne die Oberfläche mit reinen Detailtabellen zu überladen.
+- Analyse-Details zeigen jetzt eine kompakte Kalibrierungskontext-Zusammenfassung mit Fallzahl, Fehlquote, Durchschnittsrendite und praktischer Bedeutung.
+- Der nächste größte Nutzen liegt darin, die neu entstandenen Lern-/Confidence-Helfer in stabilen Tests zusammenzufassen und wiederkehrende Mock-Muster zu reduzieren.
+- Dadurch sinkt Wartungsaufwand, während die Analysequalität weiter ausgebaut werden kann.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Lernsystem-Ausgabe für Kalibrierungskontext verständlicher zusammengefasst: neue `calibration_context_summary_rows()` erzeugt eine kompakte Tabelle mit Fallzahl, Fehlquote, Durchschnittsrendite und praktischer Bedeutung.
+- Analyse-Details erweitert: Direkt nach den Lernlogik-Guardrails zeigt die App `Kalibrierungskontext kurz erklärt`.
+- README aktualisiert: Lernlogik-Guardrails beschreiben die neue Kalibrierungskontext-Zusammenfassung.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Kalibrierungskontext-Zusammenfassungs-Mock-Test erfolgreich.
+- Priorität angepasst: ursprüngliche Priorität `Lernsystem-Ausgabe für Kalibrierungskontext verständlicher zusammenfassen` ist umgesetzt; neue Priorität ist `Testbarkeit der neuen Lern-/Confidence-Kontextfunktionen bündeln`, weil mehrere neue Kontextfunktionen ähnliche Mock-Daten nutzen.
 
 - Confidence-System gegen Kalibrierungskontext aus Performance-Reviews geprüft: `similar_setup_rows()` zeigt jetzt häufigsten `Kalibrierungskontext` und `Kalibrierungshinweis` aus ähnlichen lokalen Fällen.
 - Score-Trennung beibehalten: Die neuen Confidence-Kontexte sind reine Transparenzhinweise und verändern keine Gewichtungen.

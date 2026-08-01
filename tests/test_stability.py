@@ -169,6 +169,65 @@ def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, mon
     assert review["opportunity_cost_pct"] == 30.0
 
 
+def test_forward_test_evaluation_records_scenario_read(tmp_path: Path, monkeypatch) -> None:
+    forward_path = tmp_path / "forward_tests.json"
+    monkeypatch.setattr(app, "FORWARD_TEST_PATH", forward_path)
+    forward_path.write_text(
+        json.dumps(
+            [
+                {
+                    "created_at": "2025-01-01T10:00:00",
+                    "symbol": "NVDA",
+                    "asset_type": "Aktie",
+                    "entry_price": 100.0,
+                    "module_scores": [{"name": "Momentum-Score", "score": 8.0}],
+                    "scenarios": [{"Szenario": "Bull-Case", "Wahrscheinlichkeit": "40%"}],
+                    "review_after": app.empty_review_schedule(),
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    prices = app.pd.DataFrame(
+        {"Close": [100.0, 104.5], "High": [101.0, 106.0], "Low": [99.0, 103.0]},
+        index=app.pd.date_range("2025-01-01", periods=2, freq="D"),
+    )
+
+    monkeypatch.setattr(app.yf, "download", lambda *args, **kwargs: prices.copy())
+
+    updated, _ = app.evaluate_due_forward_tests()
+    review = app.load_forward_tests()[0]["review_after"]["1w"]
+
+    assert updated >= 1
+    assert review["return_pct"] == 4.5
+    assert review["scenario_read"] == "Bull/Base wahrscheinlicher"
+
+
+def test_signal_learning_rows_include_forward_module_and_scenario_groups() -> None:
+    forward_tests = []
+    for index in range(20):
+        forward_tests.append(
+            {
+                "asset_type": "Aktie",
+                "module_scores": [{"name": "Momentum-Score", "score": 8.0}],
+                "review_after": {
+                    "1m": {
+                        "return_pct": 4.0 if index < 14 else -2.0,
+                        "scenario_read": "Bull/Base wahrscheinlicher" if index < 14 else "Bear wahrscheinlicher",
+                    }
+                },
+            }
+        )
+
+    status, rows = app.signal_learning_rows(forward_tests, [])
+    signals = {row["Signal"] for row in rows}
+
+    assert "Vorsichtige Hinweise" in status
+    assert "Modulgruppe Momentum-Score (hoch)" in signals
+    assert "Szenario-Lesart Bull/Base wahrscheinlicher" in signals
+
+
 def test_scanner_factor_snapshot_discloses_missing_and_available_sources() -> None:
     latest = app.pd.Series({"Volume": 200_000, "Volume_SMA_20": 100_000})
     info = {

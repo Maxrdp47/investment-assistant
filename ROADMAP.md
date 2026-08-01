@@ -259,13 +259,17 @@ Transparenzregeln:
 - Jede neue Analyse optional als Forward-Test speichern.
   - Status: Basis umgesetzt am 2026-06-15 (`forward_tests.json`, lokal und nicht versioniert).
 - Startzeitpunkt, Asset, Ticker, Asset-Typ, Marktphase, Kaufsignal, Asset-Qualität, Depot-Effekt, Vertrauensscore und relevante Modul-Scores erfassen.
+  - Status: konsolidiert am 2026-08-01; neue Forward-Tests speichern Modul-Scores, Signal-Snapshot, Szenarien, Kaufzonen und Review-Plan.
 - Bull/Base/Bear-Szenarien, Kursziele, Wahrscheinlichkeiten und entscheidende Marken speichern.
+  - Status: konsolidiert am 2026-08-01; gespeicherte Szenarien bleiben im Forward-Test-Datensatz erhalten.
 - Nach festgelegten Zeiträumen prüfen: 1 Woche, 1 Monat, 3 Monate, 6 Monate und 12 Monate.
   - Status: Basis umgesetzt am 2026-06-15 für 1 Woche, 1 Monat und 3 Monate.
   - Status: Erweiterte Zeiträume umgesetzt am 2026-07-20 für 6 Monate und 12 Monate; alte Historien bleiben kompatibel.
 - Tatsächliche Kursentwicklung, maximalen Drawdown, maximale positive Bewegung und Treffer der Szenarien auswerten.
+  - Status: erweitert am 2026-08-01; Forward-Test-Auswertungen speichern Rendite, maximale positive/negative Bewegung und Szenario-Lesart.
 - Keine Performance-Werte erfinden, wenn Kursdaten fehlen.
 - Ergebnisse getrennt nach Asset-Typ, Marktphase und Signalart ausweisen.
+  - Status: erweitert am 2026-08-01; Signalanalyse zählt Forward-Test-Ergebnisse zusätzlich nach Asset-Typ, Szenario-Lesart und Modulgruppen.
 
 ### PRIO B: Decision-Tracking-Modul
 
@@ -516,19 +520,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Forward-Testing-Hauptliste gegen gespeicherte Modul-Scores, Szenarien und Ergebnisgruppen konsolidieren.
+1. Decision-Tracking-Hauptliste gegen gespeicherte Scores, Nutzerkommentar und Ergebnisvergleich konsolidieren.
 
 Warum diese Aufgabe zuerst:
 
-- Krypto-Zyklus-Kontext ist jetzt verständlicher, deterministisch testbar und trennt Kontextsignal klar vom Kaufsignal.
-- Forward-Testing ist zentral für messbare Analysequalität, aber die Hauptliste enthält noch offene Formulierungen zu gespeicherten Modul-Scores, Szenarien und Ergebnisgruppen.
-- Der nächste größte Nutzen liegt darin, gespeicherte Forward-Tests vollständiger für spätere Trefferquoten und Lernlogik nutzbar zu machen.
+- Forward-Testing ist jetzt konsolidiert: Modul-Scores, Szenarien und Szenario-Lesarten sind für spätere Signalanalyse nutzbar.
+- Decision-Tracking ist die nächste Messschicht, weil Nutzerentscheidungen mit der App-Einschätzung verglichen werden sollen.
+- Der nächste größte Nutzen liegt darin, die gespeicherten Entscheidungen vollständig gegen Scores, Kommentar, beste Alternative und Opportunitätskosten zu prüfen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Forward-Test-Speicherung und Auswertung gegen ROADMAP-Anforderungen prüfen.
-2. Fehlende Modul-Score-, Szenario- oder Gruppierungsfelder ergänzen, falls noch nicht vollständig.
-3. Kompatibilität alter Historien beibehalten.
+1. Bestehende Decision-Tracking-Speicherung und Auswertung gegen ROADMAP-Anforderungen prüfen.
+2. Fehlende Felder wie Nutzerkommentar, angezeigte Empfehlung oder Score-Kontext ergänzen, falls noch nicht vollständig.
+3. Kompatibilität alter Entscheidungshistorien beibehalten.
 4. Tests ausführen und README/ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1010,6 +1014,13 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Forward-Testing konsolidiert: Fällige Forward-Test-Auswertungen speichern jetzt zusätzlich eine einfache Szenario-Lesart aus echter Kursentwicklung.
+- Lernfähigkeit verbessert: Signalanalyse zählt ausgewertete Forward-Tests nun zusätzlich nach Szenario-Lesart und gespeicherten Modul-Score-Gruppen.
+- Kompatibilität beibehalten: Alte Forward-Test-Historien ohne Modul-Scores oder Szenario-Lesart bleiben lesbar; fehlende Felder werden nicht erfunden.
+- README aktualisiert: Forward-Testing beschreibt jetzt Szenario-Lesart, Modul-Scores und die Regel, dass Gewichtungen nicht automatisch geändert werden.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Forward-Test-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Forward-Testing-Hauptliste gegen gespeicherte Modul-Scores, Szenarien und Ergebnisgruppen konsolidieren` ist umgesetzt; neue Priorität ist `Decision-Tracking-Hauptliste gegen gespeicherte Scores, Nutzerkommentar und Ergebnisvergleich konsolidieren`, weil Nutzerentscheidungen die nächste wichtige Messschicht für Analysequalität sind.
 
 - Krypto-Zyklus-Kontext erweitert: Das Krypto-Zyklusmodul nutzt jetzt eine testbare Halving-Kontextfunktion mit Zyklusphase, Zyklusfortschritt, Score und praktischer Anlegerbedeutung.
 - Anfänger-Transparenz verbessert: Der Halving-Zyklus wird ausdrücklich als Kontextsignal und nicht als Kaufsignal erklärt; Trend, Liquidität, Volatilität, Makro und Risikomarken bleiben wichtiger.

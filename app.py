@@ -694,6 +694,14 @@ def save_prediction_record(record: dict) -> bool:
     return True
 
 
+def scenario_read_from_return(return_pct: float) -> str:
+    if return_pct > 3:
+        return "Bull/Base wahrscheinlicher"
+    if return_pct < -3:
+        return "Bear wahrscheinlicher"
+    return "Base wahrscheinlicher"
+
+
 def evaluate_due_predictions() -> tuple[int, str]:
     history = load_prediction_history()
     if not history:
@@ -735,7 +743,7 @@ def evaluate_due_predictions() -> tuple[int, str]:
         max_positive = (float(highs.max()) - entry_price) / entry_price * 100
         max_negative = (float(lows.min()) - entry_price) / entry_price * 100
         return_pct = (current_price - entry_price) / entry_price * 100
-        scenario_hit = "Bull/Base wahrscheinlicher" if return_pct > 3 else "Bear wahrscheinlicher" if return_pct < -3 else "Base wahrscheinlicher"
+        scenario_hit = scenario_read_from_return(return_pct)
         for label in due_periods:
             review_after[label] = {
                 "reviewed_at": now.isoformat(),
@@ -794,14 +802,17 @@ def evaluate_due_forward_tests() -> tuple[int, str]:
         highs = data["High"].astype(float) if "High" in data else closes
         lows = data["Low"].astype(float) if "Low" in data else closes
         current_price = float(closes.iloc[-1])
+        return_pct = (current_price - entry_price) / entry_price * 100
+        scenario_read = scenario_read_from_return(return_pct)
         for label in due_periods:
             review_after[label] = {
                 "reviewed_at": now.isoformat(),
                 "current_price": current_price,
-                "return_pct": round((current_price - entry_price) / entry_price * 100, 2),
+                "return_pct": round(return_pct, 2),
                 "max_positive_pct": round((float(highs.max()) - entry_price) / entry_price * 100, 2),
                 "max_negative_pct": round((float(lows.min()) - entry_price) / entry_price * 100, 2),
                 "result": "positiv" if current_price >= entry_price else "negativ",
+                "scenario_read": scenario_read,
                 "note": "Automatische Forward-Test-Auswertung mit Kursdaten; keine Kauf- oder Verkaufsautomatisierung.",
             }
             updated += 1
@@ -2071,11 +2082,24 @@ def signal_learning_rows(forward_tests: list[dict], predictions: list[dict]) -> 
 
     if count >= 20:
         by_asset: dict[str, list[float]] = {}
+        by_module: dict[str, list[float]] = {}
+        by_scenario: dict[str, list[float]] = {}
         for item in evaluated:
             asset_type = str(item["record"].get("asset_type") or "Unbekannt")
             return_pct = value_or_none(item["result"].get("return_pct"))
             if return_pct is not None:
-                by_asset.setdefault(asset_type, []).append(float(return_pct))
+                return_value = float(return_pct)
+                by_asset.setdefault(asset_type, []).append(return_value)
+                scenario_read = item["result"].get("scenario_read")
+                if scenario_read:
+                    by_scenario.setdefault(str(scenario_read), []).append(return_value)
+                module_scores = item["record"].get("module_scores")
+                if isinstance(module_scores, list):
+                    for module in module_scores:
+                        if not isinstance(module, dict):
+                            continue
+                        name = str(module.get("name") or "Unbekanntes Modul")
+                        by_module.setdefault(f"{name} ({score_bucket(module.get('score'))})", []).append(return_value)
         for asset_type, values in sorted(by_asset.items()):
             hit_rate = sum(1 for value in values if value > 0) / len(values) * 100
             rows.append(
@@ -2083,6 +2107,24 @@ def signal_learning_rows(forward_tests: list[dict], predictions: list[dict]) -> 
                     "Signal": f"Trefferquote {asset_type}",
                     "Wert": f"{hit_rate:.1f}%",
                     "Hinweis": f"{len(values)} ausgewertete Fälle; nur Hinweis, keine automatische Gewichtung.",
+                }
+            )
+        for scenario, values in sorted(by_scenario.items()):
+            hit_rate = sum(1 for value in values if value > 0) / len(values) * 100
+            rows.append(
+                {
+                    "Signal": f"Szenario-Lesart {scenario}",
+                    "Wert": f"{hit_rate:.1f}%",
+                    "Hinweis": f"{len(values)} ausgewertete Fälle; Szenario-Lesart stammt aus echter Kursauswertung.",
+                }
+            )
+        for module_bucket, values in sorted(by_module.items()):
+            hit_rate = sum(1 for value in values if value > 0) / len(values) * 100
+            rows.append(
+                {
+                    "Signal": f"Modulgruppe {module_bucket}",
+                    "Wert": f"{hit_rate:.1f}%",
+                    "Hinweis": f"{len(values)} ausgewertete Fälle; Modulgruppen ändern Gewichtungen nicht automatisch.",
                 }
             )
     return status, rows

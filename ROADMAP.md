@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Defekte lokale Historien in Lernansicht mit Reparaturhinweisen ergänzen.
+1. Lernhistorien-Dateien mit Datenschutz-/Cloud-Hinweisen in README präzisieren.
 
 Warum diese Aufgabe zuerst:
 
-- Kalibrierungsstatus und Confidence-System zeigen jetzt die Datenqualität lokaler Lernhistorien als eigenen Kontext.
-- Der nächste größte Nutzen liegt darin, defekte lokale Historien nicht nur zu melden, sondern einfache Reparatur-/Bereinigungshinweise für den Nutzer anzuzeigen.
-- Dadurch bleiben Lernmodule nachvollziehbar, wenn alte JSON-Dateien oder Legacy-Einträge die Datenbasis einschränken.
+- Defekte lokale Historien zeigen jetzt Reparaturhinweise, ohne Dateien automatisch zu löschen oder zu verändern.
+- Der nächste größte Nutzen liegt darin, README/Cloud-Hinweise für diese lokalen Lernhistorien noch präziser zu machen.
+- Dadurch versteht der Nutzer besser, welche JSON-Dateien lokal, privat, versioniert oder nicht dauerhaft auf Streamlit Cloud nutzbar sind.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Defekte lokale Historien in Lernansicht mit Reparaturhinweisen ergänzt: `local_history_quality_rows()` zeigt jetzt eine Spalte `Reparaturhinweis`.
+- Sicherheitsregel beibehalten: Die App löscht oder verändert lokale Historien nicht automatisch; defekte Einträge werden nur erklärt und ignoriert.
+- README aktualisiert: lokale Lernhistorienqualität beschreibt jetzt manuelle Reparaturhinweise.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; direkte Mock-Tests für defekte und gültige Historien erfolgreich.
+- Priorität angepasst: ursprüngliche Priorität `Defekte lokale Historien in Lernansicht mit Reparaturhinweisen ergänzen` ist umgesetzt; neue Priorität ist `Lernhistorien-Dateien mit Datenschutz-/Cloud-Hinweisen in README präzisieren`, weil die App inzwischen mehrere lokale Historien nutzt.
 
 - Lernhistorien-Datenqualität in Confidence-/Kalibrierungsstatus eingebunden: `calibration_status_rows()` und `similar_setup_rows()` zeigen jetzt den Qualitätsstatus lokaler Historien als Kontext.
 - Eingeschränkte Historien relativieren Lernhinweise: Bei eingeschränkter lokaler Historienqualität ergänzt der Kalibrierungsstatus einen Warnhinweis; Confidence-Tabellen zeigen die Qualitätszeile separat.

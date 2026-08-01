@@ -758,6 +758,8 @@ def test_local_history_quality_rows_reports_empty_and_malformed_histories() -> N
     assert "eingeschränkt" in status.lower()
     assert quality["Trade Journal"]["Datenqualität"] == "Eingeschränkt"
     assert quality["Backtests"]["Datenqualität"] == "Eingeschränkt"
+    assert "manuell entfernen" in quality["Trade Journal"]["Reparaturhinweis"]
+    assert "nicht automatisch gelöscht" in quality["Backtests"]["Reparaturhinweis"]
 
 
 def test_local_history_quality_rows_accepts_usable_learning_data() -> None:
@@ -781,6 +783,7 @@ def test_local_history_quality_rows_accepts_usable_learning_data() -> None:
 
     assert "lesbar" in status
     assert quality["Trade Journal"]["Datenqualität"] == "OK"
+    assert quality["Trade Journal"]["Reparaturhinweis"] == "Keine Reparatur nötig."
     assert quality["Backtests"]["Auswertungen"] == "1"
 
 

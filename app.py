@@ -1791,6 +1791,11 @@ def local_history_quality_rows(
                     if malformed
                     else "Struktur lesbar; fehlende einzelne Daten bleiben `Daten nicht verfügbar`."
                 ),
+                "Reparaturhinweis": (
+                    "Betroffene JSON-Datei prüfen oder alte Einträge mit ungültigem `review_after` manuell entfernen; die App löscht nichts automatisch."
+                    if malformed
+                    else "Keine Reparatur nötig."
+                ),
             }
         )
 
@@ -1824,6 +1829,11 @@ def local_history_quality_rows(
                 f"{malformed_backtests} Backtest-Einträge sind unvollständig; {backtest_rows} Tabellenzeilen gefunden, {usable_backtest_rows} belastbar."
                 if malformed_backtests
                 else f"{backtest_rows} Tabellenzeilen gefunden, {usable_backtest_rows} mit mindestens 20 Fällen und vollständigen Kennzahlen."
+            ),
+            "Reparaturhinweis": (
+                "Backtest-Historie prüfen oder neue Backtests speichern; alte unvollständige Zeilen werden ignoriert, aber nicht automatisch gelöscht."
+                if malformed_backtests or (backtest_history and usable_backtest_rows == 0)
+                else "Keine Reparatur nötig."
             ),
         }
     )

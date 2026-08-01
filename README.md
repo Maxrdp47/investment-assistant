@@ -265,6 +265,7 @@ Die Research-Tabellen übersetzen jeden Score zusätzlich in einfache Bänder:
 Die App zeigt im Bereich **Analyse-Details anzeigen** zusätzlich **Lernlogik-Guardrails**. Dieser Block trennt dokumentierte Fälle von tatsächlich ausgewerteten Fällen und zeigt klar, ab wann nur gezählt, vorsichtig hingewiesen oder manuell kalibriert werden darf. Direkt darunter fasst die App Kalibrierungskontexte aus Performance-Reviews einfach zusammen: Fallzahl, Fehlquote, Durchschnittsrendite und praktische Bedeutung. In Version 1 werden Gewichtungen nicht automatisch geändert.
 
 Zusätzlich prüft die App die **Datenqualität lokaler Lernhistorien**. Dabei werden Trade Journal, Forward-Tests, Entscheidungen, Prognosen und gespeicherte Backtests darauf geprüft, ob sie lesbare Review-Strukturen und verwertbare Auswertungen enthalten. Defekte oder alte Einträge werden nicht geschätzt, sondern als eingeschränkt gekennzeichnet.
+Die Tabelle zeigt außerdem einen Reparaturhinweis. Die App löscht oder verändert lokale Historien nicht automatisch; Bereinigung bleibt manuell.
 
 Diese lokale Historienqualität fließt als Transparenzhinweis in Kalibrierungsstatus und Confidence-System ein. Wenn lokale Historien eingeschränkt sind, werden Trefferquoten und Lernhinweise vorsichtiger eingeordnet; automatische Gewichtungsänderungen gibt es weiterhin nicht.
 

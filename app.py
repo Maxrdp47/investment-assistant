@@ -1104,6 +1104,9 @@ def evaluated_history_cases(
                         "quality_bucket": score_bucket(record.get("asset_quality") or record.get("Asset-Qualität")),
                         "return_pct": return_pct if return_pct is not None else 0.0,
                         "hit": action_hit(action, return_pct) if return_pct is not None else legacy_hit,
+                        "scenario_read": str(review.get("scenario_read") or "Daten nicht verfügbar"),
+                        "miss_reason": str(review.get("miss_reason") or "Daten nicht verfügbar"),
+                        "decision_alignment": str(review.get("decision_alignment") or "Daten nicht verfügbar"),
                         "signals": {
                             name: signal_bucket_from_record(record, name)
                             for name in ["RSI", "MACD", "Marktphase", "Volatilität", "News", "Makro", "CRV"]
@@ -1380,6 +1383,9 @@ def negative_case_cause_rows(
         ("CRV", lambda case: case.get("signals", {}).get("CRV") or "Daten nicht verfügbar"),
         ("News", lambda case: case.get("signals", {}).get("News") or "Daten nicht verfügbar"),
         ("Makro", lambda case: case.get("signals", {}).get("Makro") or "Daten nicht verfügbar"),
+        ("Szenario-Lesart", lambda case: case.get("scenario_read") or "Daten nicht verfügbar"),
+        ("Fehlursache", lambda case: case.get("miss_reason") or "Daten nicht verfügbar"),
+        ("Decision-Alignment", lambda case: case.get("decision_alignment") or "Daten nicht verfügbar"),
     ]
 
     rows: list[dict[str, str]] = [
@@ -1467,6 +1473,9 @@ def calibration_suggestion_rows(
         ("CRV", lambda case: case.get("signals", {}).get("CRV") or "Daten nicht verfügbar", "Prüfen, ob ein schwaches Chancen-Risiko-Verhältnis stärker gegen Einstiege sprechen sollte."),
         ("News", lambda case: case.get("signals", {}).get("News") or "Daten nicht verfügbar", "Prüfen, ob News-Signale zuverlässiger gefiltert oder schwächer gewichtet werden sollten."),
         ("Makro", lambda case: case.get("signals", {}).get("Makro") or "Daten nicht verfügbar", "Prüfen, ob Makro-Gegenwind stärker in Risiko und Timing einfließen sollte."),
+        ("Szenario-Lesart", lambda case: case.get("scenario_read") or "Daten nicht verfügbar", "Prüfen, ob Szenario-Wahrscheinlichkeiten zu optimistisch oder zu defensiv gesetzt werden."),
+        ("Fehlursache", lambda case: case.get("miss_reason") or "Daten nicht verfügbar", "Prüfen, ob wiederkehrende Fehlursachen eine Modulverbesserung statt eine Gewichtungsänderung erfordern."),
+        ("Decision-Alignment", lambda case: case.get("decision_alignment") or "Daten nicht verfügbar", "Prüfen, ob Nutzerentscheidungen gegen die App systematisch bessere oder schlechtere Ergebnisse liefern."),
     ]
 
     candidates: list[dict[str, object]] = []
@@ -2135,6 +2144,7 @@ def signal_learning_rows(forward_tests: list[dict], predictions: list[dict]) -> 
         by_asset: dict[str, list[float]] = {}
         by_module: dict[str, list[float]] = {}
         by_scenario: dict[str, list[float]] = {}
+        by_miss_reason: dict[str, list[float]] = {}
         for item in evaluated:
             asset_type = str(item["record"].get("asset_type") or "Unbekannt")
             return_pct = value_or_none(item["result"].get("return_pct"))
@@ -2144,6 +2154,9 @@ def signal_learning_rows(forward_tests: list[dict], predictions: list[dict]) -> 
                 scenario_read = item["result"].get("scenario_read")
                 if scenario_read:
                     by_scenario.setdefault(str(scenario_read), []).append(return_value)
+                miss_reason = item["result"].get("miss_reason")
+                if miss_reason and return_value <= 0:
+                    by_miss_reason.setdefault(str(miss_reason), []).append(return_value)
                 module_scores = item["record"].get("module_scores")
                 if isinstance(module_scores, list):
                     for module in module_scores:
@@ -2176,6 +2189,14 @@ def signal_learning_rows(forward_tests: list[dict], predictions: list[dict]) -> 
                     "Signal": f"Modulgruppe {module_bucket}",
                     "Wert": f"{hit_rate:.1f}%",
                     "Hinweis": f"{len(values)} ausgewertete Fälle; Modulgruppen ändern Gewichtungen nicht automatisch.",
+                }
+            )
+        for reason, values in sorted(by_miss_reason.items()):
+            rows.append(
+                {
+                    "Signal": f"Fehlursache {reason}",
+                    "Wert": str(len(values)),
+                    "Hinweis": "Nur aus negativen ausgewerteten Prognosen; keine automatische Gewichtungsänderung.",
                 }
             )
     return status, rows

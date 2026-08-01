@@ -309,6 +309,7 @@ Transparenzregeln:
   - Status: Signalbasierte Kalibrierung umgesetzt am 2026-07-19: ähnliche Setups werden nach RSI, MACD, Marktphase, Volatilität, News, Makro und CRV aufgeschlüsselt; Hinweise bleiben ab Mindestfallzahlen transparent und verändern keine Gewichtungen automatisch.
   - Status: Backtest-Historie integriert am 2026-07-20: gespeicherte Backtest-Gruppen werden als separater Lernkontext mit Fallzahl, Trefferquote, Rendite und Drawdown angezeigt.
   - Status: Kalibrierungsvorschläge aus Fehlmustern umgesetzt am 2026-07-31: häufige Fehlmuster erzeugen manuelle Prüfhinweise mit Datenbasis, Fehlquote und Begründung; Gewichtungen werden nicht automatisch geändert.
+  - Status: konsolidiert am 2026-08-01; Lern- und Kalibrierungsansichten nutzen zusätzlich Szenario-Lesart, Fehlursache und Decision-Alignment aus den neuen Review-Feldern.
 - Lernlogik transparent machen und keine Blackbox-Entscheidungen treffen. Status: konsolidiert am 2026-07-31; `Lernlogik-Guardrails` zeigen dokumentierte Fälle, ausgewertete Fälle, Mindestdatenlogik und das Verbot automatischer Gewichtungsänderungen.
 - Änderungen an Bewertungslogik erst nach Dokumentation und Tests übernehmen.
 
@@ -525,19 +526,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Kalibrierungs- und Lernmodul gegen Prognose-/Decision-/Forward-Erweiterungen konsolidieren.
+1. Opportunity-Scanner-Ergebnisliste gegen Lern-/Confidence-Kontext prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Prognose-Tracking ist jetzt konsolidiert: Szenario-Lesart, Modulgruppen und einfache Fehlursachen sind in Auswertung und Trefferquoten nutzbar.
-- Die letzten Arbeitseinheiten haben Forward-, Decision- und Prognosehistorien erweitert.
-- Der nächste größte Nutzen liegt darin, das Kalibrierungs-/Lernmodul gegen diese neuen Felder zu prüfen, damit neue Daten tatsächlich transparent nutzbar werden.
+- Lern- und Kalibrierungsansichten nutzen jetzt die neuen Review-Felder aus Forward-, Decision- und Prognosehistorien.
+- Der Opportunity Scanner ist der Einstiegspunkt für neue Vorschläge; er sollte den vorhandenen Lern-/Confidence-Kontext sichtbar nutzen, ohne automatische Trades auszulösen.
+- Der nächste größte Nutzen liegt darin, Scanner-Kandidaten mit vorhandener Historie/Confidence transparenter zu bewerten.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Lern- und Kalibrierungsansichten gegen neue Review-Felder prüfen.
-2. Fehlende Gruppierungen für App-Alignment, Szenario-Lesart oder Fehlursachen ergänzen, falls sinnvoll.
-3. Mindestdatenlogik und Verbot automatischer Gewichtungsänderungen beibehalten.
+1. Bestehende Opportunity-Scanner-Ausgabe gegen Confidence- und Lernkontext prüfen.
+2. Fehlende Hinweise zu historischen ähnlichen Fällen oder Datenbasis ergänzen, falls sinnvoll.
+3. Keine automatische Kauf-/Verkaufsfunktion einbauen.
 4. Tests ausführen und README/ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1019,6 +1020,13 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Kalibrierungs- und Lernmodul konsolidiert: `evaluated_history_cases()` normalisiert jetzt zusätzlich Szenario-Lesart, Fehlursache und Decision-Alignment aus Review-Daten.
+- Fehlfall- und Kalibrierungstabellen erweitert: negative Fälle und Kalibrierungsvorschläge können nun nach Szenario-Lesart, Fehlursache und Decision-Alignment gruppiert werden.
+- Signalanalyse erweitert: negative Prognosefälle können Fehlursachen als Lernhinweis anzeigen, ohne Gewichtungen automatisch zu ändern.
+- README aktualisiert: Kalibrierungsbereich beschreibt die neuen Lernfelder.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkte Lern-/Kalibrierungs-Mock-Tests erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Kalibrierungs- und Lernmodul gegen Prognose-/Decision-/Forward-Erweiterungen konsolidieren` ist umgesetzt; neue Priorität ist `Opportunity-Scanner-Ergebnisliste gegen Lern-/Confidence-Kontext prüfen`, weil Scanner-Vorschläge die vorhandene Historie transparent berücksichtigen sollten.
 
 - Prognose-Tracking konsolidiert: Prognose-Auswertungen speichern jetzt neben `scenario_read` auch eine einfache `miss_reason` aus vorhandener Marktphase, Signal-Snapshot, Modul-Scores oder Kursentwicklung.
 - Trefferquoten erweitert: `prediction_hit_rate_rows()` gruppiert ausgewertete Prognosen zusätzlich nach Szenario-Lesart und Fehlursache.

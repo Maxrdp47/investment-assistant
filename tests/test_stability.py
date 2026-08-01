@@ -463,6 +463,53 @@ def test_calibration_suggestions_allow_manual_proposal_after_large_error_basis()
     )
 
 
+def test_calibration_suggestions_include_new_review_fields() -> None:
+    records = [
+        {
+            "action": "Long",
+            "asset_type": "Aktie",
+            "review_after": {
+                "1m": {
+                    "return_pct": -4.0,
+                    "scenario_read": "Bear wahrscheinlicher",
+                    "miss_reason": "Signalproblem: Makro",
+                    "decision_alignment": "gegen App-Einschätzung",
+                }
+            },
+        }
+        for _ in range(20)
+    ]
+
+    _, rows = app.calibration_suggestion_rows([], [], [], records)
+    dimensions = {(row["Bereich"], row["Muster"]) for row in rows}
+
+    assert ("Szenario-Lesart", "Bear wahrscheinlicher") in dimensions
+    assert ("Fehlursache", "Signalproblem: Makro") in dimensions
+    assert ("Decision-Alignment", "gegen App-Einschätzung") in dimensions
+
+
+def test_negative_case_cause_rows_include_new_review_fields() -> None:
+    decisions = [
+        {
+            "decision": "Nicht kaufen",
+            "asset_type": "Aktie",
+            "review_after": {
+                "1m": {
+                    "decision_return_pct": -1.0,
+                    "decision_alignment": "gegen App-Einschätzung",
+                    "miss_reason": "Kursentwicklung gegen Prognose",
+                }
+            },
+        }
+    ]
+
+    _, rows = app.negative_case_cause_rows([], [], decisions, [])
+    dimensions = {(row["Dimension"], row["Ausprägung"]) for row in rows}
+
+    assert ("Decision-Alignment", "gegen App-Einschätzung") in dimensions
+    assert ("Fehlursache", "Kursentwicklung gegen Prognose") in dimensions
+
+
 def test_learning_guardrails_block_calibration_under_minimum() -> None:
     status, rows = app.learning_guardrail_rows([], [], [], [])
 

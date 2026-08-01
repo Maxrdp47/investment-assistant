@@ -784,6 +784,41 @@ def test_local_history_quality_rows_accepts_usable_learning_data() -> None:
     assert quality["Backtests"]["Auswertungen"] == "1"
 
 
+def test_history_quality_limits_calibration_and_confidence_context() -> None:
+    quality_rows = [
+        {
+            "Historie": "Trade Journal",
+            "Einträge": "1",
+            "Auswertungen": "0",
+            "Datenqualität": "Eingeschränkt",
+            "Hinweis": "Legacy-Format",
+        }
+    ]
+
+    status, rows = app.calibration_status_rows([], [], [], [], quality_rows)
+    calibration = {row["Messpunkt"]: row for row in rows}
+
+    assert "Historienqualität eingeschränkt" in status
+    assert calibration["Datenqualität lokaler Historien"]["Wert"] == "Eingeschränkt"
+
+    similar_status, similar_rows = app.similar_setup_rows(
+        app.AssetProfile("Aktie", "EQUITY", "Aktie", {}),
+        app.MarketPhase("Bullenmarkt", "Trend positiv", []),
+        "Long",
+        app.ModuleScore(7.5, "Qualität", []),
+        app.ModuleScore(8.0, "Kaufsignal", []),
+        [reviewed_case(return_pct=-2.0) for _ in range(20)],
+        [],
+        [],
+        [],
+        quality_rows,
+    )
+    similar = {row["Messpunkt"]: row for row in similar_rows}
+
+    assert "Vorsichtige Hinweise" in similar_status
+    assert similar["Datenqualität lokaler Historien"]["Wert"] == "Eingeschränkt"
+
+
 def test_similar_setup_rows_surface_extended_review_context() -> None:
     trade_history = [reviewed_case(return_pct=-2.0) for _ in range(20)]
 

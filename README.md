@@ -266,6 +266,8 @@ Die App zeigt im Bereich **Analyse-Details anzeigen** zusätzlich **Lernlogik-Gu
 
 Zusätzlich prüft die App die **Datenqualität lokaler Lernhistorien**. Dabei werden Trade Journal, Forward-Tests, Entscheidungen, Prognosen und gespeicherte Backtests darauf geprüft, ob sie lesbare Review-Strukturen und verwertbare Auswertungen enthalten. Defekte oder alte Einträge werden nicht geschätzt, sondern als eingeschränkt gekennzeichnet.
 
+Diese lokale Historienqualität fließt als Transparenzhinweis in Kalibrierungsstatus und Confidence-System ein. Wenn lokale Historien eingeschränkt sind, werden Trefferquoten und Lernhinweise vorsichtiger eingeordnet; automatische Gewichtungsänderungen gibt es weiterhin nicht.
+
 Die Stabilitätstests nutzen gemeinsame Mock-Historien für Kalibrierungskontext, Confidence, Lernsystem und lokale Historienqualität. Dadurch bleiben neue Lernfelder testbar, ohne dass echte Portfolio-, Broker- oder Marktdaten benötigt werden.
 
 - Unter 20 dokumentierten Fällen: `Datenbasis zu klein`

@@ -1839,6 +1839,18 @@ def local_history_quality_rows(
     return status, rows
 
 
+def local_history_quality_context(quality_rows: list[dict[str, str]]) -> tuple[str, str]:
+    if not quality_rows:
+        return "Daten nicht verfügbar", "Keine lokale Historienqualitätsprüfung vorhanden."
+    if all(row.get("Einträge") == "0" for row in quality_rows):
+        return "Keine Historie", "Es gibt noch keine lokalen Lernhistorien; Confidence und Kalibrierung bleiben explorativ."
+    limited = [row for row in quality_rows if str(row.get("Datenqualität") or "").lower().startswith("eingeschr")]
+    if limited:
+        names = ", ".join(row.get("Historie", "Unbekannt") for row in limited[:3])
+        return "Eingeschränkt", f"Eingeschränkte lokale Historienqualität bei {names}; Lern- und Confidence-Hinweise vorsichtig interpretieren."
+    return "OK", "Lokale Lernhistorien sind strukturell lesbar; Gewichtungen ändern sich trotzdem nicht automatisch."
+
+
 def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[str, list[dict[str, str]]]:
     required_columns = {"Close", "Low", "High"}
     if df.empty or not required_columns.issubset(df.columns):
@@ -2273,6 +2285,7 @@ def similar_setup_rows(
     forward_tests: list[dict],
     decisions: list[dict],
     predictions: list[dict],
+    history_quality_rows: list[dict[str, str]] | None = None,
 ) -> tuple[str, list[dict[str, str]]]:
     cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
     target_family = action_family(action)
@@ -2307,8 +2320,10 @@ def similar_setup_rows(
 
     hit_rate = None if count == 0 else sum(1 for case in similar if case["hit"]) / count * 100
     avg_return = None if count == 0 else float(np.mean([case["return_pct"] for case in similar]))
+    quality_status, quality_hint = local_history_quality_context(history_quality_rows or [])
     rows = [
         {"Messpunkt": "Alle ausgewerteten Historienfälle", "Wert": str(len(cases)), "Bedeutung": "Basis aus Trade-Journal, Forward-Tests, Entscheidungen und Prognosen."},
+        {"Messpunkt": "Datenqualität lokaler Historien", "Wert": quality_status, "Bedeutung": quality_hint},
         {"Messpunkt": "Ähnliche Setups", "Wert": str(count), "Bedeutung": f"Ähnlichkeit nach Asset-Typ, Aktion, Marktphase, Kaufsignal und Asset-Qualität. {status}"},
         {"Messpunkt": "Trefferquote ähnlicher Setups", "Wert": "Datenbasis zu klein" if hit_rate is None or count < 20 else f"{hit_rate:.1f}%", "Bedeutung": "Treffer wird gegen die damalige Empfehlung gemessen; keine automatische Gewichtungsänderung."},
         {"Messpunkt": "Durchschnittsrendite ähnlicher Setups", "Wert": "Datenbasis zu klein" if avg_return is None or count < 20 else f"{avg_return:+.2f}%", "Bedeutung": "Nur echte ausgewertete Kursdaten; keine fehlenden Renditen geschätzt."},
@@ -2374,6 +2389,7 @@ def calibration_status_rows(
     forward_tests: list[dict] | None = None,
     decisions: list[dict] | None = None,
     predictions: list[dict] | None = None,
+    history_quality_rows: list[dict[str, str]] | None = None,
 ) -> tuple[str, list[dict[str, str]]]:
     forward_tests = forward_tests or []
     decisions = decisions or []
@@ -2389,9 +2405,13 @@ def calibration_status_rows(
     else:
         status = "Kalibrierungsvorschläge erlaubt. Änderungen müssen dokumentiert und getestet werden."
         permission = "Vorschläge erlaubt"
+    quality_status, quality_hint = local_history_quality_context(history_quality_rows or [])
+    if quality_status == "Eingeschränkt":
+        status = f"{status} Lokale Historienqualität eingeschränkt."
 
     rows = [
         {"Messpunkt": "Dokumentierte Fälle gesamt", "Wert": str(cases), "Bedeutung": status},
+        {"Messpunkt": "Datenqualität lokaler Historien", "Wert": quality_status, "Bedeutung": quality_hint},
         {"Messpunkt": "Forward-Tests", "Wert": str(len(forward_tests)), "Bedeutung": f"Ausgewertete Zeiträume: {count_completed_reviews(forward_tests)}."},
         {"Messpunkt": "Entscheidungen", "Wert": str(len(decisions)), "Bedeutung": "Nutzerentscheidungen für spätere Opportunitätskostenanalyse."},
         {"Messpunkt": "Prognosen", "Wert": str(len(predictions)), "Bedeutung": f"Ausgewertete Zeiträume: {count_completed_reviews(predictions)}."},
@@ -2406,6 +2426,7 @@ def learning_guardrail_rows(
     forward_tests: list[dict],
     decisions: list[dict],
     predictions: list[dict],
+    history_quality_rows: list[dict[str, str]] | None = None,
 ) -> tuple[str, list[dict[str, str]]]:
     evaluated_cases = evaluated_history_cases(trade_history, forward_tests, predictions, decisions)
     documented_cases = len(trade_history) + len(forward_tests) + len(decisions) + len(predictions)
@@ -7839,24 +7860,25 @@ def main() -> None:
         decision_history = load_decision_history()
         prediction_history = load_prediction_history()
         backtest_history = load_backtest_history()
-        calibration_status, calibration_rows = calibration_status_rows(
-            trade_history,
-            forward_history,
-            decision_history,
-            prediction_history,
-        )
-        learning_guardrail_status, learning_guardrail_table = learning_guardrail_rows(
-            trade_history,
-            forward_history,
-            decision_history,
-            prediction_history,
-        )
         local_history_quality_status, local_history_quality_table = local_history_quality_rows(
             trade_history,
             forward_history,
             decision_history,
             prediction_history,
             backtest_history,
+        )
+        calibration_status, calibration_rows = calibration_status_rows(
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
+            local_history_quality_table,
+        )
+        learning_guardrail_status, learning_guardrail_table = learning_guardrail_rows(
+            trade_history,
+            forward_history,
+            decision_history,
+            prediction_history,
         )
         calibration_context_status, calibration_context_table = calibration_context_summary_rows(
             trade_history,
@@ -7877,6 +7899,7 @@ def main() -> None:
             forward_history,
             decision_history,
             prediction_history,
+            local_history_quality_table,
         )
         calibration_suggestion_status, calibration_suggestion_table = calibration_suggestion_rows(
             trade_history,

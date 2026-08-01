@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Lernhistorien-Datenqualität in Confidence-/Kalibrierungsstatus einfließen lassen.
+1. Defekte lokale Historien in Lernansicht mit Reparaturhinweisen ergänzen.
 
 Warum diese Aufgabe zuerst:
 
-- Analyse-Details zeigen jetzt Datenqualität lokaler Lernhistorien für Trade Journal, Forward-Tests, Entscheidungen, Prognosen und Backtests.
-- Der nächste größte Nutzen liegt darin, diese Qualitätsprüfung in Confidence- und Kalibrierungsstatus einzubeziehen, damit eingeschränkte Historien nicht zu stark interpretiert werden.
-- Dadurch bleiben Lernhinweise datenbasiert und alte/defekte lokale Dateien werden transparenter begrenzt.
+- Kalibrierungsstatus und Confidence-System zeigen jetzt die Datenqualität lokaler Lernhistorien als eigenen Kontext.
+- Der nächste größte Nutzen liegt darin, defekte lokale Historien nicht nur zu melden, sondern einfache Reparatur-/Bereinigungshinweise für den Nutzer anzuzeigen.
+- Dadurch bleiben Lernmodule nachvollziehbar, wenn alte JSON-Dateien oder Legacy-Einträge die Datenbasis einschränken.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Lernhistorien-Datenqualität in Confidence-/Kalibrierungsstatus eingebunden: `calibration_status_rows()` und `similar_setup_rows()` zeigen jetzt den Qualitätsstatus lokaler Historien als Kontext.
+- Eingeschränkte Historien relativieren Lernhinweise: Bei eingeschränkter lokaler Historienqualität ergänzt der Kalibrierungsstatus einen Warnhinweis; Confidence-Tabellen zeigen die Qualitätszeile separat.
+- README aktualisiert: lokale Historienqualität als Transparenzhinweis für Kalibrierung und Confidence dokumentiert.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter History-Quality-Status-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Lernhistorien-Datenqualität in Confidence-/Kalibrierungsstatus einfließen lassen` ist umgesetzt; neue Priorität ist `Defekte lokale Historien in Lernansicht mit Reparaturhinweisen ergänzen`, weil die App jetzt Einschränkungen erkennt, aber noch keine praktischen nächsten Schritte anbietet.
 
 - Datenqualitäts-Check für Lern-/Backtest-Historien ausgebaut: neue `local_history_quality_rows()` prüft Review-Strukturen, abgeschlossene Auswertungen und belastbare Backtest-Zeilen.
 - Analyse-Details erweitert: Die App zeigt `Datenqualität lokaler Lernhistorien` vor den Lernlogik-Guardrails.

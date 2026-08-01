@@ -1521,6 +1521,45 @@ def backtest_calibration_candidates(history: list[dict]) -> list[dict[str, objec
     return candidates
 
 
+def backtest_calibration_context(history: list[dict], market_phase: str, buy_signal_score: float | None) -> tuple[str, str]:
+    candidates = backtest_calibration_candidates(history)
+    if not history:
+        return (
+            "Daten nicht verfügbar",
+            "Keine gespeicherte Backtest-Historie vorhanden; Scanner und Trading-Modus ändern deshalb keine Einschätzung.",
+        )
+    if not candidates:
+        return (
+            "Keine auffällige Backtest-Warnung",
+            "Gespeicherte Backtests enthalten aktuell kein schwaches Muster mit ausreichender Datenbasis.",
+        )
+
+    bucket = score_bucket(buy_signal_score)
+    phase_text = str(market_phase or "")
+
+    def relevance(candidate: dict[str, object]) -> tuple[int, int, float, float]:
+        label = str(candidate.get("group") or "")
+        phase_match = 1 if phase_text and phase_text in label else 0
+        bucket_match = 1 if bucket and f"Kauf {bucket}" in label else 0
+        return (
+            phase_match + bucket_match,
+            int(candidate.get("count") or 0),
+            float(candidate.get("miss_rate") or 0.0),
+            -float(candidate.get("avg_return") or 0.0),
+        )
+
+    best = max(candidates, key=relevance)
+    count = int(best.get("count") or 0)
+    miss_rate = float(best.get("miss_rate") or 0.0)
+    avg_return = float(best.get("avg_return") or 0.0)
+    label = str(best.get("group") or "Backtest-Signal")
+    status, _ = backtest_confidence_context(count, 100.0 - miss_rate, avg_return)
+    return (
+        status,
+        f"Schwaches Backtest-Muster: {label}. Datenbasis {count} Fälle, Fehlquote {miss_rate:.1f}%, Durchschnittsrendite {avg_return:+.2f}%. Nur manueller Hinweis, keine automatische Score-Änderung.",
+    )
+
+
 def calibration_suggestion_rows(
     trade_history: list[dict],
     forward_tests: list[dict],
@@ -3682,6 +3721,7 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
     results: list[dict] = []
     errors: list[str] = []
     macro = score_macro()
+    backtest_history = load_backtest_history()
 
     for symbol in symbols:
         try:
@@ -3714,6 +3754,7 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
             opportunity_score = round(clamp(buy_signal.score * 0.55 + asset_quality.score * 0.20 + risk_reward.score * 0.15 + confidence * 0.10), 1)
             direction = scanner_direction(buy_signal, market_phase)
             historical_stats = similar_setup_statistics(profile.asset_type, market_phase.phase, direction, buy_signal.score)
+            calibration_status, calibration_hint = backtest_calibration_context(backtest_history, market_phase.phase, buy_signal.score)
             reasons = [
                 f"Kaufsignal {buy_signal.score:.1f}/10",
                 f"Asset-Qualität {asset_quality.score:.1f}/10",
@@ -3743,8 +3784,10 @@ def scan_opportunities(symbols: list[str]) -> tuple[list[dict], list[str]]:
                     "Ähnliche Setups": historical_stats["count"],
                     "Trefferquote ähnliche Setups": historical_stats["hit_rate"],
                     "Historienstatus": historical_stats["status"],
+                    "Kalibrierungskontext": calibration_status,
+                    "Kalibrierungshinweis": calibration_hint,
                     "CRV": "Daten nicht verfügbar" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}",
-                    "Wichtigste Begründungen": " | ".join([*reasons[:5], str(historical_stats["summary"])]),
+                    "Wichtigste Begründungen": " | ".join([*reasons[:5], str(historical_stats["summary"]), calibration_hint]),
                 }
             )
         except Exception as exc:
@@ -3812,11 +3855,14 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
         crv = reward_pct / risk_pct if reward_pct is not None and risk_pct is not None and risk_pct > 0 else None
         chance = setup_probability(direction, buy_signal, confidence, crv)
         historical_stats = similar_setup_statistics(profile.asset_type, market_phase.phase, direction, buy_signal.score)
+        calibration_status, calibration_hint = backtest_calibration_context(load_backtest_history(), market_phase.phase, buy_signal.score)
         risks = [
             "Setup verliert Aussagekraft, wenn die Stop-Zone klar gebrochen wird.",
             "Hohe Volatilität kann Ziel und Stop schnell anlaufen.",
             "Makro- oder News-Schocks können technische Signale überlagern.",
         ]
+        if calibration_status not in {"Daten nicht verfügbar", "Keine auffällige Backtest-Warnung"}:
+            risks.insert(0, calibration_hint)
         chances = [
             "Besseres CRV, wenn Einstieg nahe Unterstützung oder nach Bestätigung erfolgt.",
             "Momentum verbessert sich, wenn MACD und Marktphase drehen.",
@@ -3841,6 +3887,8 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
             "Trefferquote ähnliche Setups": historical_stats["hit_rate"],
             "Historienstatus": historical_stats["status"],
             "Historienhinweis": historical_stats["summary"],
+            "Kalibrierungskontext": calibration_status,
+            "Kalibrierungshinweis": calibration_hint,
             "CRV": None if crv is None else round(crv, 2),
             "Zeithorizont": "2-8 Wochen",
             "Marktphase": market_phase.phase,
@@ -3849,7 +3897,7 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
             "signal_snapshot": build_signal_snapshot(latest, risk_reward, []),
             "Risiken": risks[:3],
             "Chancen": chances[:3],
-            "Begründung": f"{setup_label}: Kaufsignal {buy_signal.score:.1f}/10, Confidence {confidence:.1f}/10, Marktphase {market_phase.phase}.",
+            "Begründung": f"{setup_label}: Kaufsignal {buy_signal.score:.1f}/10, Confidence {confidence:.1f}/10, Marktphase {market_phase.phase}. {calibration_hint}",
             "review_after": empty_review_schedule(),
             "Hinweis": "Nur Analyse und Dokumentation. Keine automatische Kauf- oder Verkaufsfunktion.",
         }, None
@@ -3869,6 +3917,7 @@ def setup_display_rows(setups: list[dict]) -> list[dict]:
                 "Confidence": f"{setup['Confidence']:.1f}/10",
                 "Ähnliche Setups": setup.get("Ähnliche Setups", 0),
                 "Historienstatus": setup.get("Historienstatus", "Datenbasis zu klein"),
+                "Kalibrierungskontext": setup.get("Kalibrierungskontext", "Daten nicht verfügbar"),
                 "Trefferquote ähnliche Setups": "Datenbasis zu klein" if setup.get("Trefferquote ähnliche Setups") is None else f"{setup['Trefferquote ähnliche Setups']:.1f}%",
                 "Einstieg": format_currency(float(setup["Einstieg"])),
                 "Zielzone": format_currency(float(setup["Zielzone"])) if setup.get("Zielzone") is not None else "Daten nicht verfügbar",

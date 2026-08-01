@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Scanner- und Trading-Ausgaben mit Backtest-/Kalibrierungskontext verbinden.
+1. Trade-Journal-Speicherung gegen neue Kalibrierungskontext-Felder prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Kalibrierungsvorschläge nutzen jetzt schwache gespeicherte Backtest-Gruppen als manuelle Hinweise.
-- Der nächste größte Nutzen liegt darin, diese Lernhinweise dort sichtbar zu machen, wo neue Chancen entstehen: Opportunity Scanner und Trading-Modus.
-- Dadurch kann die App bessere Research-Warnungen geben, ohne Kaufsignale automatisch umzubauen oder Trades auszuführen.
+- Scanner und Trading-Modus zeigen jetzt Backtest-/Kalibrierungskontext als reine Transparenzfelder.
+- Der nächste größte Nutzen liegt darin, zu prüfen, ob diese neuen Felder beim Speichern ins Trade Journal konsistent erhalten bleiben.
+- Dadurch bleiben spätere Performance- und Lern-Auswertungen vollständig, ohne Portfolio- oder Kaufsignal-Logik zu vermischen.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Scanner- und Trading-Ausgaben mit Backtest-/Kalibrierungskontext verbunden: Opportunity Scanner und Trading-Setups zeigen jetzt `Kalibrierungskontext` und `Kalibrierungshinweis` aus schwachen gespeicherten Backtest-Mustern.
+- Score-Trennung beibehalten: Opportunity Score, Chance, Confidence und Kaufsignal werden dadurch nicht automatisch verändert.
+- README aktualisiert: Opportunity Scanner und Trading-Modus beschreiben die neuen Kalibrierungskontext-Felder.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Scanner-/Trading-Kalibrierungskontext-Mock-Test erfolgreich.
+- Priorität angepasst: ursprüngliche Priorität `Scanner- und Trading-Ausgaben mit Backtest-/Kalibrierungskontext verbinden` ist umgesetzt; neue Priorität ist `Trade-Journal-Speicherung gegen neue Kalibrierungskontext-Felder prüfen`, weil diese Felder in späteren Performance-Auswertungen erhalten bleiben sollten.
 
 - Kalibrierungsvorschläge mit Backtest-Historie verbunden: schwache gespeicherte Backtest-Gruppen mit ausreichender Datenbasis erscheinen jetzt als Bereich `Backtest-Signal`.
 - Keine automatische Kalibrierung: Backtest-Hinweise bleiben manuelle Vorschläge mit Datenbasis, Fehlquote, Begründung und Umsetzungshinweis.

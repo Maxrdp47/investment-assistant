@@ -188,6 +188,28 @@ def test_trading_setup_reuses_info_and_keeps_history_context(monkeypatch) -> Non
     monkeypatch.setattr(app, "load_ticker_info", fake_load_ticker_info)
     monkeypatch.setattr(
         app,
+        "load_backtest_history",
+        lambda: [
+            {
+                "symbol": "NVDA",
+                "rows": [
+                    {
+                        "Zeithorizont": "3m",
+                        "Marktphase": "Bullenmarkt",
+                        "Kaufsignal-Bucket": "hoch",
+                        "RSI-Bucket": "neutral",
+                        "MACD-Bucket": "negativ",
+                        "CRV-Bucket": "knapp",
+                        "Faelle": "55",
+                        "Trefferquote": "38.0%",
+                        "Durchschnittsrendite": "-2.50%",
+                    }
+                ],
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        app,
         "similar_setup_statistics",
         lambda asset_type, market_phase, direction, buy_signal_score: {
             "count": 24,
@@ -207,7 +229,10 @@ def test_trading_setup_reuses_info_and_keeps_history_context(monkeypatch) -> Non
     assert setup["Treffer ähnliche Setups"] == 15
     assert setup["Trefferquote ähnliche Setups"] == 62.5
     assert setup["Historienstatus"] == "vorsichtiger Hinweis"
-    assert app.setup_display_rows([setup])[0]["Historienstatus"] == "vorsichtiger Hinweis"
+    assert "Backtest" in setup["Kalibrierungshinweis"]
+    display = app.setup_display_rows([setup])[0]
+    assert display["Historienstatus"] == "vorsichtiger Hinweis"
+    assert "Lernkontext" in display["Kalibrierungskontext"]
 
 
 def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, monkeypatch) -> None:
@@ -439,6 +464,28 @@ def test_opportunity_scanner_reuses_loaded_ticker_info(monkeypatch) -> None:
 
     monkeypatch.setattr(app, "load_price_data", fake_load_price_data)
     monkeypatch.setattr(app, "load_ticker_info", fake_load_ticker_info)
+    monkeypatch.setattr(
+        app,
+        "load_backtest_history",
+        lambda: [
+            {
+                "symbol": "NVDA",
+                "rows": [
+                    {
+                        "Zeithorizont": "3m",
+                        "Marktphase": "Bullenmarkt",
+                        "Kaufsignal-Bucket": "hoch",
+                        "RSI-Bucket": "neutral",
+                        "MACD-Bucket": "negativ",
+                        "CRV-Bucket": "knapp",
+                        "Faelle": "55",
+                        "Trefferquote": "38.0%",
+                        "Durchschnittsrendite": "-2.50%",
+                    }
+                ],
+            }
+        ],
+    )
     monkeypatch.setattr(app, "score_macro", lambda: app.ModuleScore(5.0, "Makro neutral", []))
     monkeypatch.setattr(app, "score_news", lambda symbol: app.ModuleScore(5.0, "News neutral", []))
     monkeypatch.setattr(
@@ -467,9 +514,12 @@ def test_opportunity_scanner_reuses_loaded_ticker_info(monkeypatch) -> None:
         "Ähnliche Setups",
         "Trefferquote ähnliche Setups",
         "Historienstatus",
+        "Kalibrierungskontext",
+        "Kalibrierungshinweis",
     } <= set(rows[0])
     assert rows[0]["Ähnliche Setups"] == 3
     assert rows[0]["Trefferquote ähnliche Setups"] == 66.7
+    assert "Backtest" in rows[0]["Kalibrierungshinweis"]
 
 
 def test_portfolio_loader_reports_empty_or_invalid_optional_file(tmp_path: Path, monkeypatch) -> None:

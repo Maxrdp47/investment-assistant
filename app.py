@@ -589,11 +589,31 @@ def save_decision_record(record: dict) -> bool:
 
 def decision_exposure(decision: str) -> str:
     normalized = str(decision).strip().lower()
-    if normalized in {"kaufen", "halten"}:
+    if normalized in {"kaufen", "halten", "kleine tranche", "gestaffelt kaufen"}:
         return "Long"
     if normalized == "verkaufen":
         return "Short"
     return "Beobachten"
+
+
+def app_action_exposure(action: object) -> str:
+    normalized = str(action or "").strip().lower()
+    if any(term in normalized for term in ["kaufen", "nachkauf", "tranche", "long"]):
+        return "Long"
+    if any(term in normalized for term in ["verkaufen", "short", "risiko zu hoch"]):
+        return "Short"
+    return "Beobachten"
+
+
+def decision_alignment(decision: str, app_action: object) -> dict:
+    user_exposure = decision_exposure(decision)
+    app_exposure = app_action_exposure(app_action)
+    aligned = user_exposure == app_exposure
+    return {
+        "app_exposure": app_exposure,
+        "decision_matches_app": aligned,
+        "decision_alignment": "mit App-Einschätzung" if aligned else "gegen App-Einschätzung",
+    }
 
 
 def evaluate_due_decision_history() -> tuple[int, str]:
@@ -608,6 +628,7 @@ def evaluate_due_decision_history() -> tuple[int, str]:
         entry_price = value_or_none(record.get("price_at_decision"))
         created_at_raw = record.get("created_at")
         decision = str(record.get("decision", "Beobachten"))
+        app_action = record.get("app_action") or record.get("action") or record.get("recommendation")
         if not symbol or entry_price is None or not created_at_raw:
             continue
         try:
@@ -646,6 +667,7 @@ def evaluate_due_decision_history() -> tuple[int, str]:
             "Halten/Beobachten": neutral_return,
         }
         exposure = decision_exposure(decision)
+        alignment = decision_alignment(decision, app_action)
         decision_return = alternatives["Long"] if exposure == "Long" else alternatives["Short"] if exposure == "Short" else neutral_return
         best_alternative = max(alternatives, key=alternatives.get)
         best_return = alternatives[best_alternative]
@@ -659,6 +681,7 @@ def evaluate_due_decision_history() -> tuple[int, str]:
                 "current_price": current_price,
                 "decision": decision,
                 "decision_exposure": exposure,
+                **alignment,
                 "decision_return_pct": round(decision_return, 2),
                 "best_alternative": best_alternative,
                 "best_alternative_return_pct": round(best_return, 2),

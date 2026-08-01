@@ -169,6 +169,59 @@ def test_trade_performance_tracking_records_best_alternative(tmp_path: Path, mon
     assert review["opportunity_cost_pct"] == 30.0
 
 
+def test_decision_alignment_maps_user_decision_against_app_action() -> None:
+    aligned = app.decision_alignment("Kleine Tranche", "kleine Tranche möglich")
+    divergent = app.decision_alignment("Nicht kaufen", "Heute kaufen / Nachkauf prüfen")
+
+    assert aligned["app_exposure"] == "Long"
+    assert aligned["decision_matches_app"] is True
+    assert divergent["app_exposure"] == "Long"
+    assert divergent["decision_matches_app"] is False
+    assert divergent["decision_alignment"] == "gegen App-Einschätzung"
+
+
+def test_decision_tracking_records_alignment_and_user_context(tmp_path: Path, monkeypatch) -> None:
+    decision_path = tmp_path / "decision_history.json"
+    monkeypatch.setattr(app, "DECISION_HISTORY_PATH", decision_path)
+    decision_path.write_text(
+        json.dumps(
+            [
+                {
+                    "created_at": "2025-01-01T10:00:00",
+                    "symbol": "NVDA",
+                    "decision": "Nicht kaufen",
+                    "user_note": "Timing war mir zu unsicher.",
+                    "app_action": "Heute kaufen / Nachkauf prüfen",
+                    "asset_quality": 8.0,
+                    "buy_signal": 8.2,
+                    "price_at_decision": 100.0,
+                    "review_after": app.empty_review_schedule(),
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    prices = app.pd.DataFrame(
+        {"Close": [100.0, 110.0], "High": [101.0, 112.0], "Low": [99.0, 108.0]},
+        index=app.pd.date_range("2025-01-01", periods=2, freq="D"),
+    )
+
+    monkeypatch.setattr(app.yf, "download", lambda *args, **kwargs: prices.copy())
+
+    updated, _ = app.evaluate_due_decision_history()
+    record = app.load_decision_history()[0]
+    review = record["review_after"]["1w"]
+
+    assert updated >= 1
+    assert record["user_note"] == "Timing war mir zu unsicher."
+    assert review["decision_exposure"] == "Beobachten"
+    assert review["app_exposure"] == "Long"
+    assert review["decision_matches_app"] is False
+    assert review["decision_alignment"] == "gegen App-Einschätzung"
+    assert review["best_alternative"] == "Long"
+
+
 def test_forward_test_evaluation_records_scenario_read(tmp_path: Path, monkeypatch) -> None:
     forward_path = tmp_path / "forward_tests.json"
     monkeypatch.setattr(app, "FORWARD_TEST_PATH", forward_path)

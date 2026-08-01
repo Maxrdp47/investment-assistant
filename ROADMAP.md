@@ -276,8 +276,11 @@ Transparenzregeln:
 - Nutzerentscheidungen optional protokollieren: gekauft, nicht gekauft, gehalten, verkauft, beobachtet.
   - Status: Basis umgesetzt am 2026-06-15 (`decision_history.json`, lokal und nicht versioniert).
 - Zeitpunkt, Entscheidungsgrund, angezeigte Empfehlung und relevante Scores speichern.
+  - Status: konsolidiert am 2026-08-01; Decision-Tracking speichert App-Aktion, Professional-Decision-Kontext, Asset-Qualität, Kaufsignal, Confidence, Marktphase, Signal-Snapshot und Modul-Scores.
 - Optionalen Nutzerkommentar ermöglichen.
+  - Status: umgesetzt; `user_note` bleibt im lokalen Decision-Datensatz erhalten.
 - Später vergleichen, ob die Entscheidung gegen oder mit der App-Einschätzung getroffen wurde.
+  - Status: erweitert am 2026-08-01; Auswertungen speichern Entscheidungsexposure, App-Exposure und Alignment `mit/gegen App-Einschätzung`.
 - Keine Broker-Anbindung und keine automatische Ausführung.
 - Daten lokal und transparent speichern.
 
@@ -520,19 +523,19 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Decision-Tracking-Hauptliste gegen gespeicherte Scores, Nutzerkommentar und Ergebnisvergleich konsolidieren.
+1. Prognose-Tracking-Hauptliste gegen Szenario-Treffer, Modulgruppen und Fehlursachen konsolidieren.
 
 Warum diese Aufgabe zuerst:
 
-- Forward-Testing ist jetzt konsolidiert: Modul-Scores, Szenarien und Szenario-Lesarten sind für spätere Signalanalyse nutzbar.
-- Decision-Tracking ist die nächste Messschicht, weil Nutzerentscheidungen mit der App-Einschätzung verglichen werden sollen.
-- Der nächste größte Nutzen liegt darin, die gespeicherten Entscheidungen vollständig gegen Scores, Kommentar, beste Alternative und Opportunitätskosten zu prüfen.
+- Decision-Tracking ist jetzt konsolidiert: Nutzerkommentar, Score-Kontext, App-Alignment, beste Alternative und Opportunitätskosten sind im lokalen Review nachvollziehbar.
+- Prognose-Tracking ist die nächste Messschicht, weil Bull/Base/Bear-Szenarien und Modulgruppen zeigen sollen, welche Prognosen tatsächlich belastbar waren.
+- Der nächste größte Nutzen liegt darin, Prognose-Trefferquoten und Fehlursachen gegen die Roadmap-Anforderungen zu prüfen.
 
 Nächste konkrete Umsetzung:
 
-1. Bestehende Decision-Tracking-Speicherung und Auswertung gegen ROADMAP-Anforderungen prüfen.
-2. Fehlende Felder wie Nutzerkommentar, angezeigte Empfehlung oder Score-Kontext ergänzen, falls noch nicht vollständig.
-3. Kompatibilität alter Entscheidungshistorien beibehalten.
+1. Bestehende Prognose-Speicherung und Auswertung gegen ROADMAP-Anforderungen prüfen.
+2. Fehlende Felder für Szenario-Treffer, Modulgruppen oder Fehlursachen ergänzen, falls noch nicht vollständig.
+3. Kompatibilität alter Prognosehistorien beibehalten.
 4. Tests ausführen und README/ROADMAP aktualisieren.
 
 ## Akzeptanzkriterien
@@ -1014,6 +1017,13 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Decision-Tracking konsolidiert: Decision-Reviews speichern jetzt zusätzlich App-Exposure, Entscheidungsexposure und ob die Nutzerentscheidung mit oder gegen die App-Einschätzung getroffen wurde.
+- Nutzerkontext bleibt erhalten: `user_note`, App-Aktion, Professional-Decision-Kontext, Asset-Qualität, Kaufsignal, Confidence, Marktphase, Signal-Snapshot und Modul-Scores bleiben im lokalen Decision-Datensatz.
+- Ergebnisvergleich bleibt getrennt von Empfehlungen: Beste Alternative und Opportunitätskosten werden nur nachträglich aus echten Kursdaten berechnet und verändern keine Live-Scores.
+- README aktualisiert: Decision-Tracking beschreibt jetzt Kommentar, App-Alignment, beste Alternative und Opportunitätskosten.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Decision-Tracking-Mock-Test erfolgreich; `pytest` konnte nicht laufen, weil `pytest` in `.venv` nicht installiert ist.
+- Priorität angepasst: ursprüngliche Priorität `Decision-Tracking-Hauptliste gegen gespeicherte Scores, Nutzerkommentar und Ergebnisvergleich konsolidieren` ist umgesetzt; neue Priorität ist `Prognose-Tracking-Hauptliste gegen Szenario-Treffer, Modulgruppen und Fehlursachen konsolidieren`, weil Prognosen die nächste wichtige Quelle für messbare Analysequalität sind.
 
 - Forward-Testing konsolidiert: Fällige Forward-Test-Auswertungen speichern jetzt zusätzlich eine einfache Szenario-Lesart aus echter Kursentwicklung.
 - Lernfähigkeit verbessert: Signalanalyse zählt ausgewertete Forward-Tests nun zusätzlich nach Szenario-Lesart und gespeicherten Modul-Score-Gruppen.

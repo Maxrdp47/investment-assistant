@@ -396,6 +396,8 @@ def normalize_trade_record(record: dict) -> dict:
         "Trefferquote ähnliche Setups": ["similar_setup_hit_rate"],
         "Historienstatus": ["history_status"],
         "Historienhinweis": ["history_summary"],
+        "Kalibrierungskontext": ["calibration_context"],
+        "Kalibrierungshinweis": ["calibration_hint"],
     }
     for canonical, aliases in field_aliases.items():
         if canonical in normalized:
@@ -411,6 +413,8 @@ def normalize_trade_record(record: dict) -> dict:
     normalized.setdefault("Trefferquote ähnliche Setups", None)
     normalized.setdefault("Historienstatus", "Datenbasis zu klein")
     normalized.setdefault("Historienhinweis", "Ähnliche historische Setups: 0. Datenbasis zu klein; Trefferquote wird nicht als belastbar gewertet.")
+    normalized.setdefault("Kalibrierungskontext", "Daten nicht verfügbar")
+    normalized.setdefault("Kalibrierungshinweis", "Keine gespeicherte Backtest-Historie vorhanden; Trade Journal ändert keine Einschätzung.")
     normalized.setdefault("Hinweis", "Nur Analyse und Dokumentation. Keine automatische Kauf- oder Verkaufsfunktion.")
     return normalized
 

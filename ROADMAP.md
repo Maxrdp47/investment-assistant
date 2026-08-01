@@ -535,13 +535,13 @@ Ziel ist nicht eine Blackbox-KI. Ziel ist ein transparentes, nachvollziehbares S
 
 Aktuelle höchste offene Priorität:
 
-1. Trade-Journal-Speicherung gegen neue Kalibrierungskontext-Felder prüfen.
+1. Performance-Tracking-Auswertung gegen Kalibrierungskontext-Felder prüfen.
 
 Warum diese Aufgabe zuerst:
 
-- Scanner und Trading-Modus zeigen jetzt Backtest-/Kalibrierungskontext als reine Transparenzfelder.
-- Der nächste größte Nutzen liegt darin, zu prüfen, ob diese neuen Felder beim Speichern ins Trade Journal konsistent erhalten bleiben.
-- Dadurch bleiben spätere Performance- und Lern-Auswertungen vollständig, ohne Portfolio- oder Kaufsignal-Logik zu vermischen.
+- Trade-Journal-Speicherung erhält jetzt Kalibrierungskontext und Kalibrierungshinweis über deutsche Felder und Legacy-Aliase.
+- Der nächste größte Nutzen liegt darin, zu prüfen, ob Performance-Tracking diese Felder bei späteren Reviews erhält und nicht überschreibt.
+- Dadurch bleiben spätere Lern-Auswertungen vollständig, ohne die ursprüngliche Setup-Begründung zu verlieren.
 
 Nächste konkrete Umsetzung:
 
@@ -1029,6 +1029,12 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 - Tests dokumentiert: `python -m py_compile app.py scripts\smoke_test.py` erfolgreich; Confidence-Historienauswertung mit gemockten Fällen erfolgreich.
 
 ### 2026-08-01
+
+- Trade-Journal-Speicherung gegen neue Kalibrierungskontext-Felder geprüft: `normalize_trade_record()` übernimmt `calibration_context` und `calibration_hint` in `Kalibrierungskontext` und `Kalibrierungshinweis`.
+- Default-Verhalten ergänzt: Fehlen die Felder, zeigt das Trade Journal `Daten nicht verfügbar` und verändert keine Einschätzung.
+- README aktualisiert: Trade Journal beschreibt jetzt den erhaltenen Kalibrierungskontext.
+- Tests dokumentiert: `python -m py_compile app.py tests\test_stability.py scripts\smoke_test.py` erfolgreich; `scripts\smoke_test.py --skip-live-data` erfolgreich; direkter Trade-Journal-Kalibrierungsfeld-Mock-Test erfolgreich.
+- Priorität angepasst: ursprüngliche Priorität `Trade-Journal-Speicherung gegen neue Kalibrierungskontext-Felder prüfen` ist umgesetzt; neue Priorität ist `Performance-Tracking-Auswertung gegen Kalibrierungskontext-Felder prüfen`, weil Review-Auswertungen diese Setup-Kontexte erhalten müssen.
 
 - Scanner- und Trading-Ausgaben mit Backtest-/Kalibrierungskontext verbunden: Opportunity Scanner und Trading-Setups zeigen jetzt `Kalibrierungskontext` und `Kalibrierungshinweis` aus schwachen gespeicherten Backtest-Mustern.
 - Score-Trennung beibehalten: Opportunity Score, Chance, Confidence und Kaufsignal werden dadurch nicht automatisch verändert.

@@ -142,6 +142,8 @@ def test_trade_journal_normalizes_legacy_and_history_fields(tmp_path: Path, monk
         "similar_setup_hit_rate": 62.5,
         "history_status": "vorsichtiger Hinweis",
         "history_summary": "Ähnliche historische Setups: 24, Trefferquote 62.5 %.",
+        "calibration_context": "Belastbarer Lernkontext (negativ)",
+        "calibration_hint": "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis.",
     }
 
     added, _ = app.auto_document_trade_setups([setup])
@@ -159,6 +161,8 @@ def test_trade_journal_normalizes_legacy_and_history_fields(tmp_path: Path, monk
     assert saved["Treffer ähnliche Setups"] == 15
     assert saved["Trefferquote ähnliche Setups"] == 62.5
     assert saved["Historienstatus"] == "vorsichtiger Hinweis"
+    assert saved["Kalibrierungskontext"] == "Belastbarer Lernkontext (negativ)"
+    assert saved["Kalibrierungshinweis"] == "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis."
     assert set(saved["review_after"]) == set(app.TRACKING_PERIODS)
 
 

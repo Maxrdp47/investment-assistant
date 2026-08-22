@@ -6,7 +6,7 @@ import math
 import os
 import sqlite3
 import ssl
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Iterable, Mapping, Sequence
@@ -16,9 +16,10 @@ from urllib.request import Request, urlopen
 import certifi
 
 
-COT_SCHEMA_VERSION = 1
+COT_SCHEMA_VERSION = 2
 COT_FEATURE_VERSION = "cot-shadow-features-2026.08.18-v1"
 COT_SHADOW_POLICY_VERSION = "cot-shadow-only-2026.08.18-v1"
+COT_FORWARD_CONTEXT_VERSION = "cot-forward-signal-sidecar-2026.08.23-v1"
 CFTC_API_ROOT = "https://publicreporting.cftc.gov/resource"
 CFTC_DATASETS = {
     "tff_futures_only": "gpe5-46if",
@@ -255,6 +256,12 @@ def normalize_cftc_row(
         "dataset_id": CFTC_DATASETS[report_type],
         "report_date": report_day.isoformat(),
         "available_at": available.isoformat() if available else None,
+        "published_at": (
+            available.isoformat()
+            if available is not None and availability_basis == "verified_publication_timestamp"
+            else None
+        ),
+        "first_seen_at": retrieved.isoformat(),
         "availability_basis": availability_basis,
         "pit_eligible": available is not None,
         "retrieved_at": retrieved.isoformat(),
@@ -272,7 +279,17 @@ def normalize_cftc_row(
         "source_url": f"{CFTC_API_ROOT}/{CFTC_DATASETS[report_type]}.json",
     }
     content_for_identity = {
-        key: value for key, value in core.items() if key not in {"retrieved_at", "available_at", "availability_basis", "pit_eligible"}
+        key: value
+        for key, value in core.items()
+        if key
+        not in {
+            "retrieved_at",
+            "available_at",
+            "published_at",
+            "first_seen_at",
+            "availability_basis",
+            "pit_eligible",
+        }
     }
     core["report_key"] = _fingerprint(
         {"report_type": report_type, "market_code": market_code, "report_date": report_day.isoformat()}
@@ -627,6 +644,15 @@ def initialize_cot_shadow_store(path: Path = DEFAULT_COT_DB_PATH) -> None:
                 content_fingerprint TEXT NOT NULL,
                 payload_json TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS cot_report_availability (
+                evidence_id TEXT PRIMARY KEY,
+                report_id TEXT NOT NULL,
+                available_at TEXT NOT NULL,
+                first_seen_at TEXT NOT NULL,
+                availability_basis TEXT NOT NULL,
+                source_url TEXT NOT NULL,
+                FOREIGN KEY(report_id) REFERENCES cot_reports(report_id)
+            );
             CREATE TABLE IF NOT EXISTS cot_shadow_links (
                 link_id TEXT PRIMARY KEY,
                 signal_id TEXT NOT NULL,
@@ -637,8 +663,26 @@ def initialize_cot_shadow_store(path: Path = DEFAULT_COT_DB_PATH) -> None:
                 features_json TEXT NOT NULL,
                 assessment_json TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS cot_forward_contexts (
+                context_id TEXT PRIMARY KEY,
+                signal_id TEXT NOT NULL UNIQUE,
+                signal_at TEXT NOT NULL,
+                asset_id TEXT,
+                listing_id TEXT,
+                issuer_id TEXT,
+                report_id TEXT,
+                status TEXT NOT NULL CHECK (
+                    status IN ('available', 'cot_context_unavailable')
+                ),
+                created_at TEXT NOT NULL,
+                signal_snapshot_fingerprint TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                context_fingerprint TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_cot_reports_asof
             ON cot_reports(market_code, report_type, available_at, report_date);
+            CREATE INDEX IF NOT EXISTS idx_cot_report_availability_asof
+            ON cot_report_availability(report_id, available_at, first_seen_at);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_cot_shadow_signal_policy
             ON cot_shadow_links(signal_id, report_id, link_id);
             CREATE TRIGGER IF NOT EXISTS cot_reports_no_update BEFORE UPDATE ON cot_reports BEGIN
@@ -647,19 +691,74 @@ def initialize_cot_shadow_store(path: Path = DEFAULT_COT_DB_PATH) -> None:
             CREATE TRIGGER IF NOT EXISTS cot_reports_no_delete BEFORE DELETE ON cot_reports BEGIN
                 SELECT RAISE(ABORT, 'cot_reports is append-only');
             END;
+            CREATE TRIGGER IF NOT EXISTS cot_report_availability_no_update BEFORE UPDATE ON cot_report_availability BEGIN
+                SELECT RAISE(ABORT, 'cot_report_availability is append-only');
+            END;
+            CREATE TRIGGER IF NOT EXISTS cot_report_availability_no_delete BEFORE DELETE ON cot_report_availability BEGIN
+                SELECT RAISE(ABORT, 'cot_report_availability is append-only');
+            END;
             CREATE TRIGGER IF NOT EXISTS cot_shadow_links_no_update BEFORE UPDATE ON cot_shadow_links BEGIN
                 SELECT RAISE(ABORT, 'cot_shadow_links is append-only');
             END;
             CREATE TRIGGER IF NOT EXISTS cot_shadow_links_no_delete BEFORE DELETE ON cot_shadow_links BEGIN
                 SELECT RAISE(ABORT, 'cot_shadow_links is append-only');
             END;
+            CREATE TRIGGER IF NOT EXISTS cot_forward_contexts_no_update BEFORE UPDATE ON cot_forward_contexts BEGIN
+                SELECT RAISE(ABORT, 'cot_forward_contexts is append-only');
+            END;
+            CREATE TRIGGER IF NOT EXISTS cot_forward_contexts_no_delete BEFORE DELETE ON cot_forward_contexts BEGIN
+                SELECT RAISE(ABORT, 'cot_forward_contexts is append-only');
+            END;
             """
         )
         row = connection.execute("SELECT value FROM cot_meta WHERE key = 'schema_version'").fetchone()
         if row is None:
             connection.execute("INSERT INTO cot_meta (key, value) VALUES ('schema_version', ?)", (str(COT_SCHEMA_VERSION),))
+        elif int(row["value"]) == 1 and COT_SCHEMA_VERSION == 2:
+            connection.execute(
+                "UPDATE cot_meta SET value = ? WHERE key = 'schema_version'",
+                (str(COT_SCHEMA_VERSION),),
+            )
         elif int(row["value"]) != COT_SCHEMA_VERSION:
             raise RuntimeError(f"Nicht unterstütztes COT-Schema {row['value']}.")
+
+
+def _append_cot_availability_evidence(
+    connection: sqlite3.Connection,
+    report: Mapping[str, object],
+) -> bool:
+    available_at = report.get("available_at")
+    if not available_at or report.get("pit_eligible") is not True:
+        return False
+    report_id = str(report["report_id"])
+    if connection.execute(
+        "SELECT 1 FROM cot_report_availability WHERE report_id = ? LIMIT 1",
+        (report_id,),
+    ).fetchone() is not None:
+        return False
+    first_seen_at = str(report.get("first_seen_at") or report.get("retrieved_at") or available_at)
+    evidence = {
+        "report_id": report_id,
+        "available_at": _utc(str(available_at)).isoformat(),
+        "first_seen_at": _utc(first_seen_at).isoformat(),
+        "availability_basis": str(report.get("availability_basis") or "unknown"),
+        "source_url": str(report.get("source_url") or ""),
+    }
+    evidence_id = _fingerprint({"kind": "cot_report_availability", **evidence})
+    cursor = connection.execute(
+        """INSERT OR IGNORE INTO cot_report_availability
+        (evidence_id, report_id, available_at, first_seen_at, availability_basis, source_url)
+        VALUES (?, ?, ?, ?, ?, ?)""",
+        (
+            evidence_id,
+            evidence["report_id"],
+            evidence["available_at"],
+            evidence["first_seen_at"],
+            evidence["availability_basis"],
+            evidence["source_url"],
+        ),
+    )
+    return cursor.rowcount == 1
 
 
 def append_cot_report(report: Mapping[str, object], path: Path = DEFAULT_COT_DB_PATH) -> bool:
@@ -676,6 +775,7 @@ def append_cot_report(report: Mapping[str, object], path: Path = DEFAULT_COT_DB_
                 _canonical_json(payload),
             ),
         )
+        _append_cot_availability_evidence(connection, payload)
         return cursor.rowcount == 1
 
 
@@ -720,6 +820,7 @@ def ingest_cftc_rows(
                     stored += 1
                 else:
                     duplicates += 1
+                _append_cot_availability_evidence(connection, normalized)
             except (KeyError, TypeError, ValueError) as exc:
                 errors.append({"row": position, "report_date": report_date or None, "error": str(exc)})
     return {
@@ -744,12 +845,71 @@ def load_cot_reports_as_of(
     cutoff = _utc(decision_at).isoformat()
     with _connect(Path(path)) as connection:
         rows = connection.execute(
-            """SELECT payload_json FROM cot_reports
-            WHERE market_code = ? AND report_type = ? AND available_at IS NOT NULL AND available_at <= ?
-            ORDER BY report_date, available_at, retrieved_at""",
+            """SELECT r.payload_json,
+                COALESCE(
+                    r.available_at,
+                    (SELECT MIN(a.available_at) FROM cot_report_availability a WHERE a.report_id = r.report_id)
+                ) AS effective_available_at,
+                (SELECT a.first_seen_at FROM cot_report_availability a
+                 WHERE a.report_id = r.report_id ORDER BY a.available_at, a.first_seen_at LIMIT 1)
+                    AS evidence_first_seen_at,
+                (SELECT a.availability_basis FROM cot_report_availability a
+                 WHERE a.report_id = r.report_id ORDER BY a.available_at, a.first_seen_at LIMIT 1)
+                    AS evidence_basis
+            FROM cot_reports r
+            WHERE r.market_code = ? AND r.report_type = ?
+              AND COALESCE(
+                    r.available_at,
+                    (SELECT MIN(a.available_at) FROM cot_report_availability a WHERE a.report_id = r.report_id)
+                  ) <= ?
+            ORDER BY r.report_date, effective_available_at, r.retrieved_at""",
             (market_code, report_type, cutoff),
         ).fetchall()
-    return [json.loads(row["payload_json"]) for row in rows]
+    return [_cot_report_with_availability(row) for row in rows]
+
+
+def _cot_report_with_availability(row: Mapping[str, object]) -> dict:
+    payload = json.loads(str(row["payload_json"]))
+    effective = row["effective_available_at"]
+    if effective:
+        payload["available_at"] = str(effective)
+        payload["pit_eligible"] = True
+        if row["evidence_first_seen_at"]:
+            payload["first_seen_at"] = str(row["evidence_first_seen_at"])
+        if row["evidence_basis"]:
+            payload["availability_basis"] = str(row["evidence_basis"])
+    return payload
+
+
+def load_all_cot_reports_as_of(
+    decision_at: datetime | str,
+    path: Path = DEFAULT_COT_DB_PATH,
+) -> list[dict]:
+    """Load every report proven available by the cutoff, including later forward evidence."""
+    initialize_cot_shadow_store(path)
+    cutoff = _utc(decision_at).isoformat()
+    with _connect(Path(path)) as connection:
+        rows = connection.execute(
+            """SELECT r.payload_json,
+                COALESCE(
+                    r.available_at,
+                    (SELECT MIN(a.available_at) FROM cot_report_availability a WHERE a.report_id = r.report_id)
+                ) AS effective_available_at,
+                (SELECT a.first_seen_at FROM cot_report_availability a
+                 WHERE a.report_id = r.report_id ORDER BY a.available_at, a.first_seen_at LIMIT 1)
+                    AS evidence_first_seen_at,
+                (SELECT a.availability_basis FROM cot_report_availability a
+                 WHERE a.report_id = r.report_id ORDER BY a.available_at, a.first_seen_at LIMIT 1)
+                    AS evidence_basis
+            FROM cot_reports r
+            WHERE COALESCE(
+                    r.available_at,
+                    (SELECT MIN(a.available_at) FROM cot_report_availability a WHERE a.report_id = r.report_id)
+                  ) <= ?
+            ORDER BY r.report_date, effective_available_at, r.retrieved_at""",
+            (cutoff,),
+        ).fetchall()
+    return [_cot_report_with_availability(row) for row in rows]
 
 
 def append_cot_shadow_link(
@@ -781,11 +941,476 @@ def append_cot_shadow_link(
     return link_id
 
 
+def _cot_listing_identity(asset: Mapping[str, object]) -> str:
+    return _fingerprint(
+        {
+            "ticker": str(asset.get("ticker") or "").upper(),
+            "isin": asset.get("isin"),
+            "exchange": asset.get("exchange"),
+            "original_currency": asset.get("original_currency"),
+        }
+    )
+
+
+def _read_forward_signals_for_cot(
+    forward_path: Path,
+    signal_ids: Sequence[str] | None,
+) -> list[dict]:
+    path = Path(forward_path).resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"Swing-Forward-Datenbank fehlt: {path}")
+    requested = {str(value) for value in signal_ids} if signal_ids is not None else None
+    uri = f"file:{path.as_posix()}?mode=ro"
+    with sqlite3.connect(uri, uri=True) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            "SELECT signal_id, signal_at, snapshot_json, snapshot_fingerprint "
+            "FROM swing_signals ORDER BY signal_at, signal_id"
+        ).fetchall()
+    result = []
+    for row in rows:
+        signal_id = str(row["signal_id"])
+        if requested is not None and signal_id not in requested:
+            continue
+        result.append(
+            {
+                "signal_id": signal_id,
+                "signal_at": str(row["signal_at"]),
+                "snapshot": json.loads(str(row["snapshot_json"])),
+                "snapshot_fingerprint": str(row["snapshot_fingerprint"]),
+            }
+        )
+    if requested is not None:
+        missing = requested - {item["signal_id"] for item in result}
+        if missing:
+            raise ValueError(f"Unbekannte Forward-Signal-IDs: {', '.join(sorted(missing))}")
+    return result
+
+
+def _participant_forward_features(
+    selected: Mapping[str, object],
+    reports: Sequence[Mapping[str, object]],
+) -> dict:
+    selected_market = str(selected.get("market_code") or "")
+    selected_type = str(selected.get("report_type") or "")
+    selected_report = str(selected.get("report_id") or "")
+    market_reports = [
+        dict(item)
+        for item in reports
+        if str(item.get("market_code") or "") == selected_market
+        and str(item.get("report_type") or "") == selected_type
+    ]
+    current = derive_cot_features(
+        market_reports,
+        decision_at=str(selected["decision_at"]),
+        lookback_reports=52,
+    )
+    eligible = sorted(
+        (
+            item
+            for item in market_reports
+            if item.get("pit_eligible") is True
+            and item.get("available_at")
+            and _utc(str(item["available_at"])) <= _utc(str(selected["decision_at"]))
+        ),
+        key=lambda item: (str(item.get("report_date") or ""), str(item.get("available_at") or "")),
+    )
+    prior = None
+    for index, report in enumerate(eligible):
+        if str(report.get("report_id") or "") == selected_report and index > 0:
+            prior = derive_cot_features(
+                market_reports,
+                decision_at=str(eligible[index - 1]["available_at"]),
+                lookback_reports=52,
+            )
+            break
+    output: dict[str, dict] = {}
+    current_oi = _number(current.get("open_interest"))
+    prior_categories = dict((prior or {}).get("categories") or {})
+    for participant, values in dict(current.get("categories") or {}).items():
+        current_z = _number(values.get("historical_z_score"))
+        prior_z = _number(dict(prior_categories.get(participant) or {}).get("historical_z_score"))
+        reversal: bool | None = None
+        reversal_direction: str | None = None
+        if prior_z is not None and current_z is not None:
+            reversal = (prior_z >= 2.0 and current_z < 2.0) or (
+                prior_z <= -2.0 and current_z > -2.0
+            )
+            if reversal:
+                reversal_direction = (
+                    "from_positive_extreme" if prior_z >= 2.0 else "from_negative_extreme"
+                )
+        output[str(participant)] = {
+            "net_position": _number(values.get("net_position")),
+            "open_interest": current_oi,
+            "net_position_open_interest_ratio": (
+                float(values["net_position"]) / current_oi
+                if current_oi not in (None, 0) and values.get("net_position") is not None
+                else None
+            ),
+            "net_change_1w": _number(values.get("net_change_1w")),
+            "net_change_4w": _number(values.get("net_change_4w")),
+            "percentile_52w": _number(values.get("historical_percentile")),
+            "z_score_52w": current_z,
+            "extreme_state": (
+                "positive_extreme"
+                if current_z is not None and current_z >= 2.0
+                else "negative_extreme"
+                if current_z is not None and current_z <= -2.0
+                else "not_extreme"
+                if current_z is not None
+                else None
+            ),
+            "reversal_from_extreme": reversal,
+            "reversal_direction": reversal_direction,
+            "classification_note": values.get("classification_note"),
+        }
+    return {
+        "classes": output,
+        "participant_spreads_or_divergences": list(current.get("divergences") or []),
+        "open_interest_change_1w": _number(current.get("open_interest_change_1w")),
+        "open_interest_change_4w": _number(current.get("open_interest_change_4w")),
+        "lookback_reports_maximum": 52,
+    }
+
+
+def build_cot_forward_signal_context(
+    signal: Mapping[str, object],
+    reports: Sequence[Mapping[str, object]],
+    *,
+    mapping: Mapping[str, object],
+    created_at: datetime | str,
+) -> dict:
+    snapshot = dict(signal.get("snapshot") or {})
+    asset = dict(snapshot.get("asset") or {})
+    signal_id = str(signal.get("signal_id") or "")
+    signal_at = _utc(str(signal.get("signal_at") or snapshot.get("signal_at") or ""))
+    if not signal_id:
+        raise ValueError("COT-Forward-Sidecar benötigt eine Signal-ID.")
+    context = build_asset_cot_shadow_context(
+        asset,
+        reports,
+        decision_at=signal_at,
+        mapping=mapping,
+        technical_direction=str(dict(snapshot.get("strategy") or {}).get("direction") or "long"),
+    )
+    features = dict(context.get("features") or {})
+    selected_report = next(
+        (
+            dict(item)
+            for item in reports
+            if str(item.get("report_id") or "") == str(features.get("report_id") or "")
+        ),
+        None,
+    )
+    available = features.get("status") == "available" and selected_report is not None
+    listing_id = _cot_listing_identity(asset)
+    explicit_publication = None
+    if selected_report is not None:
+        explicit_publication = selected_report.get("published_at")
+        if not explicit_publication and selected_report.get("availability_basis") == "verified_publication_timestamp":
+            explicit_publication = selected_report.get("available_at")
+    payload = {
+        "context_version": COT_FORWARD_CONTEXT_VERSION,
+        "signal_id": signal_id,
+        "signal_cutoff": signal_at.isoformat(),
+        "sidecar_created_at": _utc(created_at).isoformat(),
+        "asset_identity": {
+            "asset_id": asset.get("asset_id"),
+            "listing_id": listing_id,
+            "issuer_id": None,
+            "issuer_id_missing_reason": "Kein belastbarer Issuer-Identifier im Forward-Snapshot.",
+            "ticker": asset.get("ticker"),
+            "isin": asset.get("isin"),
+            "exchange": asset.get("exchange"),
+            "original_currency": asset.get("original_currency"),
+            "asset_type": asset.get("asset_type"),
+            "region": asset.get("region"),
+        },
+        "status": "available" if available else "cot_context_unavailable",
+        "mapping": dict(context.get("mapping") or {}),
+        "mapping_confidence": (
+            {"level": "explicit_deterministic", "value": 1.0}
+            if available
+            else {"level": "unavailable", "value": None}
+        ),
+        "report": (
+            {
+                "report_id": selected_report.get("report_id"),
+                "cftc_market": selected_report.get("market_name"),
+                "cftc_market_code": selected_report.get("market_code"),
+                "report_type": selected_report.get("report_type"),
+                "report_date": selected_report.get("report_date"),
+                "verified_published_at": explicit_publication,
+                "verified_public_availability_at": selected_report.get("available_at"),
+                "local_first_seen_at": selected_report.get("first_seen_at")
+                or selected_report.get("retrieved_at"),
+                "availability_basis": selected_report.get("availability_basis"),
+                "source": selected_report.get("source_url"),
+                "source_fingerprint": selected_report.get("content_fingerprint"),
+            }
+            if available
+            else None
+        ),
+        "participant_context": (
+            _participant_forward_features(features, reports) if available else None
+        ),
+        "assessment": dict(context.get("assessment") or {}),
+        "missingness": {
+            "cot_context_unavailable": not available,
+            "no_later_report_substitution": True,
+            "verified_publication_timestamp_missing": bool(
+                available and explicit_publication is None
+            ),
+        },
+        "guardrails": {
+            "shadow_only": True,
+            "research_only": True,
+            "changes_trade_decision": False,
+            "changes_score_or_weight": False,
+            "changes_position_stop_or_target": False,
+            "broad_feature_schema_changed": False,
+            "broker_order_allowed": False,
+            "production_effect": "none",
+        },
+    }
+    payload["fingerprint"] = _fingerprint(payload)
+    return payload
+
+
+def append_cot_forward_context(
+    context: Mapping[str, object],
+    *,
+    signal_snapshot_fingerprint: str,
+    path: Path = DEFAULT_COT_DB_PATH,
+) -> dict:
+    initialize_cot_shadow_store(path)
+    payload = dict(context)
+    expected = payload.pop("fingerprint", None)
+    fingerprint = _fingerprint(payload)
+    if expected != fingerprint:
+        raise ValueError("COT-Forward-Kontext besitzt einen ungültigen Fingerabdruck.")
+    payload["fingerprint"] = fingerprint
+    signal_id = str(payload.get("signal_id") or "")
+    context_id = _fingerprint(
+        {"kind": "cot_forward_signal_context", "version": COT_FORWARD_CONTEXT_VERSION, "signal_id": signal_id}
+    )
+    asset = dict(payload.get("asset_identity") or {})
+    report = dict(payload.get("report") or {})
+    with _connect(Path(path)) as connection:
+        existing = connection.execute(
+            "SELECT context_id, context_fingerprint, payload_json FROM cot_forward_contexts WHERE signal_id = ?",
+            (signal_id,),
+        ).fetchone()
+        if existing is not None:
+            stored_payload = json.loads(str(existing["payload_json"]))
+            comparable_stored = {
+                key: value
+                for key, value in stored_payload.items()
+                if key not in {"sidecar_created_at", "fingerprint"}
+            }
+            comparable_new = {
+                key: value
+                for key, value in payload.items()
+                if key not in {"sidecar_created_at", "fingerprint"}
+            }
+            if _fingerprint(comparable_stored) != _fingerprint(comparable_new):
+                raise ValueError("Das Signal besitzt bereits einen abweichenden COT-Sidecar.")
+            return {"context_id": str(existing["context_id"]), "inserted": False}
+        connection.execute(
+            """INSERT INTO cot_forward_contexts
+            (context_id, signal_id, signal_at, asset_id, listing_id, issuer_id, report_id,
+             status, created_at, signal_snapshot_fingerprint, payload_json, context_fingerprint)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                context_id,
+                signal_id,
+                str(payload["signal_cutoff"]),
+                asset.get("asset_id"),
+                asset.get("listing_id"),
+                asset.get("issuer_id"),
+                report.get("report_id") or None,
+                str(payload["status"]),
+                str(payload["sidecar_created_at"]),
+                str(signal_snapshot_fingerprint),
+                _canonical_json(payload),
+                fingerprint,
+            ),
+        )
+    return {"context_id": context_id, "inserted": True}
+
+
+def load_cot_forward_contexts(path: Path = DEFAULT_COT_DB_PATH) -> list[dict]:
+    if not Path(path).exists():
+        return []
+    initialize_cot_shadow_store(path)
+    with _connect(Path(path)) as connection:
+        rows = connection.execute(
+            "SELECT context_id, signal_id, payload_json FROM cot_forward_contexts "
+            "ORDER BY signal_at, context_id"
+        ).fetchall()
+    return [
+        {
+            "context_id": str(row["context_id"]),
+            "signal_id": str(row["signal_id"]),
+            "context": json.loads(str(row["payload_json"])),
+        }
+        for row in rows
+    ]
+
+
+def refresh_official_cot_forward(
+    *,
+    retrieved_at: datetime | str,
+    path: Path = DEFAULT_COT_DB_PATH,
+    days: int = 21,
+    fetcher=fetch_cftc_rows,
+) -> dict:
+    retrieved = _utc(retrieved_at)
+    end = retrieved.date()
+    start = end - timedelta(days=max(7, int(days)))
+    results = []
+    errors = []
+    for report_type in CFTC_DATASETS:
+        try:
+            rows = fetcher(report_type, start=start, end=end)
+            results.append(
+                ingest_cftc_rows(
+                    rows,
+                    report_type=report_type,
+                    retrieved_at=retrieved,
+                    acquisition_mode="forward",
+                    path=path,
+                )
+            )
+        except Exception as exc:
+            errors.append({"report_type": report_type, "error": str(exc)})
+    return {
+        "status": "ok" if not errors else "research_attention",
+        "source": "official_cftc_public_reporting",
+        "retrieved_at": retrieved.isoformat(),
+        "window": {"start": start.isoformat(), "end": end.isoformat()},
+        "results": results,
+        "errors": errors,
+        "production_effect": "none",
+    }
+
+
+def collect_forward_cot_contexts(
+    *,
+    signal_ids: Sequence[str] | None,
+    forward_path: Path,
+    collected_at: datetime | str,
+    path: Path = DEFAULT_COT_DB_PATH,
+    mapping_path: Path = DEFAULT_COT_MAPPING_PATH,
+    refresh_official: bool = False,
+    fetcher=fetch_cftc_rows,
+) -> dict:
+    """Attach causal COT sidecars without ever changing the immutable Forward store."""
+    signals = _read_forward_signals_for_cot(forward_path, signal_ids)
+    refresh = {
+        "status": "not_requested",
+        "source": "official_cftc_public_reporting",
+        "errors": [],
+        "production_effect": "none",
+    }
+    if refresh_official and signals:
+        refresh = refresh_official_cot_forward(
+            retrieved_at=collected_at,
+            path=path,
+            fetcher=fetcher,
+        )
+    initialize_cot_shadow_store(path)
+    stored_contexts = load_cot_forward_contexts(path)
+    existing = {item["signal_id"] for item in stored_contexts}
+    pending = [signal for signal in signals if signal["signal_id"] not in existing]
+    max_cutoff = max((_utc(signal["signal_at"]) for signal in pending), default=None)
+    reports = load_all_cot_reports_as_of(max_cutoff, path) if max_cutoff else []
+    mapping = load_cot_market_mapping(mapping_path)
+    inserted = linked = unavailable = 0
+    errors: list[dict] = []
+    for signal in pending:
+        try:
+            context = build_cot_forward_signal_context(
+                signal,
+                reports,
+                mapping=mapping,
+                created_at=collected_at,
+            )
+            result = append_cot_forward_context(
+                context,
+                signal_snapshot_fingerprint=signal["snapshot_fingerprint"],
+                path=path,
+            )
+            inserted += int(result["inserted"])
+            linked += int(context["status"] == "available")
+            unavailable += int(context["status"] == "cot_context_unavailable")
+        except Exception as exc:
+            errors.append({"signal_id": signal["signal_id"], "error": str(exc)})
+    current_contexts = load_cot_forward_contexts(path)
+    linked_total = sum(
+        item["context"].get("status") == "available" for item in current_contexts
+    )
+    unavailable_total = sum(
+        item["context"].get("status") == "cot_context_unavailable"
+        for item in current_contexts
+    )
+    return {
+        "status": "ok" if not errors and not refresh.get("errors") else "research_attention",
+        "signals_requested": len(signals),
+        "contexts_inserted": inserted,
+        "contexts_existing": len(signals) - len(pending),
+        "cot_linked": linked,
+        "cot_context_unavailable": unavailable,
+        "forward_linked_total": linked_total,
+        "forward_unavailable_total": unavailable_total,
+        "refresh": refresh,
+        "errors": errors,
+        "shadow_only": True,
+        "research_only": True,
+        "production_effect": "none",
+        "scan_or_signal_blocked": False,
+        "broad_research_blocked": False,
+    }
+
+
 def cot_shadow_store_audit(path: Path = DEFAULT_COT_DB_PATH) -> dict:
     initialize_cot_shadow_store(path)
     with _connect(Path(path)) as connection:
         integrity = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
         reports = int(connection.execute("SELECT COUNT(*) FROM cot_reports").fetchone()[0])
         links = int(connection.execute("SELECT COUNT(*) FROM cot_shadow_links").fetchone()[0])
-        unverified = int(connection.execute("SELECT COUNT(*) FROM cot_reports WHERE available_at IS NULL").fetchone()[0])
-    return {"integrity": integrity, "reports": reports, "shadow_links": links, "pit_unverified_reports": unverified}
+        unverified = int(
+            connection.execute(
+                """SELECT COUNT(*) FROM cot_reports r
+                WHERE r.available_at IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM cot_report_availability a WHERE a.report_id = r.report_id
+                  )"""
+            ).fetchone()[0]
+        )
+        availability = int(connection.execute("SELECT COUNT(*) FROM cot_report_availability").fetchone()[0])
+        contexts = int(connection.execute("SELECT COUNT(*) FROM cot_forward_contexts").fetchone()[0])
+        linked = int(connection.execute("SELECT COUNT(*) FROM cot_forward_contexts WHERE status='available'").fetchone()[0])
+        unavailable = int(connection.execute("SELECT COUNT(*) FROM cot_forward_contexts WHERE status='cot_context_unavailable'").fetchone()[0])
+        report_types = [
+            str(row[0])
+            for row in connection.execute(
+                "SELECT DISTINCT report_type FROM cot_forward_contexts c JOIN cot_reports r ON r.report_id=c.report_id ORDER BY report_type"
+            ).fetchall()
+        ]
+    return {
+        "status": "ok" if integrity == "ok" else "attention",
+        "integrity": integrity,
+        "reports": reports,
+        "shadow_links": links,
+        "pit_unverified_reports": unverified,
+        "availability_evidence": availability,
+        "forward_contexts": contexts,
+        "forward_linked": linked,
+        "forward_unavailable": unavailable,
+        "linked_report_types": report_types,
+        "append_only": True,
+        "shadow_only": True,
+        "production_effect": "none",
+    }

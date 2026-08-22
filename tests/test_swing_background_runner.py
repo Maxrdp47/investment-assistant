@@ -20,6 +20,7 @@ def settings_file(
     database_name: str = "swing.sqlite3",
     autonomous_bot: bool = False,
     event_research: bool = False,
+    cot_context: bool = False,
 ) -> Path:
     payload = {
         "version": "test-background-v1",
@@ -68,11 +69,25 @@ def settings_file(
             "database_path": str(tmp_path / "shadow.sqlite3"),
             "shadow_only": True,
             "broker_order_allowed": False,
+            "collect_execution_observations": True,
+            "read_only_quote_provider": None,
+            "max_quote_age_seconds": 300,
         }
     if event_research:
         payload["event_research"] = {
             "enabled": True,
             "database_path": str(tmp_path / "events.sqlite3"),
+            "research_only": True,
+            "changes_trade_decision": False,
+            "broker_order_allowed": False,
+        }
+    if cot_context:
+        payload["cot_context"] = {
+            "enabled": True,
+            "database_path": str(tmp_path / "cot.sqlite3"),
+            "mapping_path": str(PROJECT_ROOT / "config" / "cot_market_mapping.json"),
+            "refresh_official_forward": False,
+            "shadow_only": True,
             "research_only": True,
             "changes_trade_decision": False,
             "broker_order_allowed": False,
@@ -136,6 +151,7 @@ def test_preflight_proves_exact_once_daily_scope_coverage_without_creating_datab
     assert result["duplicate_assignments"] == []
     assert result["database"]["status"] == "not_created"
     assert result["event_research"] == {"status": "disabled", "production_effect": "none"}
+    assert result["cot_context"] == {"status": "disabled", "production_effect": "none"}
     assert not (tmp_path / "swing.sqlite3").exists()
 
 
@@ -238,3 +254,62 @@ def test_event_research_configuration_must_be_research_only_and_brokerless(tmp_p
         assert "produktionsneutral" in str(exc)
     else:
         raise AssertionError("Produktionswirksames Event-Research muss abgelehnt werden.")
+
+
+def test_cot_sidecar_failure_is_fail_open_for_scan_signal_and_broad_research(tmp_path) -> None:
+    settings = settings_file(tmp_path, cot_context=True)
+    received = {}
+
+    def failed_cot_collector(**kwargs):
+        received.update(kwargs)
+        raise RuntimeError("CFTC unavailable")
+
+    result = run_swing_background_scope(
+        "europe",
+        settings_path=settings,
+        scan_callable=lambda *_args, **_kwargs: scan_result("europe", selected=73, loaded=70),
+        cot_collection_callable=failed_cot_collector,
+    )
+
+    assert result["status"] == "ok"
+    assert result["scan_recorded"] is True
+    assert result["cot_context"]["status"] == "research_attention"
+    assert result["cot_context"]["scan_or_signal_blocked"] is False
+    assert result["cot_context"]["paper_cycle_blocked"] is False
+    assert result["cot_context"]["broad_research_blocked"] is False
+    assert result["cot_context"]["production_effect"] == "none"
+    assert received["signal_ids"] == []
+
+
+def test_shadow_quote_failure_cannot_block_paper_cycle_or_create_broker_order(tmp_path) -> None:
+    settings = settings_file(tmp_path, autonomous_bot=True)
+
+    result = run_swing_background_scope(
+        "europe",
+        settings_path=settings,
+        scan_callable=lambda *_args, **_kwargs: scan_result("europe", selected=73, loaded=70),
+        shadow_quote_collection_callable=lambda **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("quote provider unavailable")
+        ),
+    )
+
+    assert result["status"] == "ok"
+    assert result["paper_cycle"]["signals_inserted"] == 0
+    assert result["shadow_execution_observations"]["status"] == "research_attention"
+    assert result["shadow_execution_observations"]["paper_cycle_blocked"] is False
+    assert result["shadow_execution_observations"]["broker_order_sent"] is False
+    assert result["orders_enabled"] is False
+
+
+def test_cot_configuration_cannot_affect_trading_decisions(tmp_path) -> None:
+    settings = settings_file(tmp_path, cot_context=True)
+    payload = json.loads(settings.read_text(encoding="utf-8"))
+    payload["cot_context"]["changes_trade_decision"] = True
+    settings.write_text(json.dumps(payload), encoding="utf-8")
+
+    try:
+        load_swing_background_settings(settings)
+    except ValueError as exc:
+        assert "produktionsneutral" in str(exc)
+    else:
+        raise AssertionError("Produktionswirksamer COT-Kontext muss abgelehnt werden.")

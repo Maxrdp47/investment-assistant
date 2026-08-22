@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
+import hashlib
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -9,6 +11,7 @@ from cot_positioning import (
     append_cot_report,
     append_cot_shadow_link,
     build_asset_cot_shadow_context,
+    collect_forward_cot_contexts,
     compare_strategy_with_cot_shadow,
     cot_shadow_assessment,
     cot_shadow_store_audit,
@@ -16,6 +19,7 @@ from cot_positioning import (
     initialize_cot_shadow_store,
     ingest_cftc_rows,
     load_cot_market_mapping,
+    load_cot_forward_contexts,
     load_cot_reports_as_of,
     map_cot_market,
     normalize_cftc_row,
@@ -199,10 +203,19 @@ def test_store_is_append_only_and_links_are_separate(tmp_path) -> None:
 
     assert link_id
     assert cot_shadow_store_audit(path) == {
+        "status": "ok",
         "integrity": "ok",
         "reports": 1,
         "shadow_links": 1,
         "pit_unverified_reports": 0,
+        "availability_evidence": 1,
+        "forward_contexts": 0,
+        "forward_linked": 0,
+        "forward_unavailable": 0,
+        "linked_report_types": [],
+        "append_only": True,
+        "shadow_only": True,
+        "production_effect": "none",
     }
     with sqlite3.connect(path) as connection:
         with pytest.raises(sqlite3.IntegrityError, match="append-only"):
@@ -232,3 +245,124 @@ def test_batch_ingestion_is_idempotent_and_reports_invalid_rows(tmp_path) -> Non
     assert first["errors"][0]["error"] == "CFTC-Zeile ohne stabilen Marktcode oder Marktnamen."
     assert second["stored"] == 0
     assert second["duplicates"] == 1
+
+
+def _forward_database(path, *, signal_at: str, signal_id: str = "forward-1") -> str:
+    snapshot = {
+        "signal_at": signal_at,
+        "asset": {
+            "asset_id": "universe-v1|MSFT",
+            "ticker": "MSFT",
+            "isin": "US5949181045",
+            "exchange": "NASDAQ",
+            "original_currency": "USD",
+            "asset_type": "Aktie",
+            "region": "USA",
+        },
+        "strategy": {"direction": "Long"},
+    }
+    encoded = json.dumps(snapshot, sort_keys=True)
+    fingerprint = hashlib.sha256(encoded.encode()).hexdigest()
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            """CREATE TABLE swing_signals(
+            signal_id TEXT PRIMARY KEY, signal_at TEXT NOT NULL,
+            snapshot_json TEXT NOT NULL, snapshot_fingerprint TEXT NOT NULL
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO swing_signals VALUES(?,?,?,?)",
+            (signal_id, signal_at, encoded, fingerprint),
+        )
+    return signal_id
+
+
+def test_forward_cot_sidecar_uses_only_reports_available_by_signal_cutoff_and_is_idempotent(tmp_path) -> None:
+    cot_path = tmp_path / "cot.sqlite3"
+    forward_path = tmp_path / "forward.sqlite3"
+    reports = [normalized_week(index) for index in range(6)]
+    for report in reports:
+        append_cot_report(report, cot_path)
+    signal_id = _forward_database(forward_path, signal_at=reports[4]["available_at"])
+    before = hashlib.sha256(forward_path.read_bytes()).hexdigest()
+
+    first = collect_forward_cot_contexts(
+        signal_ids=[signal_id],
+        forward_path=forward_path,
+        collected_at="2026-08-23T00:00:00+00:00",
+        path=cot_path,
+    )
+    second = collect_forward_cot_contexts(
+        signal_ids=[signal_id],
+        forward_path=forward_path,
+        collected_at="2026-08-23T00:05:00+00:00",
+        path=cot_path,
+    )
+    context = load_cot_forward_contexts(cot_path)[0]["context"]
+
+    assert first["cot_linked"] == 1
+    assert first["contexts_inserted"] == 1
+    assert second["contexts_existing"] == 1
+    assert second["forward_linked_total"] == 1
+    assert second["forward_unavailable_total"] == 0
+    assert context["report"]["report_id"] == reports[4]["report_id"]
+    assert context["report"]["verified_public_availability_at"] <= context["signal_cutoff"]
+    assert context["report"]["report_id"] != reports[5]["report_id"]
+    assert context["participant_context"]["classes"]["asset_manager_institutional"]["percentile_52w"] == 100.0
+    assert context["guardrails"]["changes_trade_decision"] is False
+    assert context["guardrails"]["broad_feature_schema_changed"] is False
+    assert hashlib.sha256(forward_path.read_bytes()).hexdigest() == before
+
+    with sqlite3.connect(cot_path) as connection:
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            connection.execute("UPDATE cot_forward_contexts SET status='available'")
+
+
+def test_unverified_historical_publication_never_links_to_old_forward_signal(tmp_path) -> None:
+    cot_path = tmp_path / "cot.sqlite3"
+    forward_path = tmp_path / "forward.sqlite3"
+    report = normalized_week(0, published=False)
+    append_cot_report(report, cot_path)
+    signal_id = _forward_database(
+        forward_path,
+        signal_at="2026-12-31T23:00:00+00:00",
+    )
+
+    result = collect_forward_cot_contexts(
+        signal_ids=[signal_id],
+        forward_path=forward_path,
+        collected_at="2026-12-31T23:01:00+00:00",
+        path=cot_path,
+    )
+    context = load_cot_forward_contexts(cot_path)[0]["context"]
+
+    assert result["cot_linked"] == 0
+    assert result["cot_context_unavailable"] == 1
+    assert context["status"] == "cot_context_unavailable"
+    assert context["report"] is None
+
+
+def test_forward_first_seen_evidence_makes_same_official_report_available_without_overwrite(tmp_path) -> None:
+    path = tmp_path / "cot.sqlite3"
+    historical = normalized_week(0, published=False)
+    append_cot_report(historical, path)
+    result = ingest_cftc_rows(
+        [tff_row("2026-01-06", asset_long=200, asset_short=180, lev_long=150, lev_short=170)],
+        report_type="tff_futures_only",
+        retrieved_at="2026-01-10T00:00:00+00:00",
+        acquisition_mode="forward",
+        path=path,
+    )
+
+    loaded = load_cot_reports_as_of(
+        "13874A", "tff_futures_only", "2026-01-10T00:00:00+00:00", path
+    )
+    audit = cot_shadow_store_audit(path)
+
+    assert result["duplicates"] == 1
+    assert len(loaded) == 1
+    assert loaded[0]["pit_eligible"] is True
+    assert loaded[0]["availability_basis"] == "first_observed_publicly_available"
+    assert audit["reports"] == 1
+    assert audit["availability_evidence"] == 1
+    assert audit["pit_unverified_reports"] == 0

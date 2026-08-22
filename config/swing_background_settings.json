@@ -1,5 +1,5 @@
 {
-  "version": "swing-background-2026.08.23-v3",
+  "version": "swing-background-2026.08.23-v4",
   "universe_path": "config/swing_universe.csv",
   "database_path": "runtime/swing_forward.sqlite3",
   "log_path": "runtime/logs/swing_background.log",
@@ -14,6 +14,19 @@
     "enabled": true,
     "database_path": "runtime/swing_shadow_live.sqlite3",
     "shadow_only": true,
+    "broker_order_allowed": false,
+    "collect_execution_observations": true,
+    "read_only_quote_provider": null,
+    "max_quote_age_seconds": 300
+  },
+  "cot_context": {
+    "enabled": true,
+    "database_path": "runtime/cot_shadow.sqlite3",
+    "mapping_path": "config/cot_market_mapping.json",
+    "refresh_official_forward": true,
+    "shadow_only": true,
+    "research_only": true,
+    "changes_trade_decision": false,
     "broker_order_allowed": false
   },
   "event_research": {

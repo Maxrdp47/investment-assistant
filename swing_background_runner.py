@@ -10,6 +10,10 @@ from typing import Callable
 
 from swing_forward_runner import run_swing_forward_evaluations
 from swing_forward_store import record_swing_forward_scan, swing_forward_store_audit
+from swing_event_research import (
+    collect_forward_event_contexts,
+    event_research_store_audit,
+)
 from swing_paper_bot import (
     paper_bot_store_audit,
     paper_portfolio_state,
@@ -68,6 +72,15 @@ def load_swing_background_settings(
         not shadow.get("shadow_only") or shadow.get("broker_order_allowed") is not False
     ):
         raise ValueError("Shadow-Live muss brokerlos und shadow_only konfiguriert sein.")
+    event_research = dict(payload.get("event_research") or {})
+    if event_research.get("enabled") and (
+        event_research.get("research_only") is not True
+        or event_research.get("changes_trade_decision") is not False
+        or event_research.get("broker_order_allowed") is not False
+    ):
+        raise ValueError(
+            "Event-Research muss research_only, produktionsneutral und brokerlos konfiguriert sein."
+        )
     return payload
 
 
@@ -105,6 +118,10 @@ def swing_background_preflight(
     shadow_settings = dict(settings.get("shadow_live") or {})
     paper_path = _project_path(paper_settings.get("database_path", "runtime/swing_paper_bot.sqlite3"))
     shadow_path = _project_path(shadow_settings.get("database_path", "runtime/swing_shadow_live.sqlite3"))
+    event_settings = dict(settings.get("event_research") or {})
+    event_path = _project_path(
+        event_settings.get("database_path", "runtime/swing_event_research.sqlite3")
+    )
     status = "ok" if assets and not unassigned and not duplicate_assignments and database["status"] in {"ok", "not_created"} else "attention"
     return {
         "status": status,
@@ -126,6 +143,18 @@ def swing_background_preflight(
         "orders_enabled": False,
         "paper_bot": paper_bot_store_audit(paper_path),
         "shadow_live": shadow_live_store_audit(shadow_path),
+        "event_research": (
+            {"status": "disabled", "production_effect": "none"}
+            if not event_settings.get("enabled")
+            else event_research_store_audit(event_path)
+            if event_path.exists()
+            else {
+                "status": "not_created",
+                "events": 0,
+                "signal_contexts": 0,
+                "production_effect": "none",
+            }
+        ),
     }
 
 
@@ -146,6 +175,7 @@ def run_swing_background_scope(
     settings_path: Path = DEFAULT_SWING_BACKGROUND_SETTINGS_PATH,
     scan_callable: Callable[..., dict] | None = None,
     evaluation_callable: Callable[..., dict] = run_swing_forward_evaluations,
+    event_collection_callable: Callable[..., dict] | None = None,
 ) -> dict:
     started_at = datetime.now().astimezone()
     started_monotonic = time.monotonic()
@@ -168,11 +198,15 @@ def run_swing_background_scope(
             evaluation = evaluation_callable(path=database_path)
         paper_configuration = dict(settings.get("paper_bot") or {})
         shadow_configuration = dict(settings.get("shadow_live") or {})
+        event_configuration = dict(settings.get("event_research") or {})
         paper_path = _project_path(
             paper_configuration.get("database_path", "runtime/swing_paper_bot.sqlite3")
         )
         shadow_path = _project_path(
             shadow_configuration.get("database_path", "runtime/swing_shadow_live.sqlite3")
+        )
+        event_path = _project_path(
+            event_configuration.get("database_path", "runtime/swing_event_research.sqlite3")
         )
         paper_evaluation = None
         if paper_configuration.get("enabled") and paper_path.exists():
@@ -254,6 +288,35 @@ def run_swing_background_scope(
                 "error": str(exc),
                 "automatic_rule_change": False,
             }
+        # The production signal, paper/shadow cycle, and historical evidence linkage
+        # are completed before this optional research-only provider work begins.
+        event_collection = {
+            "status": "disabled",
+            "research_shadow_only": True,
+            "production_effect": "none",
+            "broad_research_blocked": False,
+        }
+        if event_configuration.get("enabled"):
+            collector = event_collection_callable or collect_forward_event_contexts
+            try:
+                event_collection = collector(
+                    signal_ids=list((stored.get("signal_ids_by_setup") or {}).values()),
+                    forward_path=database_path,
+                    collected_at=datetime.now().astimezone(),
+                    path=event_path,
+                )
+                event_collection["status"] = (
+                    "ok" if not event_collection.get("errors") else "research_attention"
+                )
+            except Exception as exc:
+                event_collection = {
+                    "status": "research_attention",
+                    "error": str(exc),
+                    "research_shadow_only": True,
+                    "production_effect": "none",
+                    "broad_research_blocked": False,
+                    "scan_or_signal_blocked": False,
+                }
         audit = swing_forward_store_audit(database_path)
         result = {
             "status": "ok" if audit["status"] == "ok" else "attention",
@@ -264,6 +327,7 @@ def run_swing_background_scope(
             "approved_signals": len(scan.get("approved") or []),
             "scan_recorded": True,
             "stored": stored,
+            "event_research": event_collection,
             "historical_real_forward_linkage": evidence_links,
             "evaluation": evaluation,
             "paper_evaluation": paper_evaluation,

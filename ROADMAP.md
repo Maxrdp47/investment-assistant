@@ -1448,6 +1448,45 @@ Zielbild:
 
 `Current Broad Feature Set → Broad Research Results → identify unresolved information gaps → actively reconsider Research Reserve → test only justified reserve hypotheses → freeze → Validation / Holdout`
 
+##### G2.7 – getrennter Point-in-Time Event-/News-/Makro-/Geopolitik-Edge-Layer
+
+Status 2026-08-23: Die technische Research-/Shadow-Grundlage ist getrennt vom technischen Broad-Pass umgesetzt. Sie besitzt einen versionierten Eventvertrag, eine eigene append-only SQLite-Datenbank, unveränderbare Event-Sidecars je echtem Forward-Signal, physisch getrennte spätere Marktreaktionslabels, hierarchische Relevanzzuordnung, Coverage-Bericht und append-only Hypothesen-Ledger. Sie verändert weder Long-v1 noch Score, Setup, Stop, Ziel, Positionsgröße, Forward-Snapshot, Short-Sperre oder Brokerstatus.
+
+Unterstützte Hauptgruppen und Forschungsumfang:
+
+- `company`: Earnings, Umsatz/EPS/Guidance, klinische Studien, FDA/EMA/Zulassung, Produkt/Technologie, M&A, Kapitalmaßnahmen, Rechts-/Regulierungsfälle, Management, Produktion/Lieferkette und bekannte Unternehmenstermine.
+- `macro`: Zentralbankentscheidungen/-Guidance, Inflation, Arbeitsmarkt, GDP, PMI/ISM, Löhne und Bond Yields. `expected`, `actual` und `surprise` bleiben getrennt; ohne damals belegte Erwartung bleibt Surprise nicht verfügbar.
+- `geopolitics_policy`: Eskalation/Deeskalation, Sanktionen, Zölle, Exportkontrollen, Handels-/Energie-/Steuer-/Regulierungs-/Verteidigungspolitik und politische Aussagen. Aussage, Vorschlag, Ankündigung, Beschluss und Umsetzung werden getrennt; Sentiment allein ist keine Wirkung.
+- `market_shock`: Öl/Gas, VIX, Bond Yields, Dollar, Gold/Rohstoffe, Index-Crash/-Rally sowie Liquiditäts-/Volatilitätsschocks.
+- Klinische Meldungen besitzen einen strukturierten Missingness-Vertrag für Trial-ID, Phase, Indikation, Teilnehmer, Endpunkte, Kontrollgruppe, Ergebnis, Signifikanz, Sicherheit, Zwischen/final, Peer Review, Publikationsart und regulatorische nächste Schritte. Nicht belegte medizinische Bedeutung bleibt leer.
+
+Point-in-Time- und Quellenregeln:
+
+- Jede Eventversion speichert `published_at`, tatsächliches `first_seen_at`, optionales `effective_at`, Quelle, Qualität, Provenienz und Fingerprint. Eine spätere Artikelrevision erhält eine neue Version und wird vor ihrem eigenen `first_seen_at` niemals sichtbar.
+- Historische Backfills sind standardmäßig nicht Point-in-Time-berechtigt. Eine heutige Suche nach alten Nachrichten darf alte Signale nicht ergänzen. Historische Nutzung benötigt belastbare ursprüngliche Veröffentlichung, Quelle, damalige Information, eindeutige Zuordnung sowie eine eigene Source-Version, Fingerprint und Coverage-Auswertung.
+- Quellenhierarchie: offizielle Unternehmen/Regulatoren/Behörden/Zentralbanken/Statistikstellen und wissenschaftliche Primärpublikationen vor Nachrichtenagenturen/Finanzmedien und Aggregatoren. Social Media belegt nur die damalige Aussage, nicht automatisch ihren Wahrheitsgehalt.
+- Der vorhandene Yahoo-News-Adapter sammelt künftig nur für neue echte Signal-Sidecars, speichert Aggregatorqualität und tatsächlichen ersten Abruf. Direkter Unternehmens-/Sektor-/Region-/Makro-/Exposure-Bezug wird separat von Confidence geführt; eine Schlagwortübereinstimmung allein reicht nicht als Assetrelevanz.
+- Fehlende Evidenz wird als `no_reliable_event_data_available` dokumentiert und niemals als `kein Ereignis` interpretiert.
+
+Event → Marktübertragung bleibt dreistufig: `Event → zeitlich spätere beobachtete Marktreaktion → statistische Assoziation`. Öl/Gas, Gold, VIX, Indizes, Sektoren, Bond Yields und Dollar dürfen nur nach Informationsverfügbarkeit gemessen werden. Die versionierte Übertragungsmatrix enthält ausschließlich mögliche Kanäle wie Ölversorgung → Energieproduzenten/Airlines/Inflation; sie behauptet keine Kausalität und erzeugt keine Order.
+
+Forward-Betrieb:
+
+- Der regionale Hintergrundlauf ruft den Event-Sidecar nach erfolgreicher unveränderbarer Signalablage automatisch auf. Ein Event-Providerfehler bleibt `research_attention` und darf weder Scan noch Signal, Paper, Shadow, Prognosen oder Broad Research blockieren.
+- Je Signal werden bekannte Events der letzten 1/3/5/10 Tage und bekannte zukünftige Termine getrennt ausgewiesen. Sitzungsabstände bleiben ohne damaligen Börsenkalender nicht verfügbar; Kalendertage werden nicht als Sitzungen umbenannt.
+- Bereits vorhandene Forward-Snapshots dürfen ausschließlich ihre schon damals gespeicherten bekannten Termine beisteuern. Für die bisherigen Fälle werden keine News, Erwartungen, Ereignisarten oder Intraday-Zeitpunkte rückwirkend erfunden.
+- Spätere 1h-/Close-/1D-/3D-/5D-/10D-/20D-, MFE-/MAE-, Volumen-, Gap-, Sektor- und Marktreaktionen liegen in einer getrennten Labeltabelle. Daily-Quellen dürfen keine Intraday-Präzision erzeugen.
+
+Event-Hypothesen werden einzeln und vor Ergebnissichtung definiert. Freie Keywordoptimierung, automatische Cluster-Regeln, große Event×Technical-Suchen, Holdout-Selektion und nachträgliche Eventtyp-Umdefinition sind verboten. Verbindlicher Pfad:
+
+`Technical Broad Research → robust Long Technical Edge`
+
+`+ Forward Event Collection + Point-in-Time Event Research`
+
+`→ one justified Event Hypothesis → Development → Freeze → Validation → Holdout → External / True Forward → only then possible integration`
+
+Der technische Broad-Vollpass wartet ausdrücklich **nicht** auf eine vollständige historische Eventdatenbank. Eventdaten sind ein späterer eigenständiger Edge-Layer; unvollständige Event-Coverage darf weder das 248/248-Gate noch Broad-Candidates, Long-v1 oder echte Forward-Läufe verzögern.
+
 ##### Verbindlicher G2-Validierungspfad
 
 `Frozen Historical Data → Broad Research Candidates → Point-in-Time Features → Development Pattern Discovery → Fixed Challenger → Validation → Holdout → External Unseen Asset Universe → True Forward → Autonomous Paper → Shadow Live → Echtgeld-Gate`

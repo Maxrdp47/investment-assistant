@@ -15,7 +15,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def settings_file(
-    tmp_path, *, database_name: str = "swing.sqlite3", autonomous_bot: bool = False
+    tmp_path,
+    *,
+    database_name: str = "swing.sqlite3",
+    autonomous_bot: bool = False,
+    event_research: bool = False,
 ) -> Path:
     payload = {
         "version": "test-background-v1",
@@ -63,6 +67,14 @@ def settings_file(
             "enabled": True,
             "database_path": str(tmp_path / "shadow.sqlite3"),
             "shadow_only": True,
+            "broker_order_allowed": False,
+        }
+    if event_research:
+        payload["event_research"] = {
+            "enabled": True,
+            "database_path": str(tmp_path / "events.sqlite3"),
+            "research_only": True,
+            "changes_trade_decision": False,
             "broker_order_allowed": False,
         }
     path = tmp_path / "settings.json"
@@ -123,6 +135,7 @@ def test_preflight_proves_exact_once_daily_scope_coverage_without_creating_datab
     assert result["unassigned"] == []
     assert result["duplicate_assignments"] == []
     assert result["database"]["status"] == "not_created"
+    assert result["event_research"] == {"status": "disabled", "production_effect": "none"}
     assert not (tmp_path / "swing.sqlite3").exists()
 
 
@@ -186,3 +199,42 @@ def test_background_cycle_runs_separate_paper_and_shadow_stores_without_orders(t
     assert result["orders_enabled"] is False
     assert (tmp_path / "paper.sqlite3").exists()
     assert (tmp_path / "shadow.sqlite3").exists()
+
+
+def test_event_sidecar_is_automatic_but_cannot_block_or_change_forward_scan(tmp_path) -> None:
+    settings = settings_file(tmp_path, event_research=True)
+    received = {}
+
+    def failed_research_collector(**kwargs):
+        received.update(kwargs)
+        raise RuntimeError("event provider unavailable")
+
+    result = run_swing_background_scope(
+        "europe",
+        settings_path=settings,
+        scan_callable=lambda *_args, **_kwargs: scan_result("europe", selected=73, loaded=70),
+        event_collection_callable=failed_research_collector,
+    )
+
+    assert result["status"] == "ok"
+    assert result["scan_recorded"] is True
+    assert result["database"]["scans"] == 1
+    assert result["event_research"]["status"] == "research_attention"
+    assert result["event_research"]["scan_or_signal_blocked"] is False
+    assert result["event_research"]["production_effect"] == "none"
+    assert result["event_research"]["broad_research_blocked"] is False
+    assert received["signal_ids"] == []
+
+
+def test_event_research_configuration_must_be_research_only_and_brokerless(tmp_path) -> None:
+    settings = settings_file(tmp_path, event_research=True)
+    payload = json.loads(settings.read_text(encoding="utf-8"))
+    payload["event_research"]["changes_trade_decision"] = True
+    settings.write_text(json.dumps(payload), encoding="utf-8")
+
+    try:
+        load_swing_background_settings(settings)
+    except ValueError as exc:
+        assert "produktionsneutral" in str(exc)
+    else:
+        raise AssertionError("Produktionswirksames Event-Research muss abgelehnt werden.")

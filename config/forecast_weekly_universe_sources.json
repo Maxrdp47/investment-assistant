@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "universe_version": "2026.08.09-v1",
+  "generated_at": "2026-08-09T13:01:20.548393+00:00",
+  "sources": [
+    {
+      "name": "Kuratiertes Prognoseuniversum",
+      "location": "C:\\investment-assistent\\config\\forecast_universe.csv",
+      "rows": 325
+    },
+    {
+      "name": "S&P 500",
+      "url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+      "rows": 503
+    },
+    {
+      "name": "S&P MidCap 400",
+      "url": "https://en.wikipedia.org/wiki/List_of_S%26P_400_companies",
+      "rows": 400
+    },
+    {
+      "name": "S&P SmallCap 600",
+      "url": "https://en.wikipedia.org/wiki/List_of_S%26P_600_companies",
+      "rows": 603
+    }
+  ],
+  "configured_assets": 1726,
+  "rules": [
+    "Nur Aktien, ungehebelte ETFs und große Kryptowährungen.",
+    "Keine bekannten Hebel- oder inversen Produkte.",
+    "Ungültige Datenabrufe werden zur Laufzeit protokolliert und nie still aus der CSV gelöscht."
+  ]
+}

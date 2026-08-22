@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import copy
 import json
 import math
-import difflib
+import os
+import re
 import tempfile
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime, timedelta
+from html import escape as html_escape
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -13,18 +17,228 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+
+from analysis_models import (
+    AssetProfile,
+    EtfFundamentalSnapshot,
+    MarketPhase,
+    ModuleScore,
+    PortfolioResult,
+    ResearchModule,
+    ResearchPack,
+    RiskReward,
+    ScoreResult,
+    StockFundamentalSnapshot,
+)
+from asset_search import (
+    KNOWN_TICKER_NAMES,
+    KNOWN_TICKERS,
+    dedupe_candidates,
+    format_candidate,
+    looks_like_ticker,
+    normalize_query,
+    search_ticker_candidates,
+    similar_ticker_suggestions,
+    ticker_candidate,
+)
+from currency_utils import (
+    convert_to_eur,
+    converted_levels,
+    converted_price_frame,
+    format_currency,
+    format_display_money,
+    format_money,
+)
+from data_quality_analysis import build_data_source_warnings, data_quality_check, data_quality_status
+from entry_plan import (
+    build_buy_zones,
+    recommendation_confidence_label,
+    recommendation_horizon,
+    recommendation_validity,
+    research_action,
+)
+from forecast_calibration import DEFAULT_CALIBRATION_PATH, load_calibration_profile
+from forecast_baselines import simple_trend_snapshot
+from forecast_probabilities import build_raw_up_probability
+from forecast_store import (
+    DEFAULT_DATABASE_PATH,
+    FORECAST_HORIZONS,
+    FORECAST_LOGIC_VERSION,
+    FORECAST_MODEL_ENTRY,
+    FORECAST_MODEL_LABELS,
+    forecast_operational_status,
+    forecast_quality_rows,
+    forecast_summary,
+    recent_run_status,
+)
+from forecast_weekly_report import load_weekly_report
+from future_potential_analysis import research_future_potential, research_priced_expectations
+from fundamental_analysis import (
+    data_missing,
+    etf_fundamental_overview,
+    etf_fundamental_snapshot,
+    format_money_or_missing,
+    format_percent_or_missing,
+    score_etf_fundamentals,
+    score_profitability_metric,
+    score_stock_fundamentals,
+    score_valuation_multiple,
+    stock_fundamental_overview,
+    stock_fundamental_snapshot,
+)
+from json_history_store import load_json_dict_list, save_json_dict_list
+from portfolio_analysis import (
+    evaluate_portfolio_data,
+    load_portfolio_file as load_portfolio_document,
+    normalize_symbol,
+    portfolio_position_buy_price,
+    portfolio_position_shares,
+    portfolio_position_ticker,
+    portfolio_positions,
+    position_market_value as calculate_position_market_value,
+)
+from price_attractiveness import fundamental_context_since_high, price_attractiveness_context
+from recommendation_synthesis import professional_decision, synthesize_investment_recommendation
+from scenario_analysis import (
+    build_scenarios,
+    numeric_scenario_levels,
+    research_expected_value,
+    scenario_probabilities,
+)
+from score_composition import score_from_optional, score_weight_rows, weighted_total_score
+from swing_scanner import (
+    DEFAULT_PREFILTER_THRESHOLDS,
+    DEFAULT_SWING_RISK_POLICY,
+    RISK_NOTICE,
+    apply_portfolio_release_to_funnel,
+    asset_type_bias_audit,
+    execute_multistage_scan,
+    internal_swing_settings,
+    load_risk_acknowledgement,
+    prefilter_thresholds_as_dict,
+    risk_policy_as_dict,
+    save_risk_acknowledgement,
+    swing_portfolio_cluster_audit,
+)
+from swing_risk_engine import apply_swing_risk_engine
+from swing_forward_statistics import (
+    filter_swing_forward_archive_rows,
+    swing_asset_failure_rows,
+    swing_forward_asset_type_comparison,
+    swing_learning_readiness,
+    swing_rejection_control_statistics,
+    swing_forward_statistics,
+)
+from swing_forward_store import (
+    DEFAULT_SWING_FORWARD_DB_PATH,
+    SWING_STRATEGY_VERSION,
+    load_swing_forward_scans,
+    load_swing_forward_signals,
+    load_swing_rejection_controls,
+    record_swing_forward_scan,
+    swing_forward_store_audit,
+)
+from swing_paper_bot import (
+    DEFAULT_SWING_PAPER_DB_PATH,
+    derive_paper_position_state,
+    load_paper_signals,
+    paper_bot_store_audit,
+)
+from swing_shadow_live import (
+    DEFAULT_SWING_SHADOW_DB_PATH,
+    shadow_live_store_audit,
+    shadow_paper_comparison,
+)
+from swing_strategy_freeze import (
+    DEFAULT_STRATEGY_FREEZE_DB_PATH,
+    strategy_freeze_store_audit,
+)
+from swing_trade_monitor import swing_market_context_from_daily_bars
+from swing_walk_forward import (
+    DEFAULT_SWING_WALK_FORWARD_DB_PATH,
+    load_swing_walk_forward_cases,
+    refresh_swing_walk_forward_forward_links,
+    swing_walk_forward_archive_rows,
+    swing_walk_forward_summary,
+)
+from swing_walk_forward_campaign import (
+    campaign_jobs,
+    campaign_status,
+    load_campaign_config,
+    load_campaign_state,
+)
+from swing_universe import (
+    DEFAULT_SWING_UNIVERSE_PATH,
+    SwingUniverseAsset,
+    active_swing_assets,
+    load_swing_universe,
+)
+from swing_user_store import (
+    DEFAULT_SWING_USER_DB_PATH,
+    SwingUserTradeDeviationConfirmationRequired,
+    close_swing_user_trade,
+    create_swing_user_trade,
+    load_swing_user_trade_states,
+    record_swing_user_partial_sale,
+    swing_user_trade_guidance,
+    tighten_swing_user_stop,
+)
+from technical_analysis import (
+    calculate_indicators,
+    calculate_risk_reward,
+    clamp,
+    detect_market_phase,
+    local_levels,
+    pct_distance,
+    percent_text,
+    value_or_none,
+)
+from trade_republic_reference import (
+    TR_STATUS_NOT_TRADEABLE,
+    TR_STATUS_OPTIONS,
+    TR_STATUS_TRADEABLE,
+    TR_STATUS_UNKNOWN,
+    build_trade_republic_execution_plan,
+    record_trade_republic_price,
+    record_trade_republic_status,
+    trade_republic_price,
+    trade_republic_reference,
+)
+from trading_assistant import (
+    DEFAULT_SWING_THRESHOLDS,
+    SwingTradeThresholds,
+    active_trade_snapshot,
+    close_trade_record,
+    evaluate_swing_trade,
+    expire_paper_trade,
+    open_trade_record,
+    paper_trade_statistics,
+    tighten_active_trade_stop,
+    thresholds_as_dict,
+    validate_traded_listing,
+)
+from valuation_analysis import research_valuation_score
 
 
 APP_TITLE = "Investment-Assistent"
 DISCLAIMER = "Dies ist keine Finanzberatung, sondern eine technische Analysehilfe."
-YFINANCE_CACHE_DIR = Path(__file__).resolve().parent / ".yfinance-cache"
-PORTFOLIO_PATH = Path(__file__).resolve().parent / "portfolio.json"
-SEARCH_HISTORY_PATH = Path(__file__).resolve().parent / "search_history.json"
-TRADE_HISTORY_PATH = Path(__file__).resolve().parent / "trade_history.json"
-FORWARD_TEST_PATH = Path(__file__).resolve().parent / "forward_tests.json"
-DECISION_HISTORY_PATH = Path(__file__).resolve().parent / "decision_history.json"
-PREDICTION_HISTORY_PATH = Path(__file__).resolve().parent / "prediction_history.json"
-BACKTEST_HISTORY_PATH = Path(__file__).resolve().parent / "backtest_history.json"
+PROJECT_ROOT = Path(__file__).resolve().parent
+PRIVATE_HISTORY_DIR = Path(os.environ.get("INVESTMENT_ASSISTANT_HISTORY_DIR", PROJECT_ROOT))
+YFINANCE_CACHE_DIR = PROJECT_ROOT / ".yfinance-cache"
+PORTFOLIO_PATH = PROJECT_ROOT / "portfolio.json"
+SEARCH_HISTORY_PATH = PRIVATE_HISTORY_DIR / "search_history.json"
+TRADE_HISTORY_PATH = PRIVATE_HISTORY_DIR / "trade_history.json"
+FORWARD_TEST_PATH = PRIVATE_HISTORY_DIR / "forward_tests.json"
+DECISION_HISTORY_PATH = PRIVATE_HISTORY_DIR / "decision_history.json"
+PREDICTION_HISTORY_PATH = PRIVATE_HISTORY_DIR / "prediction_history.json"
+BACKTEST_HISTORY_PATH = PRIVATE_HISTORY_DIR / "backtest_history.json"
+SWING_RISK_ACK_PATH = Path(
+    os.environ.get(
+        "INVESTMENT_ASSISTANT_SWING_RISK_ACK_PATH",
+        PROJECT_ROOT / "runtime" / "preferences" / "swing_risk_acknowledgement.json",
+    )
+)
 try:
     YFINANCE_CACHE_DIR.mkdir(exist_ok=True)
 except OSError:
@@ -60,7 +274,6 @@ REFRESH_OPTIONS = {
     "1 Minute": 60,
     "5 Minuten": 300,
 }
-DEFAULT_SCANNER_WATCHLIST = "BTC-EUR, NVDA, PLTR, 1810.HK, EUNL.DE"
 TRACKING_PERIODS = {
     "1w": 7,
     "1m": 30,
@@ -83,266 +296,9 @@ def ensure_review_schedule(record: dict) -> dict:
         review_after.setdefault(label, None)
     return review_after
 
-KNOWN_TICKERS = {
-    "xiaomi": ["1810.HK", "3CP.F", "3CP.DE", "XIACY"],
-    "xiaomi aktie": ["1810.HK", "3CP.F", "3CP.DE", "XIACY"],
-    "xiaomi corporation": ["1810.HK", "3CP.F", "3CP.DE", "XIACY"],
-    "palantir": ["PLTR"],
-    "nvidia": ["NVDA"],
-    "bitcoin": ["BTC-EUR", "BTC-USD"],
-    "btc": ["BTC-EUR", "BTC-USD"],
-    "msci world": ["EUNL.DE", "IWDA.AS", "URTH"],
-    "msci world etf": ["EUNL.DE", "IWDA.AS", "URTH"],
-}
-
-KNOWN_TICKER_NAMES = {
-    "3CP.F": {"name": "Xiaomi Corporation", "exchange": "Frankfurt Stock Exchange", "currency": "EUR", "quote_type": "EQUITY"},
-    "3CP.DE": {"name": "Xiaomi Corporation", "exchange": "Xetra", "currency": "EUR", "quote_type": "EQUITY"},
-    "1810.HK": {"name": "Xiaomi Corporation", "exchange": "Hong Kong Stock Exchange", "currency": "HKD", "quote_type": "EQUITY"},
-    "XIACY": {"name": "Xiaomi Corporation ADR", "exchange": "OTC Markets", "currency": "USD", "quote_type": "EQUITY"},
-    "PLTR": {"name": "Palantir Technologies Inc.", "exchange": "NYSE", "currency": "USD", "quote_type": "EQUITY"},
-    "NVDA": {"name": "NVIDIA Corporation", "exchange": "NASDAQ", "currency": "USD", "quote_type": "EQUITY"},
-    "BTC-EUR": {"name": "Bitcoin EUR", "exchange": "CCC", "currency": "EUR", "quote_type": "CRYPTOCURRENCY"},
-    "BTC-USD": {"name": "Bitcoin USD", "exchange": "CCC", "currency": "USD", "quote_type": "CRYPTOCURRENCY"},
-    "EUNL.DE": {"name": "iShares Core MSCI World UCITS ETF", "exchange": "Xetra", "currency": "EUR", "quote_type": "ETF"},
-    "IWDA.AS": {"name": "iShares Core MSCI World UCITS ETF", "exchange": "Amsterdam", "currency": "EUR", "quote_type": "ETF"},
-    "URTH": {"name": "iShares MSCI World ETF", "exchange": "NYSE Arca", "currency": "USD", "quote_type": "ETF"},
-}
-
-
-@dataclass
-class ScoreResult:
-    score: float
-    recommendation: str
-    reasons: list[str]
-    breakdown: list[tuple[str, float, str]] | None = None
-
-
-@dataclass
-class ModuleScore:
-    score: float
-    summary: str
-    details: list[str]
-
-
-@dataclass
-class MarketPhase:
-    phase: str
-    summary: str
-    probabilities: dict[str, int]
-
-
-@dataclass
-class RiskReward:
-    risk_pct: float | None
-    reward_pct: float | None
-    ratio: float | None
-    score: float
-    summary: str
-
-
-@dataclass
-class AssetProfile:
-    asset_type: str
-    quote_type: str
-    summary: str
-    weights: dict[str, float]
-
-
-@dataclass
-class PortfolioResult:
-    enabled: bool
-    available: bool
-    score: float | None
-    summary: str
-    details: list[str]
-    asset_weight: float | None = None
-    cash_weight: float | None = None
-    position_value: float | None = None
-    adjusted_score: float | None = None
-
-
-@dataclass
-class ResearchModule:
-    name: str
-    score: float | None
-    summary: str
-    details: list[str]
-    beginner: str
-
-
-@dataclass
-class ResearchPack:
-    data_quality: ResearchModule
-    modules: list[ResearchModule]
-    institutional_modules: list[ResearchModule]
-    confidence: ResearchModule
-    uncertainty_factors: list[str]
-    scenarios: list[dict]
-    buy_zones: list[dict]
-    action: str
-    decision: dict[str, str]
-    conclusion: dict[str, str | list[str]]
-
-
-@dataclass
-class StockFundamentalSnapshot:
-    revenue_growth: float | None
-    earnings_growth: float | None
-    profit_margin: float | None
-    operating_margin: float | None
-    gross_margin: float | None
-    return_on_equity: float | None
-    return_on_assets: float | None
-    total_cash: float | None
-    total_debt: float | None
-    free_cashflow: float | None
-    operating_cashflow: float | None
-    trailing_pe: float | None
-    forward_pe: float | None
-    price_to_sales: float | None
-    price_to_book: float | None
-    enterprise_to_ebitda: float | None
-    market_cap: float | None
-
-
-@dataclass
-class EtfFundamentalSnapshot:
-    category: str | None
-    fund_family: str | None
-    annual_report_expense_ratio: float | None
-    expense_ratio: float | None
-    total_assets: float | None
-    net_assets: float | None
-    holdings_count: float | None
-    fifty_two_week_change: float | None
-    three_year_return: float | None
-    five_year_return: float | None
-    beta_3y: float | None
-    ytd_return: float | None
-
-
-def normalize_query(query: str) -> str:
-    return " ".join(query.lower().strip().split())
-
-
-def looks_like_ticker(query: str) -> bool:
-    clean = query.strip()
-    if not clean or " " in clean:
-        return False
-    allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-=^")
-    has_market_suffix = any(char in clean for char in ".-=^")
-    has_digit = any(char.isdigit() for char in clean)
-    is_uppercase_symbol = clean == clean.upper()
-    return all(char in allowed for char in clean) and (is_uppercase_symbol or has_market_suffix or has_digit)
-
-
-def ticker_candidate(
-    symbol: str,
-    name: str | None = None,
-    exchange: str | None = None,
-    quote_type: str | None = None,
-    currency: str | None = None,
-    source: str = "Yahoo Finance",
-) -> dict:
-    metadata = KNOWN_TICKER_NAMES.get(symbol.upper(), {})
-    return {
-        "symbol": symbol.upper(),
-        "name": name or metadata.get("name") or symbol.upper(),
-        "exchange": exchange or metadata.get("exchange") or "Daten nicht verfügbar",
-        "quote_type": quote_type or metadata.get("quote_type") or "Daten nicht verfügbar",
-        "currency": currency or metadata.get("currency") or "",
-        "source": source,
-    }
-
-
-def dedupe_candidates(candidates: list[dict]) -> list[dict]:
-    seen: set[str] = set()
-    unique: list[dict] = []
-    for candidate in candidates:
-        symbol = str(candidate.get("symbol", "")).upper()
-        if not symbol or symbol in seen:
-            continue
-        seen.add(symbol)
-        candidate["symbol"] = symbol
-        unique.append(candidate)
-    return unique
-
-
 @st.cache_data(ttl=60 * 60)
 def find_ticker_candidates(query: str) -> list[dict]:
-    """Find plausible Yahoo Finance instruments and keep manual control visible."""
-    clean_query = normalize_query(query)
-    if not clean_query:
-        return []
-
-    candidates: list[dict] = []
-    if clean_query in KNOWN_TICKERS:
-        candidates.extend(ticker_candidate(symbol, source="Bekannte Beispiele") for symbol in KNOWN_TICKERS[clean_query])
-    else:
-        for known_name, symbols in KNOWN_TICKERS.items():
-            if known_name in clean_query or clean_query in known_name:
-                candidates.extend(ticker_candidate(symbol, source="Bekannte Beispiele") for symbol in symbols)
-                break
-
-    if clean_query not in KNOWN_TICKERS and looks_like_ticker(query):
-        candidates.insert(0, ticker_candidate(query.strip(), source="Direkte Eingabe"))
-
-    # yfinance search is convenient when available, but this app also works
-    # with the curated examples above and a manual ticker field.
-    try:
-        search = yf.Search(query, max_results=8)
-        quotes = search.quotes or []
-        for quote in quotes:
-            symbol = quote.get("symbol")
-            quote_type = quote.get("quoteType", "")
-            exchange = quote.get("exchDisp") or quote.get("exchange", "")
-            name = quote.get("longname") or quote.get("shortname") or quote.get("name")
-            currency = quote.get("currency") or ""
-            if symbol and exchange and quote_type in {"EQUITY", "ETF", "CRYPTOCURRENCY", "MUTUALFUND"}:
-                candidates.append(ticker_candidate(symbol, name, exchange, quote_type, currency))
-    except Exception:
-        pass
-
-    return dedupe_candidates(candidates)[:8]
-
-
-def format_candidate(candidate: dict) -> str:
-    name = candidate.get("name") or candidate.get("symbol")
-    symbol = candidate.get("symbol", "")
-    exchange = candidate.get("exchange") or "Daten nicht verfügbar"
-    return f"{symbol} - {name} ({exchange})"
-
-
-def similar_ticker_suggestions(query: str) -> list[dict]:
-    clean_query = normalize_query(query)
-    search_space = list(KNOWN_TICKERS.keys()) + list(KNOWN_TICKER_NAMES.keys())
-    matches = difflib.get_close_matches(clean_query, [item.lower() for item in search_space], n=5, cutoff=0.35)
-    candidates: list[dict] = []
-    for match in matches:
-        if match in KNOWN_TICKERS:
-            candidates.extend(ticker_candidate(symbol, source="Ähnlicher Treffer") for symbol in KNOWN_TICKERS[match])
-        else:
-            symbol = match.upper()
-            if symbol in KNOWN_TICKER_NAMES:
-                candidates.append(ticker_candidate(symbol, source="Ähnlicher Treffer"))
-    return dedupe_candidates(candidates)[:5]
-
-
-def load_json_dict_list(path: Path) -> list[dict]:
-    """Load a local JSON history without failing on missing or legacy content."""
-    if not path.exists():
-        return []
-    try:
-        raw = path.read_text(encoding="utf-8").strip()
-        if not raw:
-            return []
-        data = json.loads(raw)
-    except (OSError, json.JSONDecodeError, UnicodeError):
-        return []
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
+    return search_ticker_candidates(query, yf.Search)
 
 
 def load_search_history() -> list[dict]:
@@ -362,10 +318,7 @@ def save_successful_search(query: str, candidate: dict) -> None:
 
     history = [item for item in load_search_history() if item.get("symbol") != entry["symbol"]]
     history.insert(0, entry)
-    try:
-        SEARCH_HISTORY_PATH.write_text(json.dumps(history[:12], ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        pass
+    save_json_dict_list(SEARCH_HISTORY_PATH, history[:12])
 
 
 def trade_record_key(record: dict) -> tuple[str, str, str]:
@@ -398,6 +351,21 @@ def normalize_trade_record(record: dict) -> dict:
         "Historienhinweis": ["history_summary"],
         "Kalibrierungskontext": ["calibration_context"],
         "Kalibrierungshinweis": ["calibration_hint"],
+        "Setup-ID": ["setup_id"],
+        "Setup-Typ": ["setup_type"],
+        "Gültig bis": ["valid_until"],
+        "Maximaler Einstieg EUR": ["max_entry_eur"],
+        "Stop-Loss EUR": ["stop_eur"],
+        "Kursziel 1 EUR": ["target_1_eur"],
+        "Kursziel 2 EUR": ["target_2_eur"],
+        "Orderplan": ["order_plan"],
+        "Ordertyp": ["order_type"],
+        "Aktivierung EUR": ["activation_price_eur"],
+        "Limitpreis EUR": ["limit_price_eur"],
+        "Frühester Einstieg": ["earliest_entry_day"],
+        "Plan-Fingerabdruck": ["plan_fingerprint"],
+        "Initialer Stop EUR": ["initial_stop_eur"],
+        "Stop-Vertrag Version": ["stop_contract_version"],
     }
     for canonical, aliases in field_aliases.items():
         if canonical in normalized:
@@ -415,6 +383,7 @@ def normalize_trade_record(record: dict) -> dict:
     normalized.setdefault("Historienhinweis", "Ähnliche historische Setups: 0. Datenbasis zu klein; Trefferquote wird nicht als belastbar gewertet.")
     normalized.setdefault("Kalibrierungskontext", "Daten nicht verfügbar")
     normalized.setdefault("Kalibrierungshinweis", "Keine gespeicherte Backtest-Historie vorhanden; Trade Journal ändert keine Einschätzung.")
+    normalized.setdefault("Status", "Paper")
     normalized.setdefault("Hinweis", "Nur Analyse und Dokumentation. Keine automatische Kauf- oder Verkaufsfunktion.")
     return normalized
 
@@ -435,11 +404,7 @@ def append_trade_records(records: list[dict]) -> bool:
     if not new_records:
         return True
     history = new_records + history
-    try:
-        TRADE_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        return False
-    return True
+    return save_json_dict_list(TRADE_HISTORY_PATH, history)
 
 
 def auto_document_trade_setups(setups: list[dict]) -> tuple[int, str]:
@@ -464,25 +429,13 @@ def load_forward_tests() -> list[dict]:
 
 
 def load_backtest_history() -> list[dict]:
-    if not BACKTEST_HISTORY_PATH.exists():
-        return []
-    try:
-        data = json.loads(BACKTEST_HISTORY_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
+    return load_json_dict_list(BACKTEST_HISTORY_PATH)
 
 
 def save_backtest_result(record: dict) -> bool:
     history = load_backtest_history()
     history.insert(0, record)
-    try:
-        BACKTEST_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        return False
-    return True
+    return save_json_dict_list(BACKTEST_HISTORY_PATH, history)
 
 
 def trade_direction_multiplier(direction: str) -> int:
@@ -606,9 +559,7 @@ def evaluate_due_trade_history() -> tuple[int, str]:
             updated += 1
 
     if updated:
-        try:
-            TRADE_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-        except OSError:
+        if not save_json_dict_list(TRADE_HISTORY_PATH, history):
             return updated, "Trading-Setups ausgewertet, aber Datei konnte nicht gespeichert werden."
     return updated, f"{updated} fällige Trade-Journal-Auswertungen aktualisiert."
 
@@ -616,11 +567,7 @@ def evaluate_due_trade_history() -> tuple[int, str]:
 def save_forward_test(record: dict) -> bool:
     history = load_forward_tests()
     history.insert(0, record)
-    try:
-        FORWARD_TEST_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        return False
-    return True
+    return save_json_dict_list(FORWARD_TEST_PATH, history)
 
 
 def load_decision_history() -> list[dict]:
@@ -630,11 +577,7 @@ def load_decision_history() -> list[dict]:
 def save_decision_record(record: dict) -> bool:
     history = load_decision_history()
     history.insert(0, record)
-    try:
-        DECISION_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        return False
-    return True
+    return save_json_dict_list(DECISION_HISTORY_PATH, history)
 
 
 def decision_exposure(decision: str) -> str:
@@ -746,9 +689,7 @@ def evaluate_due_decision_history() -> tuple[int, str]:
             updated += 1
 
     if updated:
-        try:
-            DECISION_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-        except OSError:
+        if not save_json_dict_list(DECISION_HISTORY_PATH, history):
             return updated, "Entscheidungen ausgewertet, aber Datei konnte nicht gespeichert werden."
     return updated, f"{updated} fällige Decision-Tracking-Auswertungen aktualisiert."
 
@@ -760,11 +701,7 @@ def load_prediction_history() -> list[dict]:
 def save_prediction_record(record: dict) -> bool:
     history = load_prediction_history()
     history.insert(0, record)
-    try:
-        PREDICTION_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        return False
-    return True
+    return save_json_dict_list(PREDICTION_HISTORY_PATH, history)
 
 
 def scenario_read_from_return(return_pct: float) -> str:
@@ -858,9 +795,7 @@ def evaluate_due_predictions() -> tuple[int, str]:
             updated += 1
 
     if updated:
-        try:
-            PREDICTION_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-        except OSError:
+        if not save_json_dict_list(PREDICTION_HISTORY_PATH, history):
             return updated, "Prognosen ausgewertet, aber Datei konnte nicht gespeichert werden."
     return updated, f"{updated} fällige Prognose-Auswertungen aktualisiert."
 
@@ -919,9 +854,7 @@ def evaluate_due_forward_tests() -> tuple[int, str]:
             updated += 1
 
     if updated:
-        try:
-            FORWARD_TEST_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
-        except OSError:
+        if not save_json_dict_list(FORWARD_TEST_PATH, history):
             return updated, "Auswertung berechnet, aber Datei konnte nicht gespeichert werden."
     return updated, f"{updated} fällige Forward-Test-Auswertungen aktualisiert."
 
@@ -1077,10 +1010,12 @@ def signal_bucket_from_record(record: dict, signal_name: str) -> str:
 
 def action_family(action: object) -> str:
     text = str(action or "").lower()
-    if any(token in text for token in ["stark kaufen", "gestaffelt", "kleine tranche", "kaufen", "nachkauf", "long", "halten"]):
-        return "Long/Kaufen"
-    if any(token in text for token in ["verkaufen", "short", "absicherung"]):
+    if any(token in text for token in ["auf konkrete kaufzone warten", "bei bestätigung kaufen"]):
+        return "Abwarten/Beobachten"
+    if any(token in text for token in ["teilweise reduzieren", "verkaufen oder vermeiden", "verkaufen", "short", "absicherung"]):
         return "Short/Verkaufen"
+    if any(token in text for token in ["jetzt kaufen", "erste tranche", "stark kaufen", "gestaffelt", "kleine tranche", "kaufen", "nachkauf", "long", "halten"]):
+        return "Long/Kaufen"
     if any(token in text for token in ["nicht kaufen", "abwarten", "beobachten", "risiko zu hoch"]):
         return "Abwarten/Beobachten"
     return "Unbekannt"
@@ -1861,6 +1796,7 @@ def local_history_quality_context(quality_rows: list[dict[str, str]]) -> tuple[s
     return "OK", "Lokale Lernhistorien sind strukturell lesbar; Gewichtungen ändern sich trotzdem nicht automatisch."
 
 
+@st.cache_data(ttl=30 * 60)
 def backtest_signal_buckets(df: pd.DataFrame, profile: AssetProfile) -> tuple[str, list[dict[str, str]]]:
     required_columns = {"Close", "Low", "High"}
     if df.empty or not required_columns.issubset(df.columns):
@@ -2759,6 +2695,26 @@ def load_price_data(symbol: str, period: str, interval: str) -> pd.DataFrame:
     return data[[col for col in needed if col in data.columns]].dropna(subset=["Close"])
 
 
+def daily_chart_frame_from_analysis(df: pd.DataFrame, period: str) -> pd.DataFrame:
+    """Reuse daily analysis history for the chart and avoid a duplicate Yahoo request."""
+    if df.empty or period == "max":
+        return df.copy()
+    if period == "1d":
+        return df.tail(1).copy()
+    if period == "5d":
+        return df.tail(5).copy()
+    period_months = {"1mo": 1, "3mo": 3, "6mo": 6, "1y": 12, "5y": 60}
+    months = period_months.get(period)
+    if months is None:
+        return df.copy()
+    try:
+        cutoff = pd.Timestamp(df.index.max()) - pd.DateOffset(months=months)
+        return df.loc[pd.to_datetime(df.index) >= cutoff].copy()
+    except (TypeError, ValueError):
+        approximate_rows = {"1mo": 23, "3mo": 66, "6mo": 132, "1y": 264, "5y": 1320}
+        return df.tail(approximate_rows[period]).copy()
+
+
 def history_label_from_frame(df: pd.DataFrame, fallback: str) -> str:
     if df.empty:
         return fallback
@@ -2774,134 +2730,8 @@ def history_label_from_frame(df: pd.DataFrame, fallback: str) -> str:
         return fallback
 
 
-def calculate_indicators(data: pd.DataFrame, interval: str) -> pd.DataFrame:
-    df = data.copy()
-    close = df["Close"]
-
-    delta = close.diff()
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
-    avg_gain = gain.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
-    avg_loss = loss.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
-    rs = avg_gain / avg_loss.replace(0, np.nan)
-    df["RSI_14"] = 100 - (100 / (1 + rs))
-
-    ema_12 = close.ewm(span=12, adjust=False).mean()
-    ema_26 = close.ewm(span=26, adjust=False).mean()
-    df["MACD"] = ema_12 - ema_26
-    df["MACD_Signal"] = df["MACD"].ewm(span=9, adjust=False).mean()
-
-    df["SMA_50"] = close.rolling(50).mean()
-    df["SMA_200"] = close.rolling(200).mean()
-
-    df["Volume_SMA_20"] = df["Volume"].rolling(20).mean() if "Volume" in df else np.nan
-
-    annualization = {"1d": 252, "1wk": 52, "1mo": 12}.get(interval, 252)
-    returns = close.pct_change()
-    df["Volatility"] = returns.rolling(20).std() * math.sqrt(annualization)
-    return df
-
-
-def local_levels(series: pd.Series, mode: str, window: int = 3) -> list[float]:
-    """Return local lows or highs sorted by relevance to the current price."""
-    values = series.dropna()
-    if len(values) < window * 2 + 1:
-        return []
-
-    levels: list[float] = []
-    for idx in range(window, len(values) - window):
-        current = values.iloc[idx]
-        neighborhood = values.iloc[idx - window : idx + window + 1]
-        if mode == "support" and current == neighborhood.min():
-            levels.append(float(current))
-        if mode == "resistance" and current == neighborhood.max():
-            levels.append(float(current))
-
-    current_price = float(values.iloc[-1])
-    if mode == "support":
-        filtered = [level for level in levels if level < current_price]
-    else:
-        filtered = [level for level in levels if level > current_price]
-
-    filtered.sort(key=lambda level: abs(level - current_price))
-    return filtered[:3]
-
-
-def pct_distance(price: float, level: float | None) -> float | None:
-    if level is None or price == 0:
-        return None
-    return (price - level) / price
-
-
-def clamp(value: float, lower: float = 0.0, upper: float = 10.0) -> float:
-    return max(lower, min(upper, value))
-
-
-def value_or_none(value: object) -> float | None:
-    if value is None:
-        return None
-    try:
-        if pd.isna(value):
-            return None
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def percent_text(value: float | None) -> str:
-    if value is None:
-        return "n/a"
-    return f"{value * 100:+.1f}%"
-
-
-def format_percent_or_missing(value: float | None) -> str:
-    if value is None:
-        return "Daten nicht verfügbar"
-    return f"{value * 100:.1f}%"
-
-
-def format_money_or_missing(value: float | None) -> str:
-    if value is None:
-        return "Daten nicht verfügbar"
-    return format_currency(value)
-
-
-def normalize_symbol(symbol: str) -> str:
-    return symbol.strip().upper()
-
-
 def load_portfolio_file() -> tuple[dict | None, str | None]:
-    if not PORTFOLIO_PATH.exists():
-        return None, "Keine Portfolio-Datei gefunden. Portfolio-Modus kann nicht verwendet werden."
-    try:
-        with PORTFOLIO_PATH.open("r", encoding="utf-8") as file:
-            data = json.load(file)
-        if not isinstance(data, dict):
-            return None, "portfolio.json ist ungültig. Erwartet wird ein JSON-Objekt."
-        return data, None
-    except json.JSONDecodeError as exc:
-        return None, f"portfolio.json ist kein gültiges JSON: {exc}"
-    except OSError as exc:
-        return None, f"portfolio.json konnte nicht gelesen werden: {exc}"
-
-
-def portfolio_positions(portfolio: dict) -> list[dict]:
-    positions = portfolio.get("positions", [])
-    if not isinstance(positions, list):
-        return []
-    return [position for position in positions if isinstance(position, dict)]
-
-
-def portfolio_position_ticker(position: dict) -> str:
-    return str(position.get("ticker") or position.get("symbol") or "").strip()
-
-
-def portfolio_position_shares(position: dict) -> float | None:
-    return value_or_none(position.get("shares") or position.get("quantity"))
-
-
-def portfolio_position_buy_price(position: dict) -> float | None:
-    return value_or_none(position.get("buy_price") or position.get("average_buy_price"))
+    return load_portfolio_document(PORTFOLIO_PATH)
 
 
 def known_ticker_fallbacks(symbol: str) -> list[str]:
@@ -2936,17 +2766,7 @@ def latest_portfolio_price(symbol: str) -> float | None:
 
 
 def position_market_value(position: dict) -> float:
-    value = value_or_none(position.get("market_value"))
-    if value is not None:
-        return value
-    quantity = portfolio_position_shares(position)
-    price = value_or_none(position.get("current_price") or position.get("price"))
-    if price is None and quantity is not None:
-        symbol = portfolio_position_ticker(position)
-        price = latest_portfolio_price(symbol) if symbol else None
-    if quantity is not None and price is not None:
-        return quantity * price
-    return 0.0
+    return calculate_position_market_value(position, latest_portfolio_price)
 
 
 def evaluate_portfolio(
@@ -2975,218 +2795,12 @@ def evaluate_portfolio(
         )
 
     assert portfolio is not None
-    positions = portfolio_positions(portfolio)
-    cash = value_or_none(portfolio.get("cash")) or 0.0
-    target_cash_pct = value_or_none(portfolio.get("target_cash_pct"))
-    if target_cash_pct is None:
-        target_cash_pct = 0.10
-    planned_buy = value_or_none(portfolio.get("planned_buy_amount")) or 0.0
-    overweight_limit = value_or_none(portfolio.get("max_single_position_pct"))
-    if overweight_limit is None:
-        overweight_limit = 0.20
-
-    total_positions = sum(position_market_value(position) for position in positions)
-    total_value = total_positions + cash
-    if total_value <= 0:
-        return PortfolioResult(
-            enabled=True,
-            available=True,
-            score=5.0,
-            summary="Portfolio-Datei gefunden, aber Gesamtwert ist 0. Depot-Score wird neutral bewertet.",
-            details=["Bitte market_value oder quantity/current_price in portfolio.json eintragen."],
-            cash_weight=None,
-        )
-
-    symbol_norm = normalize_symbol(symbol)
-    matching_positions = [
-        position for position in positions if normalize_symbol(portfolio_position_ticker(position)) == symbol_norm
-    ]
-    position_value = sum(position_market_value(position) for position in matching_positions)
-    asset_weight = position_value / total_value
-    cash_weight = cash / total_value
-    post_buy_total = total_value + planned_buy
-    post_buy_position = position_value + planned_buy
-    post_buy_weight = post_buy_position / post_buy_total if post_buy_total > 0 else asset_weight
-    post_buy_cash_weight = max(cash - planned_buy, 0.0) / post_buy_total if post_buy_total > 0 else cash_weight
-
-    score = 10.0
-    details: list[str] = []
-    if matching_positions:
-        details.append(f"Du hältst dieses Asset bereits: {format_currency(position_value)} ({asset_weight * 100:.1f}% des Portfolios).")
-        for position in matching_positions:
-            avg_buy_price = portfolio_position_buy_price(position)
-            if avg_buy_price is not None:
-                details.append(f"Durchschnittlicher Einstandskurs laut portfolio.json: {format_currency(avg_buy_price)}.")
-            lots = position.get("lots")
-            if isinstance(lots, list) and lots:
-                details.append(f"Einzelkäufe erfasst: {len(lots)} Lots.")
-    else:
-        details.append("Du hältst dieses Asset laut portfolio.json noch nicht.")
-
-    if asset_weight > overweight_limit:
-        penalty = min(4.0, (asset_weight - overweight_limit) * 25)
-        score -= penalty
-        details.append(f"Übergewichtet: aktueller Anteil {asset_weight * 100:.1f}% liegt über dem Limit von {overweight_limit * 100:.1f}%.")
-    else:
-        details.append(f"Kein Klumpenrisiko nach Limit: aktueller Anteil {asset_weight * 100:.1f}% von maximal {overweight_limit * 100:.1f}%.")
-
-    if planned_buy > 0:
-        details.append(f"Geplanter Nachkauf aus portfolio.json: {format_currency(planned_buy)}.")
-        if post_buy_weight > overweight_limit:
-            penalty = min(3.0, (post_buy_weight - overweight_limit) * 25)
-            score -= penalty
-            details.append(f"Nachkauf würde den Anteil auf {post_buy_weight * 100:.1f}% erhöhen und damit das Risiko steigern.")
-        else:
-            details.append(f"Nachkauf würde den Anteil auf {post_buy_weight * 100:.1f}% erhöhen und bleibt unter dem Limit.")
-        if post_buy_cash_weight < target_cash_pct:
-            penalty = min(2.5, (target_cash_pct - post_buy_cash_weight) * 20)
-            score -= penalty
-            details.append(f"Cash-Reserve nach Nachkauf wäre {post_buy_cash_weight * 100:.1f}% und damit unter Ziel {target_cash_pct * 100:.1f}%.")
-        else:
-            details.append(f"Cash-Reserve nach Nachkauf bleibt bei {post_buy_cash_weight * 100:.1f}% und damit ausreichend.")
-    else:
-        details.append("Kein geplanter Nachkaufbetrag eingetragen. Nachkauf-Risiko wird nur anhand der aktuellen Gewichtung bewertet.")
-        if cash_weight < target_cash_pct:
-            penalty = min(2.0, (target_cash_pct - cash_weight) * 20)
-            score -= penalty
-            details.append(f"Cash-Reserve ist niedrig: {cash_weight * 100:.1f}% statt Ziel {target_cash_pct * 100:.1f}%.")
-        else:
-            details.append(f"Cash-Reserve ist ausreichend: {cash_weight * 100:.1f}% bei Ziel {target_cash_pct * 100:.1f}%.")
-
-    if asset_profile and asset_profile.asset_type == "Krypto" and asset_weight > 0.15:
-        score -= 1.0
-        details.append("Krypto-Anteil ist hoch; wegen hoher Schwankungen wird ein zusätzlicher Risikoabschlag berücksichtigt.")
-
-    score = round(clamp(score), 1)
-    if score >= 7:
-        summary = "Depot-Score positiv: Portfolio spricht nicht gegen die Asset-Empfehlung."
-    elif score >= 5:
-        summary = "Depot-Score neutral: Nachkauf nur vorsichtig, Portfolio-Risiken sind moderat."
-    else:
-        summary = "Depot-Score schwach: Portfolio spricht gegen einen zusätzlichen Nachkauf."
-
-    return PortfolioResult(
-        enabled=True,
-        available=True,
-        score=score,
-        summary=summary,
-        details=details,
-        asset_weight=asset_weight,
-        cash_weight=cash_weight,
-        position_value=position_value,
+    return evaluate_portfolio_data(
+        symbol,
+        portfolio,
+        asset_profile,
+        position_value_loader=position_market_value,
     )
-
-
-def calculate_risk_reward(close: float, supports: list[float], resistances: list[float]) -> RiskReward:
-    nearest_support = supports[0] if supports else None
-    nearest_resistance = resistances[0] if resistances else None
-    risk_pct = (nearest_support - close) / close if nearest_support else None
-    reward_pct = (nearest_resistance - close) / close if nearest_resistance else None
-
-    ratio = None
-    score = 5.0
-    if risk_pct is not None and reward_pct is not None and risk_pct < 0 and reward_pct > 0:
-        ratio = reward_pct / abs(risk_pct)
-        score = clamp(ratio / 3 * 10)
-        summary = f"Risiko bis Unterstützung {percent_text(risk_pct)}, Potenzial bis Widerstand {percent_text(reward_pct)}, CRV {ratio:.2f}."
-    elif risk_pct is not None:
-        summary = f"Nächste Unterstützung liegt {percent_text(risk_pct)} entfernt; kein klarer Widerstand oberhalb erkannt."
-        score = 5.5 if abs(risk_pct) <= 0.06 else 4.0
-    elif reward_pct is not None:
-        summary = f"Nächster Widerstand liegt {percent_text(reward_pct)} entfernt; keine klare Unterstützung unterhalb erkannt."
-        score = 4.5
-    else:
-        summary = "Keine belastbaren Unterstützungs- und Widerstandszonen für ein CRV erkannt."
-        score = 4.0
-
-    return RiskReward(risk_pct=risk_pct, reward_pct=reward_pct, ratio=ratio, score=round(score, 1), summary=summary)
-
-
-def detect_market_phase(df: pd.DataFrame) -> MarketPhase:
-    latest = df.dropna(subset=["Close"]).iloc[-1]
-    close = float(latest["Close"])
-    sma_50 = value_or_none(latest.get("SMA_50"))
-    sma_200 = value_or_none(latest.get("SMA_200"))
-    rsi = value_or_none(latest.get("RSI_14"))
-    macd = value_or_none(latest.get("MACD"))
-    signal = value_or_none(latest.get("MACD_Signal"))
-
-    recent = df.dropna(subset=["Close"]).tail(120)
-    recent_high = float(recent["Close"].max()) if not recent.empty else close
-    recent_low = float(recent["Close"].min()) if not recent.empty else close
-    drawdown = (close - recent_high) / recent_high if recent_high else 0.0
-    rebound = (close - recent_low) / recent_low if recent_low else 0.0
-    range_width = (recent_high - recent_low) / close if close else 0.0
-
-    macd_positive = macd is not None and signal is not None and macd > signal
-    macd_negative = macd is not None and signal is not None and macd < signal
-    uptrend = sma_50 is not None and close > sma_50 and (sma_200 is None or sma_50 > sma_200)
-    downtrend = sma_50 is not None and close < sma_50 and (sma_200 is None or sma_50 < sma_200)
-
-    if uptrend and drawdown <= -0.08:
-        phase = "Korrektur innerhalb eines Aufwärtstrends"
-        summary = "Der übergeordnete Trend ist positiv, aber der Kurs korrigiert deutlich vom jüngsten Hoch."
-    elif downtrend and (rsi is None or rsi < 45) and macd_negative:
-        phase = "Bärenmarkt"
-        summary = "Kurs und gleitende Durchschnitte zeigen abwärts, Momentum bestätigt die Schwäche."
-    elif uptrend and (rsi is None or rsi >= 45) and not macd_negative:
-        phase = "Bullenmarkt"
-        summary = "Kursstruktur, Trend und Momentum sprechen überwiegend für einen Aufwärtstrend."
-    elif downtrend and rebound > 0.06 and (rsi is not None and rsi >= 30) and not macd_negative:
-        phase = "Bodenbildungsphase"
-        summary = "Der Kurs kommt aus einer schwachen Phase, stabilisiert sich aber über den letzten Tiefs."
-    elif range_width <= 0.16:
-        phase = "Seitwärtsmarkt"
-        summary = "Der Kurs bewegt sich in einer relativ engen Spanne ohne klaren Trend."
-    else:
-        phase = "Bodenbildungsphase" if macd_positive and rebound > 0.04 else "Seitwärtsmarkt"
-        summary = "Die Signale sind gemischt; der Markt sucht noch eine klare Richtung."
-
-    floor_seen = 35
-    retest = 30
-    new_low = 20
-    strong_recovery = 15
-    if phase == "Bullenmarkt":
-        floor_seen, retest, new_low, strong_recovery = 45, 20, 5, 30
-    elif phase == "Korrektur innerhalb eines Aufwärtstrends":
-        floor_seen, retest, new_low, strong_recovery = 45, 30, 10, 15
-    elif phase == "Bodenbildungsphase":
-        floor_seen, retest, new_low, strong_recovery = 45, 25, 15, 15
-    elif phase == "Bärenmarkt":
-        floor_seen, retest, new_low, strong_recovery = 20, 35, 30, 15
-    elif phase == "Seitwärtsmarkt":
-        floor_seen, retest, new_low, strong_recovery = 35, 35, 10, 20
-
-    if rsi is not None and rsi < 30:
-        floor_seen += 8
-        retest -= 3
-        new_low -= 5
-        strong_recovery += 2
-    if macd_positive:
-        floor_seen += 8
-        retest -= 5
-        new_low -= 3
-        strong_recovery += 4
-    if macd_negative:
-        floor_seen -= 8
-        retest += 5
-        new_low += 3
-        strong_recovery -= 2
-    if drawdown < -0.2:
-        new_low += 6
-        floor_seen -= 3
-        strong_recovery -= 3
-
-    values = np.array([max(5, floor_seen), max(5, retest), max(5, new_low), max(5, strong_recovery)], dtype=float)
-    values = np.round(values / values.sum() * 100).astype(int)
-    values[0] += 100 - int(values.sum())
-    probabilities = {
-        "Boden bereits gesehen": int(values[0]),
-        "Erneuter Test / weitere Korrektur": int(values[1]),
-        "Neues Tief": int(values[2]),
-        "Starke Erholung / Ausbruch": int(values[3]),
-    }
-    return MarketPhase(phase=phase, summary=summary, probabilities=probabilities)
 
 
 @st.cache_data(ttl=60 * 60)
@@ -3292,321 +2906,6 @@ def detect_asset_type(symbol: str, info: dict) -> AssetProfile:
         "Asset-Typ nicht eindeutig erkannt. Die App bewertet vorsichtiger und erfindet keine fehlenden Daten.",
         {"Technik": 0.45, "Fundamentaldaten": 0.05, "Makro": 0.25, "News": 0.10, "CRV": 0.15},
     )
-
-
-def data_missing(label: str) -> str:
-    return f"{label}: Daten nicht verfügbar."
-
-
-def score_profitability_metric(value: float) -> float:
-    if value >= 0.20:
-        return 8.5
-    if value >= 0.10:
-        return 7.0
-    if value >= 0.03:
-        return 5.5
-    if value >= 0:
-        return 4.5
-    return 2.5
-
-
-def stock_fundamental_snapshot(info: dict) -> StockFundamentalSnapshot:
-    return StockFundamentalSnapshot(
-        revenue_growth=value_or_none(info.get("revenueGrowth")),
-        earnings_growth=value_or_none(info.get("earningsGrowth")),
-        profit_margin=value_or_none(info.get("profitMargins")),
-        operating_margin=value_or_none(info.get("operatingMargins")),
-        gross_margin=value_or_none(info.get("grossMargins")),
-        return_on_equity=value_or_none(info.get("returnOnEquity")),
-        return_on_assets=value_or_none(info.get("returnOnAssets")),
-        total_cash=value_or_none(info.get("totalCash")),
-        total_debt=value_or_none(info.get("totalDebt")),
-        free_cashflow=value_or_none(info.get("freeCashflow")),
-        operating_cashflow=value_or_none(info.get("operatingCashflow")),
-        trailing_pe=value_or_none(info.get("trailingPE")),
-        forward_pe=value_or_none(info.get("forwardPE")),
-        price_to_sales=value_or_none(info.get("priceToSalesTrailing12Months")),
-        price_to_book=value_or_none(info.get("priceToBook")),
-        enterprise_to_ebitda=value_or_none(info.get("enterpriseToEbitda")),
-        market_cap=value_or_none(info.get("marketCap")),
-    )
-
-
-def score_valuation_multiple(value: float | None, thresholds: tuple[float, float, float]) -> tuple[float | None, str]:
-    if value is None or value <= 0:
-        return None, "Daten nicht verfügbar"
-    cheap, fair, expensive = thresholds
-    if value <= cheap:
-        return 8.0, "günstig"
-    if value <= fair:
-        return 6.5, "fair"
-    if value <= expensive:
-        return 4.5, "teuer"
-    return 3.0, "sehr teuer"
-
-
-def stock_fundamental_overview(snapshot: StockFundamentalSnapshot) -> list[str]:
-    net_cash_text = "Daten nicht verfügbar"
-    if snapshot.total_cash is not None and snapshot.total_debt is not None:
-        net_cash_text = format_currency(snapshot.total_cash - snapshot.total_debt)
-    return [
-        f"Umsatzwachstum: {format_percent_or_missing(snapshot.revenue_growth)}.",
-        f"Gewinnwachstum: {format_percent_or_missing(snapshot.earnings_growth)}.",
-        f"Nettomarge: {format_percent_or_missing(snapshot.profit_margin)}.",
-        f"Operative Marge: {format_percent_or_missing(snapshot.operating_margin)}.",
-        f"Bruttomarge: {format_percent_or_missing(snapshot.gross_margin)}.",
-        f"Free Cashflow: {format_money_or_missing(snapshot.free_cashflow)}.",
-        f"Operativer Cashflow: {format_money_or_missing(snapshot.operating_cashflow)}.",
-        f"Cashbestand: {format_money_or_missing(snapshot.total_cash)}.",
-        f"Verschuldung: {format_money_or_missing(snapshot.total_debt)}.",
-        f"Netto-Cash / Netto-Schulden: {net_cash_text}.",
-        f"KGV: {'Daten nicht verfügbar' if snapshot.trailing_pe is None else f'{snapshot.trailing_pe:.1f}'}",
-        f"Forward-KGV: {'Daten nicht verfügbar' if snapshot.forward_pe is None else f'{snapshot.forward_pe:.1f}'}",
-        f"Kurs-Umsatz-Verhältnis: {'Daten nicht verfügbar' if snapshot.price_to_sales is None else f'{snapshot.price_to_sales:.1f}'}",
-        f"Kurs-Buchwert-Verhältnis: {'Daten nicht verfügbar' if snapshot.price_to_book is None else f'{snapshot.price_to_book:.1f}'}",
-        f"EV/EBITDA: {'Daten nicht verfügbar' if snapshot.enterprise_to_ebitda is None else f'{snapshot.enterprise_to_ebitda:.1f}'}",
-    ]
-
-
-def etf_fundamental_snapshot(info: dict) -> EtfFundamentalSnapshot:
-    return EtfFundamentalSnapshot(
-        category=info.get("category") or None,
-        fund_family=info.get("fundFamily") or None,
-        annual_report_expense_ratio=value_or_none(info.get("annualReportExpenseRatio")),
-        expense_ratio=value_or_none(info.get("expenseRatio")),
-        total_assets=value_or_none(info.get("totalAssets")),
-        net_assets=value_or_none(info.get("netAssets")),
-        holdings_count=value_or_none(info.get("holdingsCount") or info.get("numberOfHoldings")),
-        fifty_two_week_change=value_or_none(info.get("52WeekChange")),
-        three_year_return=value_or_none(info.get("threeYearAverageReturn")),
-        five_year_return=value_or_none(info.get("fiveYearAverageReturn")),
-        beta_3y=value_or_none(info.get("beta3Year")),
-        ytd_return=value_or_none(info.get("ytdReturn")),
-    )
-
-
-def etf_fundamental_overview(snapshot: EtfFundamentalSnapshot) -> list[str]:
-    ter = snapshot.annual_report_expense_ratio or snapshot.expense_ratio
-    assets = snapshot.total_assets or snapshot.net_assets
-    return [
-        f"ETF-Kategorie / Region / Sektor: {snapshot.category or 'Daten nicht verfügbar'}.",
-        f"Fondsgesellschaft: {snapshot.fund_family or 'Daten nicht verfügbar'}.",
-        f"TER/Kostenquote: {format_percent_or_missing(ter)}.",
-        f"Fondsvolumen: {format_money_or_missing(assets)}.",
-        (
-            "Diversifikation / Anzahl Positionen: Daten nicht verfügbar."
-            if snapshot.holdings_count is None
-            else f"Diversifikation / Anzahl Positionen: {snapshot.holdings_count:.0f}."
-        ),
-        f"1J-Performance: {format_percent_or_missing(snapshot.fifty_two_week_change)}.",
-        f"YTD-Performance: {format_percent_or_missing(snapshot.ytd_return)}.",
-        f"3J-Durchschnittsrendite: {format_percent_or_missing(snapshot.three_year_return)}.",
-        f"5J-Durchschnittsrendite: {format_percent_or_missing(snapshot.five_year_return)}.",
-        "Beta 3 Jahre: Daten nicht verfügbar." if snapshot.beta_3y is None else f"Beta 3 Jahre: {snapshot.beta_3y:.2f}.",
-    ]
-
-
-def score_stock_fundamentals(info: dict) -> ModuleScore:
-    snapshot = stock_fundamental_snapshot(info)
-    details: list[str] = []
-    points: list[float] = []
-
-    revenue_growth = snapshot.revenue_growth
-    if revenue_growth is not None:
-        score = clamp(5 + revenue_growth * 20)
-        points.append(score)
-        details.append(f"Umsatzwachstum: {revenue_growth * 100:.1f}% -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Umsatzwachstum"))
-
-    earnings_growth = snapshot.earnings_growth
-    if earnings_growth is not None:
-        score = clamp(5 + earnings_growth * 18)
-        points.append(score)
-        details.append(f"Gewinnwachstum: {earnings_growth * 100:.1f}% -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Gewinnwachstum"))
-
-    cash = snapshot.total_cash
-    debt = snapshot.total_debt
-    if cash is not None and debt is not None:
-        cash_debt = cash / debt if debt > 0 else 3.0
-        score = clamp(3 + cash_debt * 3)
-        points.append(score)
-        details.append(f"Cash/Verschuldung: {cash_debt:.2f} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Cashbestand oder Verschuldung"))
-
-    free_cashflow = snapshot.free_cashflow
-    if free_cashflow is not None:
-        score = 8.0 if free_cashflow > 0 else 3.0
-        points.append(score)
-        details.append(f"Free Cashflow: {format_currency(free_cashflow)} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Free Cashflow"))
-
-    margin_candidates = [
-        ("Nettomarge", snapshot.profit_margin),
-        ("Operative Marge", snapshot.operating_margin),
-        ("Bruttomarge", snapshot.gross_margin),
-    ]
-    margin_label = None
-    margin_value = None
-    for label, raw_value in margin_candidates:
-        parsed_value = value_or_none(raw_value)
-        if parsed_value is not None:
-            margin_label = label
-            margin_value = parsed_value
-            break
-    if margin_value is not None and margin_label is not None:
-        score = score_profitability_metric(margin_value)
-        points.append(score)
-        details.append(f"{margin_label}: {margin_value * 100:.1f}% -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Marge"))
-
-    roe = snapshot.return_on_equity
-    roa = snapshot.return_on_assets
-    if roe is not None:
-        score = score_profitability_metric(roe)
-        points.append(score)
-        details.append(f"Eigenkapitalrendite: {roe * 100:.1f}% -> {score:.1f}/10.")
-    elif roa is not None:
-        score = score_profitability_metric(roa)
-        points.append(score)
-        details.append(f"Kapitalrendite: {roa * 100:.1f}% -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Eigenkapitalrendite / Kapitalrendite"))
-
-    pe = snapshot.trailing_pe or snapshot.forward_pe
-    if pe is not None and pe > 0:
-        if pe <= 15:
-            score = 8.0
-        elif pe <= 30:
-            score = 6.5
-        elif pe <= 60:
-            score = 4.5
-        else:
-            score = 3.0
-        points.append(score)
-        details.append(f"KGV: {pe:.1f} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("KGV"))
-
-    price_to_sales = snapshot.price_to_sales
-    if price_to_sales is not None and price_to_sales > 0:
-        score = 8.0 if price_to_sales <= 3 else 6.5 if price_to_sales <= 8 else 4.5 if price_to_sales <= 15 else 3.0
-        points.append(score)
-        details.append(f"Kurs-Umsatz-Verhältnis: {price_to_sales:.1f} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Kurs-Umsatz-Verhältnis"))
-
-    price_to_book_score, price_to_book_label = score_valuation_multiple(snapshot.price_to_book, (2.5, 5.0, 10.0))
-    if price_to_book_score is not None:
-        points.append(price_to_book_score)
-        details.append(
-            f"Kurs-Buchwert-Verhältnis: {snapshot.price_to_book:.1f} ({price_to_book_label}) -> "
-            f"{price_to_book_score:.1f}/10."
-        )
-    else:
-        details.append(data_missing("Kurs-Buchwert-Verhältnis"))
-
-    ev_ebitda_score, ev_ebitda_label = score_valuation_multiple(snapshot.enterprise_to_ebitda, (10.0, 18.0, 30.0))
-    if ev_ebitda_score is not None:
-        points.append(ev_ebitda_score)
-        details.append(
-            f"EV/EBITDA: {snapshot.enterprise_to_ebitda:.1f} ({ev_ebitda_label}) -> "
-            f"{ev_ebitda_score:.1f}/10."
-        )
-    else:
-        details.append(data_missing("EV/EBITDA"))
-
-    market_cap = snapshot.market_cap
-    if market_cap is not None:
-        score = 7.5 if market_cap >= 10_000_000_000 else 6.0 if market_cap >= 1_000_000_000 else 4.5
-        points.append(score)
-        details.append(f"Marktkapitalisierung: {format_currency(market_cap)} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Marktkapitalisierung"))
-
-    if not points:
-        return ModuleScore(5.0, "Aktien-Fundamentaldaten nicht ausreichend verfügbar. Der Score wird neutral gewertet.", details)
-
-    details.extend(stock_fundamental_overview(snapshot))
-    final_score = round(float(np.mean(points)), 1)
-    return ModuleScore(final_score, f"Aktien-Fundamentalscore {final_score}/10 aus {len(points)} verfügbaren Kennzahlen.", details)
-
-
-def score_etf_fundamentals(info: dict, df: pd.DataFrame | None = None) -> ModuleScore:
-    snapshot = etf_fundamental_snapshot(info)
-    details: list[str] = []
-    points: list[float] = []
-
-    category = snapshot.category or snapshot.fund_family
-    details.append(f"Index/Region/Sektor: {category}" if category else data_missing("Index/Region/Sektor"))
-
-    ter = snapshot.annual_report_expense_ratio or snapshot.expense_ratio
-    if ter is not None:
-        score = 8.5 if ter <= 0.0025 else 7.0 if ter <= 0.006 else 5.0 if ter <= 0.012 else 3.5
-        points.append(score)
-        details.append(f"TER/Kostenquote: {ter * 100:.2f}% -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("TER/Kostenquote"))
-
-    total_assets = snapshot.total_assets or snapshot.net_assets
-    if total_assets is not None:
-        score = 8.0 if total_assets >= 5_000_000_000 else 6.5 if total_assets >= 500_000_000 else 4.5
-        points.append(score)
-        details.append(f"Fondsvolumen: {format_currency(total_assets)} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Fondsvolumen"))
-
-    holdings = snapshot.holdings_count
-    if holdings is not None:
-        score = 8.0 if holdings >= 500 else 6.5 if holdings >= 100 else 4.5
-        points.append(score)
-        details.append(f"Diversifikation: {holdings:.0f} Positionen -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Diversifikation / Anzahl Positionen"))
-
-    performance_metrics = [
-        ("1J-Performance", snapshot.fifty_two_week_change),
-        ("YTD-Performance", snapshot.ytd_return),
-        ("3J-Performance", snapshot.three_year_return),
-        ("5J-Performance", snapshot.five_year_return),
-    ]
-    for label, perf in performance_metrics:
-        if perf is not None:
-            score = clamp(5 + perf * 20)
-            points.append(score)
-            details.append(f"{label}: {perf * 100:.1f}% -> {score:.1f}/10.")
-        else:
-            details.append(data_missing(label))
-
-    if snapshot.beta_3y is not None:
-        beta_score = 8.0 if snapshot.beta_3y <= 1.0 else 6.5 if snapshot.beta_3y <= 1.2 else 5.0
-        points.append(beta_score)
-        details.append(f"Beta 3 Jahre: {snapshot.beta_3y:.2f} -> {beta_score:.1f}/10.")
-    else:
-        details.append(data_missing("Beta 3 Jahre"))
-
-    if df is not None and not df.empty and "Volatility" in df.columns:
-        volatility = value_or_none(df.iloc[-1].get("Volatility"))
-        if volatility is not None:
-            score = 8.0 if volatility <= 0.18 else 6.5 if volatility <= 0.28 else 5.0 if volatility <= 0.45 else 3.5
-            points.append(score)
-            details.append(f"Langfristige Stabilität: Volatilität {volatility * 100:.1f}% -> {score:.1f}/10.")
-        else:
-            details.append(data_missing("Langfristige Stabilität / Volatilität"))
-    else:
-        details.append(data_missing("Langfristige Stabilität / Volatilität"))
-
-    if not points:
-        return ModuleScore(5.0, "ETF-Daten nicht ausreichend verfügbar. Der Score wird neutral gewertet.", details)
-
-    details.extend(etf_fundamental_overview(snapshot))
-    final_score = round(float(np.mean(points)), 1)
-    return ModuleScore(final_score, f"ETF-Score {final_score}/10 aus verfügbaren Struktur- und Performance-Daten.", details)
 
 
 def score_crypto_fundamentals(info: dict, technical: ModuleScore, macro: ModuleScore, df: pd.DataFrame) -> ModuleScore:
@@ -4104,6 +3403,695 @@ def build_trading_setup(symbol: str) -> tuple[dict | None, str | None]:
         return None, f"{symbol}: {exc}"
 
 
+def next_known_event_date(info: dict, now: pd.Timestamp | None = None) -> pd.Timestamp | None:
+    reference = (now or pd.Timestamp.now()).tz_localize(None)
+    for key in ["earningsTimestamp", "earningsTimestampStart", "earningsTimestampEnd"]:
+        raw_value = info.get(key)
+        if raw_value in {None, ""}:
+            continue
+        try:
+            if isinstance(raw_value, (int, float)):
+                timestamp = pd.to_datetime(raw_value, unit="s", utc=True).tz_convert(None)
+            else:
+                timestamp = pd.Timestamp(raw_value)
+                if timestamp.tzinfo is not None:
+                    timestamp = timestamp.tz_convert(None)
+        except Exception:
+            continue
+        if timestamp >= reference.normalize():
+            return timestamp
+    return None
+
+
+def swing_trade_republic_asset(setup: dict) -> dict:
+    metadata = dict(setup.get("universe_metadata") or {})
+    return {
+        "ticker": setup.get("symbol") or setup.get("ticker"),
+        "name": setup.get("asset_name") or setup.get("name"),
+        "isin": setup.get("isin") or metadata.get("isin"),
+        "exchange": setup.get("exchange") or metadata.get("exchange"),
+        "original_currency": setup.get("original_currency") or metadata.get("original_currency"),
+    }
+
+
+def swing_trade_republic_context(
+    setup: dict,
+    settings: dict,
+    *,
+    current_exposure_eur: float | None = None,
+    current_risk_eur: float | None = None,
+) -> dict:
+    asset = swing_trade_republic_asset(setup)
+    reference = trade_republic_reference(asset)
+    price = trade_republic_price(asset)
+    analysis_plan = dict(setup.get("order_plan") or {})
+    execution_plan = build_trade_republic_execution_plan(
+        analysis_plan,
+        reference,
+        price,
+        trading_capital_eur=settings.get("trading_capital_eur"),
+        max_risk_pct=float(settings.get("max_risk_pct") or 0),
+        asset_type=str(setup.get("asset_type") or "Aktie"),
+        max_total_exposure_pct=float(settings.get("max_total_exposure_pct") or 0),
+        current_exposure_eur=(
+            float(current_exposure_eur)
+            if current_exposure_eur is not None
+            else active_trade_exposure_eur(load_trade_history())
+        ),
+        max_position_exposure_pct=float(settings.get("max_position_exposure_pct") or 0),
+        max_total_risk_pct=(
+            float(settings["max_total_open_risk_pct"])
+            if settings.get("max_total_open_risk_pct") is not None
+            else None
+        ),
+        current_risk_eur=(
+            float(current_risk_eur)
+            if current_risk_eur is not None
+            else active_trade_open_risk_eur(load_trade_history())
+        ),
+    )
+    return {
+        "asset": asset,
+        "reference": reference,
+        "price": price,
+        "execution_plan": execution_plan,
+        "execution_ready": execution_plan is not None,
+    }
+
+
+def swing_setup_trade_record(setup: dict) -> dict:
+    order_plan = dict(setup.get("order_plan") or {})
+    return normalize_trade_record(
+        {
+            "Datum": setup["evaluated_at"],
+            "Setup-ID": setup["setup_id"],
+            "Status": "Paper",
+            "Asset": setup["asset_name"],
+            "Ticker": setup["symbol"],
+            "Asset-Typ": setup["asset_type"],
+            "Richtung": "Long",
+            "Setup-Typ": setup["setup_type"],
+            "Aktueller Kurs EUR": setup["current_price_eur"],
+            "Einstieg": setup["entry_reference"],
+            "Einstieg EUR": setup["entry_reference_eur"],
+            "Einstiegszone von EUR": setup["entry_low_eur"],
+            "Einstiegszone bis EUR": setup["entry_high_eur"],
+            "Eintrittsbedingung": setup["entry_condition"],
+            "Stop-Zone": setup["stop"],
+            "Stop-Loss EUR": setup["stop_eur"],
+            "Zielzone": setup["target_1"],
+            "Kursziel 1 EUR": setup["target_1_eur"],
+            "Kursziel 2 EUR": setup.get("target_2_eur"),
+            "Maximaler Einstieg EUR": setup["max_entry_eur"],
+            "Ungültig unter EUR": setup["invalidation_eur"],
+            "Orderplan": order_plan,
+            "Ordertyp": order_plan.get("order_type"),
+            "Aktivierung EUR": order_plan.get("activation_price_eur"),
+            "Limitpreis EUR": order_plan.get("limit_price_eur"),
+            "Frühester Einstieg": order_plan.get("earliest_entry_day"),
+            "Signalkerze": order_plan.get("signal_bar_day"),
+            "Plan-Fingerabdruck": order_plan.get("plan_fingerprint"),
+            "Initialer Stop EUR": order_plan.get("initial_stop_eur", setup["stop_eur"]),
+            "Stop-Vertrag Version": order_plan.get("stop_contract_version"),
+            "CRV": round(setup["crv"], 2),
+            "Chance je Einheit EUR": setup["chance_eur_per_unit"],
+            "Risiko je Einheit EUR": setup["risk_eur_per_unit"],
+            "Chance %": setup["chance_pct"],
+            "Risiko %": setup["risk_pct"],
+            "Erwarteter Wert R": setup.get("expected_value_r"),
+            "Erwarteter Wert": setup["expected_value_text"],
+            "Trefferwahrscheinlichkeit": setup["hit_rate_text"],
+            "Zeithorizont": setup["holding_period"],
+            "Gültig bis": setup["valid_until"],
+            "Marktphase": setup["market_phase"],
+            "Qualität": setup["quality_score"],
+            "Gründe": setup["reasons"],
+            "Größtes Risiko": setup["largest_risk"],
+            "Nicht mehr einsteigen wenn": setup["no_entry_conditions"],
+            "Originalwährung": setup["original_currency"],
+            "FX zu EUR": setup["fx_rate_to_eur"],
+            "Ähnliche Setups": setup["historical_cases"],
+            "Trefferquote ähnliche Setups": setup.get("historical_hit_rate"),
+            "Historienstatus": (
+                "belastbar" if setup.get("historical_hit_rate") is not None else "Datenbasis zu klein"
+            ),
+            "Historienhinweis": setup["hit_rate_text"],
+            "review_after": empty_review_schedule(),
+            "Hinweis": "Automatisch dokumentierter Paper-Trade. Keine Order und keine Broker-Anbindung.",
+        }
+    )
+
+
+def active_trade_records(history: list[dict] | None = None) -> list[dict]:
+    return [
+        normalize_trade_record(record)
+        for record in (history if history is not None else load_trade_history())
+        if str(record.get("Status")) == "Aktiv"
+    ]
+
+
+def active_trade_exposure_eur(history: list[dict] | None = None) -> float:
+    return round(
+        sum(
+            float(record.get("Tatsächlicher Einstieg EUR") or 0)
+            * float(record.get("Tatsächliche Stückzahl") or 0)
+            for record in active_trade_records(history)
+        ),
+        2,
+    )
+
+
+def active_trade_open_risk_eur(history: list[dict] | None = None) -> float:
+    total = 0.0
+    for record in active_trade_records(history):
+        try:
+            entry = float(record.get("Tatsächlicher Einstieg EUR") or 0)
+            quantity = float(record.get("Tatsächliche Stückzahl") or 0)
+            stop = float(
+                record.get("Aktueller Stop EUR")
+                or record.get("Initialer Stop EUR")
+                or record.get("Stop-Loss EUR")
+                or 0
+            )
+        except (TypeError, ValueError):
+            continue
+        if entry > 0 and quantity > 0 and stop > 0:
+            total += max(entry - stop, 0.0) * quantity
+    return round(total, 2)
+
+
+def _normalized_market_history(frame: object) -> pd.DataFrame:
+    if not isinstance(frame, pd.DataFrame) or frame.empty:
+        return pd.DataFrame()
+    normalized = frame.copy()
+    normalized = normalized.loc[:, ~normalized.columns.duplicated()].copy()
+    for column in ["Open", "High", "Low", "Close", "Adj Close", "Volume"]:
+        if column in normalized:
+            normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
+    if "Close" not in normalized:
+        return pd.DataFrame()
+    return normalized.dropna(subset=["Close"])
+
+
+def _histories_from_yfinance_batch(payload: pd.DataFrame, tickers: list[str]) -> dict[str, pd.DataFrame]:
+    histories: dict[str, pd.DataFrame] = {}
+    if not isinstance(payload, pd.DataFrame) or payload.empty:
+        return histories
+    if not isinstance(payload.columns, pd.MultiIndex):
+        if len(tickers) == 1:
+            normalized = _normalized_market_history(payload)
+            if not normalized.empty:
+                histories[tickers[0]] = normalized
+        return histories
+
+    level_zero = {str(value).upper() for value in payload.columns.get_level_values(0)}
+    level_one = {str(value).upper() for value in payload.columns.get_level_values(1)}
+    for ticker in tickers:
+        try:
+            if ticker.upper() in level_zero:
+                frame = payload.xs(ticker, axis=1, level=0, drop_level=True)
+            elif ticker.upper() in level_one:
+                frame = payload.xs(ticker, axis=1, level=1, drop_level=True)
+            else:
+                continue
+        except (KeyError, TypeError, ValueError):
+            continue
+        normalized = _normalized_market_history(frame)
+        if not normalized.empty:
+            histories[ticker] = normalized
+    return histories
+
+
+def load_swing_prefilter_histories(
+    assets: list[SwingUniverseAsset],
+    *,
+    batch_size: int = 100,
+) -> tuple[dict[str, pd.DataFrame], list[str]]:
+    """Download daily histories in bounded batches so stage one avoids ticker-by-ticker metadata calls."""
+    histories: dict[str, pd.DataFrame] = {}
+    errors: list[str] = []
+    tickers = [asset.ticker for asset in assets if asset.active]
+    safe_batch_size = max(1, min(int(batch_size), 200))
+    for offset in range(0, len(tickers), safe_batch_size):
+        batch = tickers[offset : offset + safe_batch_size]
+        try:
+            payload = yf.download(
+                batch,
+                period="1y",
+                interval="1d",
+                group_by="ticker",
+                auto_adjust=False,
+                actions=False,
+                progress=False,
+                threads=True,
+            )
+        except Exception as exc:
+            errors.append(
+                f"Kursdatenpaket {offset // safe_batch_size + 1} ({len(batch)} Assets): {exc}"
+            )
+            continue
+        histories.update(_histories_from_yfinance_batch(payload, batch))
+    return histories, errors
+
+
+def _evaluate_swing_asset(
+    asset: SwingUniverseAsset,
+    raw_data: pd.DataFrame,
+    *,
+    settings: dict,
+    thresholds: SwingTradeThresholds,
+    macro: ModuleScore,
+    scan_time: pd.Timestamp,
+) -> dict:
+    frame = calculate_indicators(raw_data, "1d")
+    latest = frame.iloc[-1]
+    supports = local_levels(frame["Low"], "support") if "Low" in frame else []
+    resistances = local_levels(frame["High"], "resistance") if "High" in frame else []
+    score_result = calculate_score_v2(frame, supports, resistances)
+    info = load_ticker_info(asset.ticker)
+    identity = build_asset_identity(
+        asset.ticker,
+        info,
+        {"name": asset.name, "source": f"Swing-Universum {asset.version}"},
+    )
+    detected_profile = detect_asset_type(asset.ticker, info)
+    profile = AssetProfile(
+        asset_type=asset.asset_type,
+        quote_type=detected_profile.quote_type,
+        summary=detected_profile.summary,
+        weights=detected_profile.weights,
+    )
+    market_phase = detect_market_phase(frame)
+    close = float(latest["Close"])
+    risk_reward = calculate_risk_reward(close, supports, resistances)
+    asset_quality = score_asset_quality_from_info(asset.ticker, profile, frame, info)
+    buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
+    confidence = scanner_confidence(frame, market_phase, latest)
+    historical = similar_setup_statistics(asset.asset_type, market_phase.phase, "Long", buy_signal.score)
+    original_currency = str(identity.get("currency") or info.get("currency") or "EUR").upper()
+    fx_rate, _ = get_fx_rate_to_eur(original_currency)
+    assessment = evaluate_swing_trade(
+        frame,
+        symbol=asset.ticker,
+        asset_name=asset.name,
+        asset_type=asset.asset_type,
+        market_phase=market_phase.phase,
+        buy_signal=buy_signal.score,
+        asset_quality=asset_quality.score,
+        confidence=confidence,
+        market_score=macro.score,
+        fx_rate=fx_rate,
+        original_currency=original_currency,
+        region=asset.region,
+        historical_cases=int(historical.get("count") or 0),
+        historical_hit_rate=historical.get("hit_rate"),
+        event_date=next_known_event_date(info, scan_time),
+        now=scan_time.to_pydatetime(),
+        thresholds=thresholds,
+    )
+    universe_metadata = asset.as_dict()
+    exchange = str(identity.get("exchange") or "").strip()
+    if exchange and exchange != "Daten nicht verfügbar":
+        universe_metadata["exchange"] = exchange
+    isin = str(info.get("isin") or "").strip().upper()
+    if isin:
+        universe_metadata["isin"] = isin
+    universe_metadata.update(
+        {
+            "quote_type": identity.get("quote_type") or info.get("quoteType"),
+            "sector": info.get("sector"),
+            "industry": info.get("industry"),
+            "metadata_observed_at": scan_time.isoformat(),
+            "metadata_source": "Swing-Universum und Yahoo Finance/yfinance",
+        }
+    )
+    assessment["universe_metadata"] = universe_metadata
+    assessment["volatility_regime"] = volatility_bucket(latest.get("Volatility"))
+    tr_asset = swing_trade_republic_asset(assessment)
+    assessment["trade_republic"] = trade_republic_reference(tr_asset)
+    assessment["trade_republic_price"] = trade_republic_price(tr_asset)
+    if asset.asset_type not in set(settings.get("allowed_asset_types") or []):
+        assessment["approved"] = False
+        assessment["rejection_reasons"] = [
+            f"Asset-Typ {asset.asset_type} ist nach der internen Risikoregel nicht erlaubt."
+        ]
+    return assessment
+
+
+def _release_swing_candidates(
+    candidates: list[dict],
+    *,
+    settings: dict,
+    current_exposure_eur: float,
+    current_risk_eur: float,
+) -> tuple[list[dict], list[dict], list[dict]]:
+    released: list[dict] = []
+    rejected: list[dict] = []
+    shadow_signals: list[dict] = []
+    running_exposure = current_exposure_eur
+    running_risk = current_risk_eur
+    for assessment in candidates:
+        assessment = apply_swing_risk_engine(
+            assessment,
+            settings,
+            current_exposure_eur=running_exposure,
+            current_risk_eur=running_risk,
+            execution_mode="analysis_only",
+        )
+        position_size = dict(assessment["position_size"])
+        if settings.get("trading_capital_eur") and not position_size.get("quantity"):
+            reason = str(position_size["explanation"])
+            assessment["forward_evidence_kind"] = "shadow_dynamic_risk_budget"
+            assessment["forward_exclusion_reason"] = reason
+            assessment["scanner_qualified"] = True
+            shadow_signals.append(assessment)
+            rejected.append(
+                {
+                    "Ticker": assessment.get("symbol"),
+                    "Asset": assessment.get("asset_name"),
+                    "Asset-Typ": assessment.get("asset_type"),
+                    "Ablehnungsgründe": [reason],
+                }
+            )
+            continue
+        assessment["forward_evidence_kind"] = "scanner_released"
+        assessment["forward_exclusion_reason"] = None
+        assessment["scanner_qualified"] = True
+        released.append(assessment)
+        running_exposure += float(position_size.get("position_value_eur") or 0)
+        running_risk += float(position_size.get("actual_risk_eur") or 0)
+    return released, rejected, shadow_signals
+
+
+def scan_swing_market(
+    settings: dict,
+    *,
+    universe_path: Path = DEFAULT_SWING_UNIVERSE_PATH,
+    thresholds: SwingTradeThresholds = DEFAULT_SWING_THRESHOLDS,
+    prefilter_thresholds=DEFAULT_PREFILTER_THRESHOLDS,
+    histories_loader: Callable[[list[SwingUniverseAsset]], tuple[dict[str, pd.DataFrame], list[str]]] = load_swing_prefilter_histories,
+    scope_name: str = "manual_full",
+    scope_regions: set[str] | None = None,
+    scope_asset_types: set[str] | None = None,
+    objective_forward: bool = False,
+) -> dict:
+    scan_time = pd.Timestamp(datetime.now().astimezone())
+    universe_report = load_swing_universe(universe_path)
+    assets = active_swing_assets(universe_report)
+    if scope_regions is not None:
+        assets = [asset for asset in assets if asset.region in scope_regions]
+    if scope_asset_types is not None:
+        assets = [asset for asset in assets if asset.asset_type in scope_asset_types]
+    histories, download_errors = histories_loader(assets)
+    macro = score_macro()
+    history = [] if objective_forward else load_trade_history()
+    current_exposure = active_trade_exposure_eur(history)
+    current_risk = active_trade_open_risk_eur(history)
+
+    result = execute_multistage_scan(
+        assets,
+        histories,
+        lambda asset, frame: _evaluate_swing_asset(
+            asset,
+            frame,
+            settings=settings,
+            thresholds=thresholds,
+            macro=macro,
+            scan_time=scan_time,
+        ),
+        download_errors=[*download_errors, *universe_report.errors],
+        thresholds=prefilter_thresholds,
+    )
+    strategy_candidates = list(result["approved"])
+    strategy_qualified_total = len(strategy_candidates)
+    released, portfolio_rejected, shadow_signals = _release_swing_candidates(
+        result["approved"],
+        settings=settings,
+        current_exposure_eur=current_exposure,
+        current_risk_eur=current_risk,
+    )
+    result["approved"] = released
+    result["shadow_signals"] = shadow_signals
+    result["rejected"].extend(portfolio_rejected)
+    result["statistics"]["approved_trades"] = len(released)
+    result["statistics"]["strategy_qualified_total"] = strategy_qualified_total
+    result["statistics"]["shadow_signals"] = len(shadow_signals)
+    result["asset_type_funnel"] = apply_portfolio_release_to_funnel(
+        result.get("asset_type_funnel") or {},
+        released,
+    )
+    result["asset_type_bias_audit"] = asset_type_bias_audit(result["asset_type_funnel"])
+    result["portfolio_cluster_audit"] = swing_portfolio_cluster_audit(
+        strategy_candidates,
+        histories,
+    )
+
+    all_rejections = [*result["rejected"], *result["prefilter_rejected"]]
+    reason_counts: dict[str, int] = {}
+    for item in all_rejections:
+        for reason in item.get("Ablehnungsgründe", []):
+            reason_counts[str(reason)] = reason_counts.get(str(reason), 0) + 1
+    result.update(
+        {
+            "checked_assets": result["statistics"]["universe_size"],
+            "scan_scope": str(scope_name),
+            "objective_forward": bool(objective_forward),
+            "last_scan": scan_time.isoformat(),
+            "market_label": "Unterstützend" if macro.score >= 6 else "Belastet" if macro.score < 4 else "Neutral",
+            "market_summary": macro.summary,
+            "main_rejection": (
+                max(reason_counts.items(), key=lambda item: item[1])[0]
+                if reason_counts
+                else "Alle Qualitätsfilter wurden geprüft."
+            ),
+            "thresholds": thresholds_as_dict(thresholds),
+            "risk_policy": risk_policy_as_dict(),
+            "universe_report": {
+                "path": str(Path(universe_path).resolve()),
+                "version": assets[0].version if assets else "nicht verfügbar",
+                "total_rows": universe_report.total_rows,
+                "active_count": universe_report.active_count,
+                "inactive_count": universe_report.inactive_count,
+                "duplicate_count": universe_report.duplicate_count,
+                "forbidden_count": universe_report.forbidden_count,
+                "selected_count": len(assets),
+                "scan_scope": str(scope_name),
+            },
+        }
+    )
+    return result
+
+
+def scan_swing_trades(
+    symbols: list[str],
+    settings: dict,
+    thresholds: SwingTradeThresholds = DEFAULT_SWING_THRESHOLDS,
+) -> dict:
+    approved: list[dict] = []
+    rejected: list[dict] = []
+    errors: list[str] = []
+    scan_time = pd.Timestamp(datetime.now().astimezone())
+    macro = score_macro()
+    history = load_trade_history()
+    current_exposure = active_trade_exposure_eur(history)
+    current_risk = active_trade_open_risk_eur(history)
+    allowed_asset_types = set(settings.get("allowed_asset_types") or ["Aktie", "ETF", "Krypto"])
+
+    for symbol in symbols:
+        try:
+            raw_data = load_price_data(symbol, "1y", "1d")
+            if raw_data.empty or "Close" not in raw_data:
+                rejected.append({"Ticker": symbol, "Ablehnungsgründe": ["Keine Kursdaten verfügbar."]})
+                continue
+            frame = calculate_indicators(raw_data, "1d")
+            latest = frame.iloc[-1]
+            supports = local_levels(frame["Low"], "support") if "Low" in frame else []
+            resistances = local_levels(frame["High"], "resistance") if "High" in frame else []
+            score_result = calculate_score_v2(frame, supports, resistances)
+            info = load_ticker_info(symbol)
+            identity = build_asset_identity(symbol, info, ticker_candidate(symbol, source="Swing-Scanner"))
+            profile = detect_asset_type(symbol, info)
+            market_phase = detect_market_phase(frame)
+            close = float(latest["Close"])
+            risk_reward = calculate_risk_reward(close, supports, resistances)
+            asset_quality = score_asset_quality_from_info(symbol, profile, frame, info)
+            buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, profile)
+            confidence = scanner_confidence(frame, market_phase, latest)
+            historical = similar_setup_statistics(profile.asset_type, market_phase.phase, "Long", buy_signal.score)
+            original_currency = str(identity.get("currency") or info.get("currency") or "EUR").upper()
+            fx_rate, _ = get_fx_rate_to_eur(original_currency)
+            assessment = evaluate_swing_trade(
+                frame,
+                symbol=symbol,
+                asset_name=str(identity.get("name") or symbol),
+                asset_type=profile.asset_type,
+                market_phase=market_phase.phase,
+                buy_signal=buy_signal.score,
+                asset_quality=asset_quality.score,
+                confidence=confidence,
+                market_score=macro.score,
+                fx_rate=fx_rate,
+                original_currency=original_currency,
+                historical_cases=int(historical.get("count") or 0),
+                historical_hit_rate=historical.get("hit_rate"),
+                event_date=next_known_event_date(info, scan_time),
+                now=scan_time.to_pydatetime(),
+                thresholds=thresholds,
+            )
+            universe_metadata = {
+                "asset_id": f"manual|{symbol.upper()}",
+                "version": "manual-swing-scan",
+                "region": None,
+                "category": "Manuelle Auswahl",
+                "exchange": identity.get("exchange"),
+                "isin": str(info.get("isin") or "").strip().upper() or None,
+                "quote_type": identity.get("quote_type") or info.get("quoteType"),
+                "metadata_observed_at": scan_time.isoformat(),
+                "metadata_source": "Manuelle Auswahl und Yahoo Finance/yfinance",
+            }
+            assessment["universe_metadata"] = universe_metadata
+            tr_asset = swing_trade_republic_asset(assessment)
+            assessment["trade_republic"] = trade_republic_reference(tr_asset)
+            assessment["trade_republic_price"] = trade_republic_price(tr_asset)
+            if profile.asset_type not in allowed_asset_types:
+                assessment["approved"] = False
+                assessment["rejection_reasons"] = [
+                    f"Asset-Typ {profile.asset_type} ist in den Trading-Einstellungen nicht erlaubt."
+                ]
+            if assessment["approved"]:
+                assessment = apply_swing_risk_engine(
+                    assessment,
+                    settings,
+                    current_exposure_eur=current_exposure,
+                    current_risk_eur=current_risk,
+                    execution_mode="analysis_only",
+                )
+                position_size = dict(assessment["position_size"])
+                if settings.get("trading_capital_eur") and not position_size.get("quantity"):
+                    assessment["approved"] = False
+                    assessment["rejection_reasons"] = [position_size["explanation"]]
+            if assessment["approved"]:
+                approved.append(assessment)
+                current_exposure += float((assessment.get("position_size") or {}).get("position_value_eur") or 0)
+                current_risk += float((assessment.get("position_size") or {}).get("actual_risk_eur") or 0)
+            else:
+                rejected.append(
+                    {
+                        "Ticker": symbol,
+                        "Asset": assessment.get("asset_name", identity.get("name", symbol)),
+                        "Asset-Typ": profile.asset_type,
+                        "Datenqualität": assessment.get("data_quality"),
+                        "Relatives Volumen": assessment.get("relative_volume"),
+                        "Ablehnungsgründe": assessment.get("rejection_reasons") or ["Kein freigegebenes Setup."],
+                    }
+                )
+        except Exception as exc:
+            errors.append(f"{symbol}: {exc}")
+
+    approved.sort(
+        key=lambda item: (
+            item.get("expected_value_r") if item.get("expected_value_r") is not None else -999,
+            item.get("quality_score", 0),
+            item.get("crv", 0),
+        ),
+        reverse=True,
+    )
+    reason_counts: dict[str, int] = {}
+    for item in rejected:
+        for reason in item.get("Ablehnungsgründe", []):
+            reason_counts[str(reason)] = reason_counts.get(str(reason), 0) + 1
+    main_rejection = (
+        max(reason_counts.items(), key=lambda item: item[1])[0]
+        if reason_counts
+        else ("Kurs- oder Stammdaten waren nicht vollständig verfügbar." if errors else "Alle Qualitätsfilter wurden geprüft.")
+    )
+    market_label = "Unterstützend" if macro.score >= 6 else "Belastet" if macro.score < 4 else "Neutral"
+    return {
+        "approved": approved,
+        "rejected": rejected,
+        "errors": errors,
+        "checked_assets": len(symbols),
+        "last_scan": scan_time.isoformat(),
+        "market_label": market_label,
+        "market_summary": macro.summary,
+        "main_rejection": main_rejection,
+        "thresholds": thresholds_as_dict(thresholds),
+    }
+
+
+def replace_trade_history_record(setup_id: str, updated_record: dict) -> bool:
+    history = load_trade_history()
+    replaced = False
+    for index, record in enumerate(history):
+        if str(record.get("Setup-ID") or record.get("setup_id")) == str(setup_id):
+            history[index] = normalize_trade_record(updated_record)
+            replaced = True
+            break
+    return replaced and save_json_dict_list(TRADE_HISTORY_PATH, history)
+
+
+def mark_trade_manually_open(
+    setup_id: str,
+    actual_entry_eur: float,
+    quantity: float,
+    opened_at: object,
+) -> tuple[bool, str]:
+    for record in load_trade_history():
+        if str(record.get("Setup-ID") or record.get("setup_id")) != str(setup_id):
+            continue
+        updated, error = open_trade_record(normalize_trade_record(record), actual_entry_eur, quantity, opened_at)
+        if error or updated is None:
+            return False, error or "Trade konnte nicht geöffnet werden."
+        if replace_trade_history_record(setup_id, updated):
+            return True, "Trade wurde manuell als aktiv markiert. Es wurde keine Order ausgelöst."
+        return False, "Aktiver Trade konnte nicht lokal gespeichert werden."
+    return False, "Das zugehörige Paper-Setup wurde nicht gefunden."
+
+
+def update_manual_trade_stop(setup_id: str, new_stop_eur: float) -> tuple[bool, str]:
+    for record in load_trade_history():
+        if str(record.get("Setup-ID") or record.get("setup_id")) != str(setup_id):
+            continue
+        normalized = normalize_trade_record(record)
+        updated, error = tighten_active_trade_stop(
+            normalized,
+            new_stop_eur,
+            datetime.now().astimezone(),
+        )
+        if error or updated is None:
+            return False, error or "Stop konnte nicht angepasst werden."
+        if replace_trade_history_record(setup_id, updated):
+            return True, "Stop wurde lokal aktualisiert. Keine Order wurde verändert."
+        return False, "Stop konnte nicht gespeichert werden."
+    return False, "Aktiver Trade wurde nicht gefunden."
+
+
+def mark_trade_manually_closed(setup_id: str, exit_eur: float, closed_at: object) -> tuple[bool, str]:
+    for record in load_trade_history():
+        if str(record.get("Setup-ID") or record.get("setup_id")) != str(setup_id):
+            continue
+        updated, error = close_trade_record(normalize_trade_record(record), exit_eur, closed_at)
+        if error or updated is None:
+            return False, error or "Trade konnte nicht geschlossen werden."
+        if replace_trade_history_record(setup_id, updated):
+            return True, "Ausstieg wurde manuell dokumentiert. Es wurde keine Order ausgeführt."
+        return False, "Ausstieg konnte nicht lokal gespeichert werden."
+    return False, "Aktiver Trade wurde nicht gefunden."
+
+
+def expire_due_paper_trades() -> int:
+    history = load_trade_history()
+    changed = 0
+    updated_history: list[dict] = []
+    for record in history:
+        updated, expired = expire_paper_trade(normalize_trade_record(record))
+        updated_history.append(updated)
+        changed += int(expired)
+    if changed:
+        save_json_dict_list(TRADE_HISTORY_PATH, updated_history)
+    return changed
+
+
 def setup_display_rows(setups: list[dict]) -> list[dict]:
     rows: list[dict] = []
     for setup in setups:
@@ -4189,6 +4177,1951 @@ def render_opportunity_scanner(results: list[dict], errors: list[str]) -> None:
     if watch_rows:
         with st.expander("Beobachtungsliste", expanded=False):
             st.dataframe(pd.DataFrame(watch_rows[:10]), use_container_width=True, hide_index=True)
+
+
+def _render_swing_trade_card_legacy(setup: dict, settings: dict, active_setup_ids: set[str]) -> None:
+    with st.container(border=True):
+        st.subheader(f"{setup['asset_name']} · {setup['symbol']}")
+        metadata = setup.get("universe_metadata", {})
+        st.caption(
+            f"{setup['asset_type']} · {metadata.get('region', 'Region nicht verfügbar')} · "
+            f"{metadata.get('category', 'Kategorie nicht verfügbar')} · Long · {setup['setup_type']} · "
+            f"Qualität {setup['quality_score']:.1f}/10"
+        )
+        st.caption(
+            f"Analysiertes Listing: {setup['symbol']} · "
+            f"{metadata.get('exchange', 'Börsenplatz nicht verfügbar')} · {setup['original_currency']}. "
+            f"Kursquelle: {setup.get('price_source', 'Yahoo Finance / yfinance')} · "
+            f"Signalkerze: {setup.get('signal_bar_day', 'nicht verfügbar')}."
+        )
+        if setup.get("original_currency") != "EUR":
+            st.warning(
+                "Die Euro-Werte sind nur die Umrechnung des Kurses dieses Listings. "
+                "Sie sind kein Trade-Republic- oder LS-Exchange-Livekurs und dürfen nicht auf ein ADR/GDR "
+                "oder anderes Listing übertragen werden."
+            )
+
+        order_plan = setup.get("order_plan") or {}
+        st.markdown("**Orderplan – es wird keine Order gesendet**")
+        order_col, limit_col, activation_col, earliest_col = st.columns(4)
+        order_col.metric("Ordertyp", order_plan.get("order_type", "Nicht verfügbar"))
+        limit_col.metric(
+            "Limitpreis",
+            format_money(order_plan.get("limit_price_eur"), "EUR"),
+        )
+        activation_col.metric(
+            "Aktivierung ab",
+            format_money(order_plan.get("activation_price_eur"), "EUR"),
+        )
+        earliest_col.metric("Frühester Einstieg", order_plan.get("earliest_entry_day", "Nicht verfügbar"))
+        st.caption(
+            "Die Signalkerze muss vollständig abgeschlossen sein. Ein möglicher Einstieg wird erst in einer späteren "
+            "Handelssitzung geprüft und niemals rückwirkend zum bestätigenden Schlusskurs angenommen."
+        )
+        st.write(
+            f"**Maximalpreis:** {format_money(order_plan.get('maximum_entry_eur'), 'EUR')} · "
+            f"**Initialer Stop:** {format_money(order_plan.get('initial_stop_eur'), 'EUR')} · "
+            f"**Gültig bis:** {order_plan.get('valid_until', setup['valid_until'])}"
+        )
+        if order_plan.get("position_calculated"):
+            planned_quantity = order_plan.get("quantity")
+            quantity_text = (
+                f"{int(planned_quantity)} Anteile"
+                if setup["asset_type"] in {"Aktie", "ETF"}
+                else f"{float(planned_quantity):.6f} Einheiten"
+            )
+            st.write(
+                f"**Stückzahl:** {quantity_text} · "
+                f"**Kapitaleinsatz:** {format_money(order_plan.get('capital_committed_eur'), 'EUR')} · "
+                f"**Geplanter Verlust:** {format_money(order_plan.get('planned_loss_eur'), 'EUR')}"
+            )
+            if order_plan.get("target_2_eur") is not None:
+                st.write(
+                    f"**Teilgewinn Ziel 1 ({float(order_plan.get('target_1_exit_fraction') or 0.5) * 100:.0f}%):** "
+                    f"{format_money(order_plan.get('possible_gain_1_eur'), 'EUR')} · "
+                    f"**Kumuliert bei Ziel 2:** {format_money(order_plan.get('possible_gain_2_eur'), 'EUR')}"
+                )
+            else:
+                st.write(
+                    f"**Möglicher Gewinn bei Ziel 1:** {format_money(order_plan.get('possible_gain_1_eur'), 'EUR')}"
+                )
+        else:
+            st.caption("Ohne gültiges Tradingkapital enthält der Orderplan bewusst keine erfundene Stückzahl.")
+        with st.expander("Lösch- und Widerlegungsbedingungen", expanded=False):
+            for condition in order_plan.get("delete_conditions", setup["no_entry_conditions"]):
+                st.write(f"- {condition}")
+
+        signal_id = str(setup.get("forward_signal_id") or "")
+        if signal_id and signal_id not in active_setup_ids:
+            with st.expander("Trade getätigt", expanded=False):
+                st.caption(
+                    "Nur bestätigen, wenn du den Trade bereits selbst außerhalb der App ausgeführt hast. "
+                    "Hierdurch wird keine Order gesendet."
+                )
+                with st.form(f"user_trade_open_{signal_id}"):
+                    traded_identifier = st.text_input(
+                        "Ticker oder ISIN des tatsächlich gehandelten Listings",
+                        value=str(setup["symbol"]),
+                    )
+                    actual_entry = st.number_input(
+                        "Tatsächlicher Einstieg in Euro",
+                        min_value=0.000001,
+                        value=float(order_plan.get("limit_price_eur") or 0.000001),
+                        format="%.6f",
+                    )
+                    planned_quantity = order_plan.get("quantity")
+                    actual_quantity = st.number_input(
+                        "Tatsächliche Stückzahl",
+                        min_value=0.0,
+                        value=float(planned_quantity or 0.0),
+                        step=1.0 if setup["asset_type"] in {"Aktie", "ETF"} else 0.000001,
+                        format="%.6f",
+                    )
+                    opened_date = st.date_input(
+                        "Einstiegsdatum",
+                        value=pd.Timestamp.now().date(),
+                        key=f"user_open_date_{signal_id}",
+                    )
+                    opened_time = st.time_input(
+                        "Einstiegszeit",
+                        value=pd.Timestamp.now().time().replace(microsecond=0),
+                        key=f"user_open_time_{signal_id}",
+                    )
+                    note = st.text_input("Optionale Notiz", value="")
+                    confirm_deviation = st.checkbox(
+                        "Abweichungen vom Systemplan ausdrücklich bestätigen",
+                        value=False,
+                    )
+                    open_submitted = st.form_submit_button(
+                        "Extern ausgeführten Trade lokal speichern",
+                        use_container_width=True,
+                    )
+                if open_submitted:
+                    listing_ok, listing_message = validate_traded_listing(
+                        traded_identifier,
+                        expected_symbol=str(setup["symbol"]),
+                        expected_isin=metadata.get("isin"),
+                    )
+                    if not listing_ok:
+                        st.error(listing_message)
+                        return
+                    try:
+                        create_swing_user_trade(
+                            signal_id,
+                            dict(setup.get("forward_signal_snapshot") or {}),
+                            actual_entry,
+                            actual_quantity,
+                            datetime.combine(opened_date, opened_time).astimezone(),
+                            note=note,
+                            confirm_deviations=confirm_deviation,
+                        )
+                    except SwingUserTradeDeviationConfirmationRequired as exc:
+                        st.error(str(exc))
+                    except Exception as exc:
+                        st.error(f"Nutzertrade konnte nicht gespeichert werden: {exc}")
+                    else:
+                        st.success("Persönlicher Trade wurde lokal getrennt gespeichert. Es wurde keine Order gesendet.")
+                        st.rerun()
+        elif signal_id:
+            st.info("Dieser objektive Plan besitzt bereits einen getrennt gespeicherten persönlichen Nutzertrade.")
+
+        price_col, entry_col, stop_col, target_col, crv_col = st.columns(5)
+        price_col.metric("Signalkurs (Schluss)", format_money(setup["current_price_eur"], "EUR"))
+        entry_col.metric(
+            "Einstiegszone",
+            f"{format_money(setup['entry_low_eur'], 'EUR')} bis {format_money(setup['entry_high_eur'], 'EUR')}",
+        )
+        stop_col.metric("Stop-Loss", format_money(setup["stop_eur"], "EUR"))
+        target_col.metric("Kursziel 1", format_money(setup["target_1_eur"], "EUR"))
+        crv_col.metric("CRV", f"{setup['crv']:.2f}")
+
+        st.markdown(f"**Genaue Eintrittsbedingung:** {setup['entry_condition']}")
+        st.write(f"**Automatischer Stop:** {setup.get('stop_reason', 'Aus Kursstruktur und Schwankung abgeleitet.')}")
+        target_2_text = (
+            format_money(setup["target_2_eur"], "EUR")
+            if setup.get("target_2_eur") is not None
+            else "Kein zweites strukturelles Ziel belastbar ableitbar"
+        )
+        detail_col, risk_col = st.columns(2)
+        with detail_col:
+            st.write(f"**Kursziel 2:** {target_2_text}")
+            st.write(f"**Maximal akzeptierter Einstieg:** {format_money(setup['max_entry_eur'], 'EUR')}")
+            st.write(f"**Geschätzte Haltedauer:** {setup['holding_period']}")
+            st.write(f"**Gültig bis:** {setup['valid_until']}")
+        with risk_col:
+            position_size = setup["position_size"]
+            quantity = position_size.get("quantity")
+            quantity_text = (
+                "Nicht berechnet"
+                if quantity is None
+                else f"{int(quantity)} Anteile"
+                if setup["asset_type"] in {"Aktie", "ETF"}
+                else f"{quantity:.6f} Einheiten"
+            )
+            st.write(f"**Automatische Positionsgröße:** {quantity_text}")
+            st.write(
+                "**Investierter Betrag:** "
+                + (
+                    "Nicht berechnet"
+                    if position_size.get("position_value_eur") is None
+                    else format_money(position_size["position_value_eur"], "EUR")
+                )
+            )
+            st.write(
+                "**Möglicher Gewinn Ziel 1 / Ziel 2:** "
+                f"{format_money(position_size['potential_gain_1_eur'], 'EUR') if position_size.get('potential_gain_1_eur') is not None else 'Nicht berechnet'} / "
+                f"{format_money(position_size['potential_gain_2_eur'], 'EUR') if position_size.get('potential_gain_2_eur') is not None else 'Nicht berechnet'}"
+            )
+            st.write(
+                "**Risiko / Gewinn bezogen auf Tradingkapital:** "
+                f"{position_size['risk_pct_of_capital']:.2f}% Risiko"
+                if position_size.get("risk_pct_of_capital") is not None
+                else "**Risiko / Gewinn bezogen auf Tradingkapital:** Nicht berechnet"
+            )
+            if position_size.get("gain_1_pct_of_capital") is not None:
+                gain_2_pct = position_size.get("gain_2_pct_of_capital")
+                st.write(
+                    f"**Gewinn Ziel 1 / Ziel 2 in Prozent:** {position_size['gain_1_pct_of_capital']:.2f}% / "
+                    f"{f'{gain_2_pct:.2f}%' if gain_2_pct is not None else 'Nicht berechnet'}"
+                )
+            st.write(f"**Erwarteter Wert:** {setup['expected_value_text']}")
+
+        st.info(setup["hit_rate_text"])
+        st.markdown("**Wichtigste Gründe**")
+        for reason in setup["reasons"][:3]:
+            st.write(f"- {reason}")
+        st.markdown(f"**Größtes Risiko:** {setup['largest_risk']}")
+        st.warning(setup["position_size"]["planned_loss_notice"])
+        st.markdown("**Nicht mehr einsteigen, wenn**")
+        for condition in setup["no_entry_conditions"]:
+            st.write(f"- {condition}")
+        st.caption(setup["position_size"]["explanation"])
+        st.caption("Keine Broker-Anbindung, keine Order und keine automatische Ausführung.")
+
+
+def render_trade_republic_reference_editor(setup: dict, context: dict, *, key: str) -> None:
+    asset = dict(context["asset"])
+    reference = dict(context["reference"])
+    analysis_listing = dict(reference.get("analysis_listing") or {})
+    tr_listing = dict(reference.get("tr_listing") or {})
+    status = str(reference.get("status") or TR_STATUS_UNKNOWN)
+    with st.expander("Trade-Republic-Listing dauerhaft zuordnen", expanded=False):
+        st.caption(
+            "Die Zuordnung gilt nur für das konkrete analysierte Listing. Es findet keine automatische "
+            "Brokerabfrage und keine Order statt. Änderungen werden append-only protokolliert."
+        )
+        st.write(
+            f"**Analyse-Listing:** {analysis_listing.get('ticker') or asset.get('ticker') or 'unbekannt'} · "
+            f"{analysis_listing.get('exchange') or asset.get('exchange') or 'Handelsplatz unbekannt'} · "
+            f"ISIN {analysis_listing.get('isin') or asset.get('isin') or 'unbekannt'}"
+        )
+        with st.form(f"tr_listing_reference_{key}"):
+            selected_status = st.selectbox(
+                "Status",
+                list(TR_STATUS_OPTIONS),
+                index=list(TR_STATUS_OPTIONS).index(status) if status in TR_STATUS_OPTIONS else 2,
+            )
+            analysis_isin = st.text_input(
+                "ISIN des analysierten Instruments",
+                value=str(analysis_listing.get("isin") or asset.get("isin") or ""),
+            )
+            tr_ticker = st.text_input(
+                "Ticker/Instrument bei Trade Republic",
+                value=str(tr_listing.get("ticker") or asset.get("ticker") or ""),
+            )
+            tr_isin = st.text_input(
+                "ISIN bei Trade Republic",
+                value=str(tr_listing.get("isin") or analysis_isin or ""),
+            )
+            tr_exchange = st.text_input(
+                "Konkreter TR-Handelsplatz",
+                value=str(tr_listing.get("exchange") or ""),
+            )
+            tr_name = st.text_input(
+                "Instrumentname bei Trade Republic (optional)",
+                value=str(tr_listing.get("name") or asset.get("name") or ""),
+            )
+            note = st.text_input("Optionale Prüfnotiz", value="")
+            submitted = st.form_submit_button("TR-Status dauerhaft speichern", use_container_width=True)
+        if submitted:
+            try:
+                record_trade_republic_status(
+                    asset,
+                    selected_status,
+                    analysis_isin=analysis_isin,
+                    tr_ticker=tr_ticker,
+                    tr_isin=tr_isin,
+                    tr_exchange=tr_exchange,
+                    tr_currency="EUR",
+                    tr_name=tr_name,
+                    note=note,
+                )
+            except Exception as exc:
+                st.error(f"TR-Status konnte nicht gespeichert werden: {exc}")
+            else:
+                st.success("Die listing-spezifische TR-Markierung wurde dauerhaft gespeichert.")
+                st.rerun()
+
+        if status == TR_STATUS_TRADEABLE:
+            st.markdown("**Aktuellen Trade-Republic-Preis erfassen**")
+            st.caption(
+                "Der Preis muss direkt zum oben verknüpften TR-Listing gehören. Er verfällt nach 15 Minuten. "
+                "Yahoo wird niemals als Ersatz verwendet."
+            )
+            with st.form(f"tr_price_reference_{key}"):
+                price_eur = st.number_input(
+                    "Aktueller Preis bei Trade Republic in EUR",
+                    min_value=0.000001,
+                    value=float(context["price"].get("price_eur") or 0.000001),
+                    format="%.6f",
+                )
+                analysis_comparison_price = st.text_input(
+                    "Zeitgleicher Vergleichskurs des analysierten Listings in EUR",
+                    value="",
+                    help=(
+                        "Nicht der ältere Signalkurs: Für die Listing-Basis wird ein zum selben Zeitpunkt "
+                        "abgelesener Kurs des analysierten Listings benötigt."
+                    ),
+                )
+                analysis_comparison_source = st.text_input(
+                    "Quelle des zeitgleichen Vergleichskurses",
+                    value=str(setup.get("price_source") or "Yahoo Finance / yfinance"),
+                )
+                price_note = st.text_input("Optionale Preisnotiz", value="")
+                price_submitted = st.form_submit_button("TR-Preis erfassen", use_container_width=True)
+            if price_submitted:
+                try:
+                    record_trade_republic_price(
+                        asset,
+                        price_eur,
+                        analysis_comparison_price_eur=str(analysis_comparison_price).replace(",", "."),
+                        analysis_price_source=analysis_comparison_source,
+                        note=price_note,
+                    )
+                except Exception as exc:
+                    st.error(f"TR-Preis konnte nicht gespeichert werden: {exc}")
+                else:
+                    st.success("Der listing-spezifische TR-Preis wurde gespeichert.")
+                    st.rerun()
+
+
+def trade_republic_user_signal_snapshot(setup: dict, context: dict) -> dict:
+    execution_plan = dict(context.get("execution_plan") or {})
+    if not execution_plan:
+        raise ValueError("TR-Ausführungsplan ist nicht verfügbar.")
+    snapshot = copy.deepcopy(dict(setup.get("forward_signal_snapshot") or {}))
+    if not snapshot:
+        raise ValueError("Das unveränderbare Forward-Signal fehlt.")
+    snapshot["analysis_order_plan"] = copy.deepcopy(dict(snapshot.get("order_plan") or {}))
+    snapshot["order_plan"] = execution_plan
+    reference = dict(context.get("reference") or {})
+    price = dict(context.get("price") or {})
+    snapshot["trade_republic_execution"] = {
+        "status": reference.get("status"),
+        "execution_ready": True,
+        "analysis_listing": dict(reference.get("analysis_listing") or {}),
+        "tr_listing": dict(reference.get("tr_listing") or {}),
+        "price_eur": price.get("price_eur"),
+        "price_source": price.get("source"),
+        "price_observed_at": price.get("observed_at"),
+        "analysis_comparison_price_eur": price.get("analysis_comparison_price_eur"),
+        "analysis_price_source": price.get("analysis_price_source"),
+        "automatic_order_execution": False,
+        "broker_connection": False,
+    }
+    return snapshot
+
+
+def render_swing_trade_card(
+    setup: dict,
+    settings: dict,
+    active_setup_ids: set[str],
+    *,
+    paper_only: bool = False,
+) -> None:
+    context = swing_trade_republic_context(setup, settings)
+    reference = dict(context["reference"])
+    price = dict(context["price"])
+    execution_plan = dict(context.get("execution_plan") or {})
+    metadata = dict(setup.get("universe_metadata") or {})
+    tr_listing = dict(reference.get("tr_listing") or {})
+    card_key = str(setup.get("forward_signal_id") or setup.get("setup_id") or setup.get("symbol"))
+
+    with st.container(border=True):
+        st.subheader(f"{setup['asset_name']} · {setup['symbol']}")
+        st.caption(
+            f"{setup['asset_type']} · {metadata.get('region', 'Region nicht verfügbar')} · "
+            f"Long · {setup['setup_type']} · Qualität {setup['quality_score']:.1f}/10"
+        )
+        st.write(f"**Trade-Republic-Status:** {reference.get('status', TR_STATUS_UNKNOWN)}")
+        if reference.get("status") == TR_STATUS_TRADEABLE:
+            st.caption(
+                f"TR-Listing: {tr_listing.get('ticker', 'unbekannt')} · "
+                f"ISIN {tr_listing.get('isin', 'unbekannt')} · "
+                f"{tr_listing.get('exchange', 'Handelsplatz unbekannt')} · EUR"
+            )
+        render_trade_republic_reference_editor(setup, context, key=card_key)
+
+        if paper_only:
+            st.info(
+                "Nur Paper / nicht bei Trade Republic handelbar: Das Signal bleibt vollständig im "
+                "Forward-Test und in der Scannerstatistik, ist aber kein Nutzertrade."
+            )
+        elif reference.get("status") == TR_STATUS_TRADEABLE:
+            current_col, source_col = st.columns(2)
+            current_col.metric(
+                "Aktueller Preis",
+                format_money(price.get("price_eur"), "EUR") if price.get("available") else "TR-Preis nicht verfügbar",
+            )
+            source_col.metric("Preisquelle", price.get("source") or "Trade Republic – nicht verfügbar")
+            if not price.get("available"):
+                st.error(f"TR-Preis nicht verfügbar. {price.get('reason', '')}")
+            elif not execution_plan:
+                st.error(
+                    "TR-Ausführungsplan nicht verfügbar. Für ältere Signale ohne getrennten Analyse-Referenzkurs "
+                    "werden keine Kursmarken geschätzt."
+                )
+            else:
+                st.markdown("**Ausführungsplan für das konkrete TR-Listing – es wird keine Order gesendet**")
+                order_col, limit_col, activation_col, earliest_col = st.columns(4)
+                order_col.metric("Ordertyp", execution_plan.get("order_type", "Nicht verfügbar"))
+                limit_col.metric("Limit", format_money(execution_plan.get("limit_price_eur"), "EUR"))
+                activation_col.metric(
+                    "Aktivierung ab", format_money(execution_plan.get("activation_price_eur"), "EUR")
+                )
+                earliest_col.metric(
+                    "Frühester Einstieg", execution_plan.get("earliest_entry_day", "Nicht verfügbar")
+                )
+                st.write(
+                    f"**Maximalpreis:** {format_money(execution_plan.get('maximum_entry_eur'), 'EUR')} · "
+                    f"**Stop:** {format_money(execution_plan.get('initial_stop_eur'), 'EUR')} · "
+                    f"**Ziel 1:** {format_money(execution_plan.get('target_1_eur'), 'EUR')} · "
+                    f"**Ziel 2:** "
+                    f"{format_money(execution_plan.get('target_2_eur'), 'EUR') if execution_plan.get('target_2_eur') is not None else 'Nicht vorhanden'}"
+                )
+                if execution_plan.get("position_calculated"):
+                    quantity = execution_plan.get("quantity")
+                    quantity_text = (
+                        f"{int(quantity)} Anteile"
+                        if setup["asset_type"] in {"Aktie", "ETF"}
+                        else f"{float(quantity):.6f} Einheiten"
+                    )
+                    st.write(
+                        f"**Stückzahl:** {quantity_text} · "
+                        f"**EUR-Betrag:** {format_money(execution_plan.get('capital_committed_eur'), 'EUR')} · "
+                        f"**Geplanter Verlust:** {format_money(execution_plan.get('planned_loss_eur'), 'EUR')}"
+                    )
+                else:
+                    st.caption("Ohne hinterlegtes Tradingkapital wird keine Stückzahl erfunden.")
+                st.caption(str(execution_plan.get("translation_policy") or ""))
+
+                signal_id = str(setup.get("forward_signal_id") or "")
+                if signal_id and signal_id not in active_setup_ids:
+                    with st.expander("Extern ausgeführten Trade dokumentieren", expanded=False):
+                        st.caption("Nur nach externer eigener Ausführung. Die App sendet keine Order.")
+                        with st.form(f"tr_user_trade_open_{signal_id}"):
+                            traded_identifier = st.text_input(
+                                "TR-Ticker oder ISIN des tatsächlich gehandelten Listings",
+                                value=str(tr_listing.get("isin") or tr_listing.get("ticker") or ""),
+                            )
+                            actual_entry = st.number_input(
+                                "Tatsächlicher Einstieg bei Trade Republic in EUR",
+                                min_value=0.000001,
+                                value=float(execution_plan.get("limit_price_eur") or 0.000001),
+                                format="%.6f",
+                            )
+                            actual_quantity = st.number_input(
+                                "Tatsächliche Stückzahl",
+                                min_value=0.0,
+                                value=float(execution_plan.get("quantity") or 0.0),
+                                step=1.0 if setup["asset_type"] in {"Aktie", "ETF"} else 0.000001,
+                                format="%.6f",
+                            )
+                            opened_date = st.date_input("Einstiegsdatum", value=pd.Timestamp.now().date())
+                            opened_time = st.time_input(
+                                "Einstiegszeit", value=pd.Timestamp.now().time().replace(microsecond=0)
+                            )
+                            note = st.text_input("Optionale Notiz", value="")
+                            confirm_deviation = st.checkbox(
+                                "Abweichungen vom TR-Systemplan ausdrücklich bestätigen", value=False
+                            )
+                            submitted = st.form_submit_button(
+                                "Extern ausgeführten Trade lokal speichern", use_container_width=True
+                            )
+                        if submitted:
+                            listing_ok, listing_message = validate_traded_listing(
+                                traded_identifier,
+                                expected_symbol=str(tr_listing.get("ticker") or ""),
+                                expected_isin=str(tr_listing.get("isin") or ""),
+                            )
+                            if not listing_ok:
+                                st.error(listing_message)
+                            else:
+                                try:
+                                    create_swing_user_trade(
+                                        signal_id,
+                                        trade_republic_user_signal_snapshot(setup, context),
+                                        actual_entry,
+                                        actual_quantity,
+                                        datetime.combine(opened_date, opened_time).astimezone(),
+                                        note=note,
+                                        confirm_deviations=confirm_deviation,
+                                    )
+                                except SwingUserTradeDeviationConfirmationRequired as exc:
+                                    st.error(str(exc))
+                                except Exception as exc:
+                                    st.error(f"Nutzertrade konnte nicht gespeichert werden: {exc}")
+                                else:
+                                    st.success("Der externe TR-Trade wurde lokal gespeichert; keine Order wurde gesendet.")
+                                    st.rerun()
+                elif signal_id:
+                    st.info("Für dieses objektive Signal ist bereits ein persönlicher Nutzertrade gespeichert.")
+
+        with st.expander("Technische Analyse und objektiver Forward-Plan", expanded=paper_only):
+            st.caption(
+                f"Analyse-Listing: {setup['symbol']} · "
+                f"{metadata.get('exchange', 'Börsenplatz nicht verfügbar')} · {setup['original_currency']}. "
+                f"Quelle: {setup.get('price_source', 'Yahoo Finance / yfinance')}. "
+                "Diese Analysewerte sind kein Trade-Republic-Preis."
+            )
+            analysis_cols = st.columns(5)
+            analysis_cols[0].metric("Signalkurs (Analyse)", format_money(setup["current_price_eur"], "EUR"))
+            analysis_cols[1].metric(
+                "Einstiegszone (Analyse)",
+                f"{format_money(setup['entry_low_eur'], 'EUR')} bis {format_money(setup['entry_high_eur'], 'EUR')}",
+            )
+            analysis_cols[2].metric("Stop (Analyse)", format_money(setup["stop_eur"], "EUR"))
+            analysis_cols[3].metric("Ziel 1 (Analyse)", format_money(setup["target_1_eur"], "EUR"))
+            analysis_cols[4].metric("CRV", f"{setup['crv']:.2f}")
+            st.write(f"**Eintrittsbedingung:** {setup['entry_condition']}")
+            st.write(f"**Gültig bis:** {setup['valid_until']}")
+            st.caption(
+                "Der objektive Yahoo-/Marktdatenplan bleibt unverändert für Paper- und Forward-Auswertung gespeichert."
+            )
+
+        st.info(setup["hit_rate_text"])
+        st.markdown("**Wichtigste Gründe**")
+        for reason in setup["reasons"][:3]:
+            st.write(f"- {reason}")
+        st.markdown(f"**Größtes Risiko:** {setup['largest_risk']}")
+        st.markdown("**Nicht mehr einsteigen, wenn**")
+        for condition in setup["no_entry_conditions"]:
+            st.write(f"- {condition}")
+        st.caption("Keine Broker-Anbindung, keine Order und keine automatische Ausführung.")
+
+
+def current_active_trade_snapshot(record: dict) -> tuple[dict | None, str | None]:
+    symbol = str(record.get("Ticker") or "")
+    if not symbol:
+        return None, "Ticker fehlt."
+    try:
+        data = load_price_data(symbol, "5d", "1d")
+        if data.empty or "Close" not in data:
+            return None, "Aktueller Kurs ist nicht verfügbar."
+        current_original = float(data["Close"].dropna().iloc[-1])
+        currency = str(record.get("Originalwährung") or "EUR")
+        fx_rate, _ = get_fx_rate_to_eur(currency)
+        if fx_rate is None:
+            return None, "Aktueller Wechselkurs in Euro ist nicht verfügbar."
+        return active_trade_snapshot(record, current_original * fx_rate), None
+    except Exception as exc:
+        return None, str(exc)
+
+
+def _render_swing_background_signals_legacy() -> int:
+    if not DEFAULT_SWING_FORWARD_DB_PATH.exists():
+        return 0
+    signals = load_swing_forward_signals(DEFAULT_SWING_FORWARD_DB_PATH)
+    archive_rows = swing_forward_statistics(signals).get("archive_rows") or []
+    status_by_signal = {
+        str(row.get("Signal-ID") or ""): str(row.get("Status") or "") for row in archive_rows
+    }
+    visible_signals = [
+        signal
+        for signal in signals
+        if status_by_signal.get(str(signal.get("signal_id") or "")) in {"stored", "still_active"}
+    ]
+    if not visible_signals:
+        return 0
+
+    active_ids = {
+        str(state["snapshot"].get("signal_id") or "")
+        for state in (
+            load_swing_user_trade_states(DEFAULT_SWING_USER_DB_PATH)
+            if DEFAULT_SWING_USER_DB_PATH.exists()
+            else []
+        )
+    }
+    st.subheader("Automatisch gefundene Swing-Signale")
+    st.caption(
+        "Diese Pläne stammen aus den regionalen Hintergrundscans. Sie sind unveränderbar gespeichert; "
+        "es wurde keine Order gesendet."
+    )
+    for signal in reversed(visible_signals[-10:]):
+        signal_id = str(signal.get("signal_id") or "")
+        snapshot = dict(signal.get("snapshot") or {})
+        asset = dict(snapshot.get("asset") or {})
+        strategy = dict(snapshot.get("strategy") or {})
+        order_plan = dict(snapshot.get("order_plan") or {})
+        status = status_by_signal.get(signal_id, "stored")
+        with st.container(border=True):
+            st.subheader(f"{asset.get('name', asset.get('ticker', 'Unbekannt'))} · {asset.get('ticker', '')}")
+            st.caption(
+                f"{asset.get('asset_type', 'Asset-Typ nicht verfügbar')} · "
+                f"{asset.get('region', 'Region nicht verfügbar')} · Long · "
+                f"{strategy.get('setup_type', 'Setup nicht verfügbar')} · "
+                f"Signal {snapshot.get('signal_at', 'Zeit nicht verfügbar')}"
+            )
+            st.caption(
+                f"Analysiertes Listing: {asset.get('ticker', 'nicht verfügbar')} · "
+                f"{asset.get('exchange', 'Börsenplatz nicht verfügbar')} · "
+                f"{order_plan.get('original_currency', asset.get('original_currency', 'Währung nicht verfügbar'))}. "
+                f"Kursquelle: {snapshot.get('price_source', 'Yahoo Finance / yfinance')} · "
+                f"Signalkerze: {order_plan.get('signal_bar_day', 'nicht verfügbar')}."
+            )
+            if order_plan.get("original_currency", asset.get("original_currency")) != "EUR":
+                st.warning(
+                    "Die Euro-Werte sind nur eine Währungsumrechnung dieses Listings. Sie sind kein "
+                    "Trade-Republic- oder LS-Exchange-Livekurs und gelten nicht für ein ADR/GDR oder anderes Listing."
+                )
+            if status == "still_active":
+                st.info("Der objektive Paper-Trade ist aktiv und wird automatisch weiter ausgewertet.")
+            else:
+                st.info("Der Einstieg wird erst ab der zulässigen Folgesitzung automatisch geprüft.")
+            st.markdown("**Unveränderbarer Orderplan – es wird keine Order gesendet**")
+            order_col, limit_col, entry_col, stop_col = st.columns(4)
+            order_col.metric("Ordertyp", order_plan.get("order_type", "Nicht verfügbar"))
+            limit_col.metric("Limitpreis", format_money(order_plan.get("limit_price_eur"), "EUR"))
+            entry_col.metric("Frühester Einstieg", order_plan.get("earliest_entry_day", "Nicht verfügbar"))
+            stop_col.metric("Initialer Stop", format_money(order_plan.get("initial_stop_eur"), "EUR"))
+            st.write(
+                f"**Aktivierung ab:** {format_money(order_plan.get('activation_price_eur'), 'EUR')} · "
+                f"**Maximalpreis:** {format_money(order_plan.get('maximum_entry_eur'), 'EUR')} · "
+                f"**Ziel 1:** {format_money(order_plan.get('target_1_eur'), 'EUR')} · "
+                f"**Ziel 2:** {format_money(order_plan.get('target_2_eur'), 'EUR') if order_plan.get('target_2_eur') is not None else 'Nicht vorhanden'}"
+            )
+            st.caption(
+                f"Gültig bis {order_plan.get('valid_until', 'Nicht verfügbar')} · "
+                f"Originalwährung {order_plan.get('original_currency', asset.get('original_currency', 'Nicht verfügbar'))} · "
+                "ohne Tradingkapital keine erfundene Stückzahl."
+            )
+            with st.expander("Lösch- und Widerlegungsbedingungen", expanded=False):
+                for condition in order_plan.get("delete_conditions") or []:
+                    st.write(f"- {condition}")
+
+            if signal_id and signal_id not in active_ids:
+                with st.expander("Trade getätigt", expanded=False):
+                    st.caption(
+                        "Nur bestätigen, wenn du den Trade bereits selbst außerhalb der App ausgeführt hast. "
+                        "Hierdurch wird keine Order gesendet."
+                    )
+                    with st.form(f"background_user_trade_open_{signal_id}"):
+                        traded_identifier = st.text_input(
+                            "Ticker oder ISIN des tatsächlich gehandelten Listings",
+                            value=str(asset.get("ticker") or ""),
+                            key=f"background_user_listing_{signal_id}",
+                        )
+                        actual_entry = st.number_input(
+                            "Tatsächlicher Einstieg in Euro",
+                            min_value=0.000001,
+                            value=float(order_plan.get("limit_price_eur") or 0.000001),
+                            format="%.6f",
+                        )
+                        actual_quantity = st.number_input(
+                            "Tatsächliche Stückzahl",
+                            min_value=0.0,
+                            value=float(order_plan.get("quantity") or 0.0),
+                            step=1.0 if asset.get("asset_type") in {"Aktie", "ETF"} else 0.000001,
+                            format="%.6f",
+                        )
+                        opened_date = st.date_input(
+                            "Einstiegsdatum",
+                            value=pd.Timestamp.now().date(),
+                            key=f"background_user_open_date_{signal_id}",
+                        )
+                        opened_time = st.time_input(
+                            "Einstiegszeit",
+                            value=pd.Timestamp.now().time().replace(microsecond=0),
+                            key=f"background_user_open_time_{signal_id}",
+                        )
+                        note = st.text_input("Optionale Notiz", value="", key=f"background_user_note_{signal_id}")
+                        confirm_deviation = st.checkbox(
+                            "Abweichungen vom Systemplan ausdrücklich bestätigen",
+                            value=False,
+                            key=f"background_user_deviation_{signal_id}",
+                        )
+                        open_submitted = st.form_submit_button(
+                            "Extern ausgeführten Trade lokal speichern",
+                            use_container_width=True,
+                        )
+                    if open_submitted:
+                        listing_ok, listing_message = validate_traded_listing(
+                            traded_identifier,
+                            expected_symbol=str(asset.get("ticker") or ""),
+                            expected_isin=asset.get("isin"),
+                        )
+                        if not listing_ok:
+                            st.error(listing_message)
+                            continue
+                        try:
+                            create_swing_user_trade(
+                                signal_id,
+                                snapshot,
+                                actual_entry,
+                                actual_quantity,
+                                datetime.combine(opened_date, opened_time).astimezone(),
+                                note=note,
+                                confirm_deviations=confirm_deviation,
+                            )
+                        except SwingUserTradeDeviationConfirmationRequired as exc:
+                            st.error(str(exc))
+                        except Exception as exc:
+                            st.error(f"Nutzertrade konnte nicht gespeichert werden: {exc}")
+                        else:
+                            st.success(
+                                "Persönlicher Trade wurde lokal getrennt gespeichert. Es wurde keine Order gesendet."
+                            )
+                            st.rerun()
+            elif signal_id:
+                st.info("Dieser objektive Plan besitzt bereits einen getrennt gespeicherten persönlichen Nutzertrade.")
+    return len(visible_signals)
+
+
+def swing_forward_signal_as_setup(signal: dict) -> dict:
+    snapshot = dict(signal.get("snapshot") or {})
+    asset = dict(snapshot.get("asset") or {})
+    strategy = dict(snapshot.get("strategy") or {})
+    plan = dict(snapshot.get("order_plan") or {})
+    entry = float(plan.get("limit_price_eur") or 0)
+    stop = float(plan.get("initial_stop_eur") or 0)
+    target = float(plan.get("target_1_eur") or 0)
+    risk = entry - stop
+    crv = (target - entry) / risk if risk > 0 and target > entry else 0.0
+    historical_cases = int(strategy.get("historical_cases") or 0)
+    historical_hit_rate = strategy.get("historical_hit_rate")
+    return {
+        "asset_name": str(asset.get("name") or asset.get("ticker") or "Unbekannt"),
+        "symbol": str(asset.get("ticker") or ""),
+        "asset_type": str(asset.get("asset_type") or "Unbekannt"),
+        "setup_type": str(strategy.get("setup_type") or "Unbekannt"),
+        "quality_score": float(strategy.get("quality_score") or 0),
+        "universe_metadata": {
+            "isin": asset.get("isin"),
+            "exchange": asset.get("exchange"),
+            "region": asset.get("region"),
+            "category": asset.get("category"),
+        },
+        "original_currency": str(plan.get("original_currency") or asset.get("original_currency") or ""),
+        "price_source": str((snapshot.get("data_contract") or {}).get("price_source") or "Yahoo Finance / yfinance"),
+        "signal_bar_day": plan.get("signal_bar_day"),
+        "current_price_eur": float(plan.get("analysis_reference_price_eur") or entry),
+        "entry_low_eur": float(plan.get("activation_price_eur") or entry),
+        "entry_high_eur": float(plan.get("maximum_entry_eur") or entry),
+        "stop_eur": stop,
+        "target_1_eur": target,
+        "target_2_eur": plan.get("target_2_eur"),
+        "max_entry_eur": plan.get("maximum_entry_eur"),
+        "crv": crv,
+        "entry_condition": str(plan.get("entry_method") or "Regel des unveränderbaren Analyseplans"),
+        "valid_until": str(plan.get("valid_until") or "Nicht verfügbar"),
+        "hit_rate_text": (
+            f"Historische Trefferquote dieses Segments: {float(historical_hit_rate):.1f}% aus {historical_cases} Fällen."
+            if historical_hit_rate is not None and historical_cases >= DEFAULT_SWING_THRESHOLDS.min_historical_cases
+            else "Trefferwahrscheinlichkeit noch nicht belastbar."
+        ),
+        "reasons": [
+            f"Objektives Forward-Signal der Strategie {strategy.get('strategy_version', 'unbekannt')}.",
+            f"Setup: {strategy.get('setup_type', 'unbekannt')}.",
+        ],
+        "largest_risk": "Das technische Setup kann durch Markt-, Nachrichten- oder Kurslückenrisiken ungültig werden.",
+        "no_entry_conditions": list(plan.get("delete_conditions") or []),
+        "position_size": {
+            "quantity": plan.get("quantity"),
+            "position_value_eur": plan.get("capital_committed_eur"),
+            "planned_loss_notice": "Der Forward-Plan ist eine Paper-Dokumentation und keine Order.",
+        },
+        "order_plan": plan,
+        "forward_signal_id": str(signal.get("signal_id") or ""),
+        "forward_signal_snapshot": snapshot,
+        "setup_id": str(snapshot.get("setup_id") or signal.get("signal_id") or ""),
+    }
+
+
+def swing_forward_trade_republic_references(signals: list[dict], settings: dict) -> dict[str, dict]:
+    references: dict[str, dict] = {}
+    for signal in signals:
+        setup = swing_forward_signal_as_setup(signal)
+        context = swing_trade_republic_context(setup, settings)
+        reference = dict(context.get("reference") or {})
+        listing_key = str(reference.get("analysis_listing_key") or "")
+        if listing_key:
+            references[listing_key] = {
+                **reference,
+                "execution_ready": bool(context.get("execution_ready")),
+            }
+        signal_id = str(signal.get("signal_id") or "")
+        if signal_id:
+            references[signal_id] = {
+                **reference,
+                "execution_ready": bool(context.get("execution_ready")),
+            }
+    return references
+
+
+def render_swing_background_signals(settings: dict) -> int:
+    if not DEFAULT_SWING_FORWARD_DB_PATH.exists():
+        return 0
+    signals = load_swing_forward_signals(DEFAULT_SWING_FORWARD_DB_PATH)
+    archive_rows = swing_forward_statistics(signals).get("archive_rows") or []
+    status_by_signal = {
+        str(row.get("Signal-ID") or ""): str(row.get("Status") or "") for row in archive_rows
+    }
+    visible_signals = [
+        signal
+        for signal in signals
+        if status_by_signal.get(str(signal.get("signal_id") or "")) in {"stored", "still_active"}
+    ]
+    if not visible_signals:
+        return 0
+    active_ids = {
+        str(state["snapshot"].get("signal_id") or "")
+        for state in (
+            load_swing_user_trade_states(DEFAULT_SWING_USER_DB_PATH)
+            if DEFAULT_SWING_USER_DB_PATH.exists()
+            else []
+        )
+    }
+    setups = [swing_forward_signal_as_setup(signal) for signal in reversed(visible_signals[-10:])]
+    tr_setups: list[dict] = []
+    paper_setups: list[dict] = []
+    for setup in setups:
+        target = (
+            tr_setups
+            if trade_republic_reference(swing_trade_republic_asset(setup)).get("status")
+            == TR_STATUS_TRADEABLE
+            else paper_setups
+        )
+        target.append(setup)
+    executable_count = sum(
+        swing_trade_republic_context(setup, settings).get("execution_ready") for setup in tr_setups
+    )
+    st.subheader("Automatisch gefundene Swing-Signale")
+    st.caption(
+        f"Scannerqualität gesamt: {len(setups)} sichtbare Signale · "
+        f"TR-handelbare Listings: {len(tr_setups)} · aktuell ausführbare TR-Pläne: {executable_count}. "
+        "Alle Paper-Signale werden unverändert weiter ausgewertet."
+    )
+    if tr_setups:
+        st.markdown("**Bei Trade Republic handelbar**")
+        for setup in tr_setups:
+            render_swing_trade_card(setup, settings, active_ids)
+    else:
+        st.info("Kein sichtbares Signal ist aktuell listing-spezifisch als bei Trade Republic handelbar verifiziert.")
+    if paper_setups:
+        with st.expander("Nur Paper / nicht bei Trade Republic handelbar", expanded=False):
+            for setup in paper_setups:
+                render_swing_trade_card(setup, settings, active_ids, paper_only=True)
+    return len(visible_signals)
+
+
+def render_swing_user_trades() -> None:
+    st.subheader("Meine aktiven Trades")
+    if not DEFAULT_SWING_USER_DB_PATH.exists():
+        st.caption("Keine persönlich bestätigten Trades vorhanden.")
+        return
+    states = load_swing_user_trade_states(DEFAULT_SWING_USER_DB_PATH)
+    active = [state for state in states if state["status"] == "Aktiv"]
+    if not active:
+        st.caption("Keine persönlich bestätigten aktiven Trades vorhanden.")
+    for state in active:
+        snapshot = dict(state["snapshot"])
+        asset = dict(snapshot.get("asset") or {})
+        plan = dict(snapshot.get("system_order_plan") or {})
+        tr_execution = dict(snapshot.get("trade_republic_execution") or {})
+        analysis_listing = dict(tr_execution.get("analysis_listing") or {})
+        tr_price_asset = {
+            "ticker": analysis_listing.get("ticker"),
+            "isin": analysis_listing.get("isin"),
+            "exchange": analysis_listing.get("exchange"),
+            "original_currency": analysis_listing.get("currency"),
+        }
+        current_tr_price = (
+            trade_republic_price(tr_price_asset)
+            if analysis_listing.get("ticker")
+            else {
+                "available": False,
+                "label": "TR-Preis nicht verfügbar",
+                "reason": "Dieser ältere Nutzertrade besitzt keine listing-spezifische TR-Zuordnung.",
+            }
+        )
+        trade_id = str(state["user_trade_id"])
+        entry = float(snapshot["actual_entry_eur"])
+        remaining = float(state["remaining_quantity"])
+        with st.container(border=True):
+            st.markdown(f"**{asset.get('name', asset.get('ticker', 'Trade'))} · {asset.get('ticker', '')}**")
+            st.caption(
+                f"Persönlicher Nutzertrade · eröffnet {snapshot['opened_at']} · "
+                "objektiver Paper-Verlauf bleibt unverändert"
+            )
+            cols = st.columns(5)
+            cols[0].metric(
+                "Aktueller Preis",
+                format_money(current_tr_price.get("price_eur"), "EUR")
+                if current_tr_price.get("available")
+                else "TR-Preis nicht verfügbar",
+            )
+            cols[1].metric("Einstieg", format_money(entry, "EUR"))
+            cols[2].metric("Restmenge", f"{remaining:g}")
+            cols[3].metric("Initialer Stop", format_money(snapshot["initial_stop_eur"], "EUR"))
+            cols[4].metric("Aktueller Stop", format_money(state["current_stop_eur"], "EUR"))
+            if current_tr_price.get("available"):
+                st.caption(
+                    f"Aktueller Preis: {current_tr_price.get('source')} · "
+                    f"erfasst {current_tr_price.get('observed_at')} · konkretes TR-Listing."
+                )
+            else:
+                st.warning(
+                    f"TR-Preis nicht verfügbar. {current_tr_price.get('reason', '')} "
+                    "Yahoo wird nicht als Ersatz für Preis oder Gewinn/Verlust verwendet."
+                )
+            if analysis_listing.get("ticker"):
+                with st.expander("Aktuellen TR-Preis aktualisieren", expanded=False):
+                    with st.form(f"active_user_tr_price_{trade_id}"):
+                        refreshed_tr_price = st.number_input(
+                            "Aktueller Preis des verknüpften TR-Listings in EUR",
+                            min_value=0.000001,
+                            value=float(current_tr_price.get("price_eur") or entry),
+                            format="%.6f",
+                        )
+                        refreshed_analysis_price = st.text_input(
+                            "Zeitgleicher Vergleichskurs des analysierten Listings in EUR",
+                            value="",
+                        )
+                        refreshed_analysis_source = st.text_input(
+                            "Quelle des zeitgleichen Vergleichskurses",
+                            value="Yahoo Finance / yfinance",
+                        )
+                        submitted_price = st.form_submit_button(
+                            "TR-Preis erfassen",
+                            use_container_width=True,
+                        )
+                    if submitted_price:
+                        try:
+                            record_trade_republic_price(
+                                tr_price_asset,
+                                refreshed_tr_price,
+                                analysis_comparison_price_eur=str(refreshed_analysis_price).replace(",", "."),
+                                analysis_price_source=refreshed_analysis_source,
+                            )
+                        except Exception as exc:
+                            st.error(f"TR-Preis konnte nicht gespeichert werden: {exc}")
+                        else:
+                            st.success("Der aktuelle TR-Preis wurde listing-spezifisch gespeichert.")
+                            st.rerun()
+            guidance = None
+            try:
+                ticker = str(asset.get("ticker") or "")
+                current_data = load_price_data(ticker, "6mo", "1d")
+                current_original = float(current_data["Close"].dropna().iloc[-1])
+                current_fx, _ = get_fx_rate_to_eur(str(asset.get("original_currency") or "EUR"))
+                if current_fx is not None and current_tr_price.get("available"):
+                    guidance_time = datetime.now().astimezone()
+                    market_context = swing_market_context_from_daily_bars(
+                        current_data,
+                        fx_rate_to_eur=current_fx,
+                        evaluated_at=guidance_time,
+                        asset_type=str(asset.get("asset_type") or "Aktie"),
+                        region=asset.get("region"),
+                    )
+                    refreshed_event = None
+                    try:
+                        refreshed_event = next_known_event_date(load_ticker_info(ticker), pd.Timestamp(guidance_time))
+                    except Exception:
+                        refreshed_event = None
+                    stored_event = (snapshot.get("strategy") or {}).get("known_event_date_at_signal")
+                    event_value = refreshed_event or stored_event
+                    if event_value is not None:
+                        event_timestamp = pd.Timestamp(event_value)
+                        if event_timestamp.tzinfo is not None:
+                            event_timestamp = event_timestamp.tz_convert(None)
+                        market_context["days_to_known_event"] = (
+                            event_timestamp.date() - guidance_time.date()
+                        ).days
+                        market_context["known_event_date"] = event_timestamp.date().isoformat()
+                        market_context["event_source"] = (
+                            "aktuell geladene Yahoo-Metadaten" if refreshed_event is not None else "unveränderbarer Signal-Snapshot"
+                        )
+                        market_context["unavailable_factors"] = [
+                            factor
+                            for factor in market_context.get("unavailable_factors") or []
+                            if factor != "kommende Unternehmensereignisse"
+                        ]
+                        market_context.setdefault("checked_factors", []).append("kommendes Unternehmensereignis")
+                    guidance = swing_user_trade_guidance(
+                        state,
+                        float(current_tr_price["price_eur"]),
+                        guidance_time,
+                        market_context=market_context,
+                    )
+            except Exception:
+                guidance = None
+            if guidance is None:
+                guidance = {
+                    "status": "Daten derzeit nicht belastbar",
+                    "reason": (
+                        "Ein frischer Trade-Republic-Preis ist nicht verfügbar. Deshalb werden aktueller "
+                        "Gewinn/Verlust und preisabhängige Handlungshinweise nicht aus Yahoo abgeleitet. "
+                        "Der gespeicherte Stop bleibt unverändert."
+                    ),
+                    "automatic_order_execution": False,
+                }
+            st.markdown(f"**Aktuelle Bewertung:** {guidance['status']}")
+            st.write(guidance["reason"])
+            if guidance.get("checked_factors"):
+                st.caption("Automatisch geprüft: " + ", ".join(guidance["checked_factors"]))
+            if guidance.get("unavailable_factors"):
+                st.caption("Noch nicht belastbar automatisch geprüft: " + ", ".join(guidance["unavailable_factors"]))
+            if guidance.get("unrealized_pnl_eur") is not None:
+                st.write(
+                    f"**Nicht realisiert:** {format_money(guidance['unrealized_pnl_eur'], 'EUR')} "
+                    f"({guidance['unrealized_pnl_pct']:+.2f} %)"
+                )
+            st.write(
+                f"**Nächstes Systemziel:** {format_money(plan.get('target_1_eur'), 'EUR')} · "
+                f"**Bisher realisiert:** {format_money(state['realized_pnl_eur'], 'EUR')}"
+            )
+            if snapshot.get("deviations"):
+                st.warning("Bestätigte Abweichungen: " + " | ".join(snapshot["deviations"]))
+            stop_col, partial_col, close_col = st.columns(3)
+            with stop_col:
+                with st.form(f"user_stop_{trade_id}"):
+                    new_stop = st.number_input(
+                        "Neuer engerer Stop EUR",
+                        min_value=0.000001,
+                        value=float(state["current_stop_eur"]),
+                        format="%.6f",
+                    )
+                    submitted = st.form_submit_button("Stop nachgezogen", use_container_width=True)
+                if submitted:
+                    try:
+                        tighten_swing_user_stop(trade_id, new_stop, datetime.now().astimezone())
+                    except Exception as exc:
+                        st.error(str(exc))
+                    else:
+                        st.success("Stop-Nachzug lokal dokumentiert. Keine Order wurde geändert.")
+                        st.rerun()
+            with partial_col:
+                with st.form(f"user_partial_{trade_id}"):
+                    partial_quantity = st.number_input(
+                        "Teilverkaufsmenge",
+                        min_value=0.0,
+                        value=0.0,
+                        format="%.6f",
+                    )
+                    partial_exit = st.number_input(
+                        "Teilverkaufskurs EUR",
+                        min_value=0.000001,
+                        value=entry,
+                        format="%.6f",
+                    )
+                    submitted = st.form_submit_button("Teilverkauf erfasst", use_container_width=True)
+                if submitted:
+                    try:
+                        record_swing_user_partial_sale(
+                            trade_id,
+                            partial_quantity,
+                            partial_exit,
+                            datetime.now().astimezone(),
+                        )
+                    except Exception as exc:
+                        st.error(str(exc))
+                    else:
+                        st.success("Teilverkauf lokal dokumentiert. Keine Order wurde ausgeführt.")
+                        st.rerun()
+            with close_col:
+                with st.form(f"user_close_{trade_id}"):
+                    close_exit = st.number_input(
+                        "Ausstiegskurs EUR",
+                        min_value=0.000001,
+                        value=entry,
+                        format="%.6f",
+                    )
+                    submitted = st.form_submit_button("Trade geschlossen", use_container_width=True)
+                if submitted:
+                    try:
+                        close_swing_user_trade(
+                            trade_id,
+                            close_exit,
+                            datetime.now().astimezone(),
+                        )
+                    except Exception as exc:
+                        st.error(str(exc))
+                    else:
+                        st.success("Persönlicher Trade lokal geschlossen. Keine Order wurde ausgeführt.")
+                        st.rerun()
+
+    closed = [state for state in states if state["status"] == "Geschlossen"]
+    if closed:
+        with st.expander(f"Geschlossene persönliche Trades ({len(closed)})", expanded=False):
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Ticker": (state["snapshot"].get("asset") or {}).get("ticker"),
+                            "Eröffnet": state["snapshot"].get("opened_at"),
+                            "Einstieg EUR": state["snapshot"].get("actual_entry_eur"),
+                            "Realisierter Gewinn/Verlust EUR": state["realized_pnl_eur"],
+                        }
+                        for state in closed
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+
+def render_swing_walk_forward_research() -> None:
+    with st.expander("Historische Walk-Forward-Forschung", expanded=False):
+        try:
+            campaign_config = load_campaign_config()
+            campaign_state = load_campaign_state()
+            campaign_universe = load_swing_universe(DEFAULT_SWING_UNIVERSE_PATH)
+            campaign_tickers = [asset.ticker for asset in campaign_universe.assets if asset.active]
+            current_campaign_jobs = campaign_jobs(
+                campaign_config,
+                campaign_tickers,
+                now=datetime.now().astimezone(),
+                weekly_epoch=campaign_state.get("active_week_epoch"),
+            )
+            current_campaign_status = campaign_status(current_campaign_jobs, campaign_state)
+        except Exception as exc:
+            st.caption(f"Forschungskampagnenstatus nicht verfügbar: {exc}")
+        else:
+            st.write(
+                "Rotierende Forschungskampagne: "
+                f"{current_campaign_status['jobs_completed']}/{current_campaign_status['jobs_total']} Shards "
+                f"abgeschlossen · {current_campaign_status['jobs_pending']} offen"
+            )
+            fixed_rounds = list(current_campaign_status.get("fixed_rounds") or [])
+            if fixed_rounds:
+                st.caption(
+                    "Historische Testrunden: "
+                    + " · ".join(
+                        f"{item['selection_round']} {item['jobs_completed']}/{item['jobs_total']}"
+                        for item in fixed_rounds
+                    )
+                )
+            st.caption(
+                "Offene Shards starten tagsüber im 15-Minuten-Raster, jedoch nie parallel. Geschützte Zeiten "
+                "für reale Swing-Scans und Abendprognosen werden ausgelassen. Wiederholte Evidenz wird nicht doppelt gezählt."
+            )
+        if not st.checkbox(
+            "Historische Detailauswertung laden",
+            value=False,
+            key="load_swing_walk_forward_research_details",
+        ):
+            st.caption(
+                "Die große append-only Forschungsdatenbank wird erst auf Wunsch ausgewertet, "
+                "damit der Swing-Bereich schnell öffnet."
+            )
+            return
+        summary = swing_walk_forward_summary(DEFAULT_SWING_WALK_FORWARD_DB_PATH)
+        raw_evaluated = int(summary.get("raw_evaluated") or summary.get("evaluated") or 0)
+        effective_evaluated = int(
+            summary.get("effective_independent_evaluated") or raw_evaluated
+        )
+        if summary.get("current_research_cases"):
+            st.write(
+                f"Aktueller Forschungsvertrag: {summary['cases']} Rohfälle · ausgewertet: "
+                f"{raw_evaluated} roh / {effective_evaluated} effektiv unabhängig · "
+                f"ältere getrennte Fälle: {summary.get('legacy_cases', 0)}"
+            )
+        else:
+            st.write(
+                f"Bisherige technische Kontrollfälle: {summary['cases']} Rohfälle · ausgewertet: "
+                f"{raw_evaluated} roh / {effective_evaluated} effektiv unabhängig"
+            )
+        if summary.get("hit_rate_pct") is not None:
+            metric_text = (
+                f"Trefferquote: {summary['hit_rate_pct']:.1f}% · "
+                f"Durchschnitt: {float(summary.get('average_r') or 0):+.3f} R"
+            )
+            if summary.get("profit_factor") is not None:
+                metric_text += f" · Profitfaktor: {summary['profit_factor']:.2f}"
+            st.write(metric_text)
+        if summary.get("dependency_adjustment_required"):
+            st.caption(
+                f"Robustheitsinterpretation: {summary.get('dependent_listing_clusters', 0)} "
+                "überlappende Issuer-/Listingcluster werden bei Unsicherheit und Mindestfallgates nicht "
+                "als vollständig unabhängige Evidenz gezählt. Einzeltrades, Trefferquote, R, "
+                "Profitfaktor und Drawdown oben bleiben unveränderte Rohmetriken."
+            )
+        st.caption(
+            "Historische Fälle bleiben technisch getrennt von echten Forward-Trades. Sie dürfen nur "
+            "versionierte Shadow-Challenger begründen und aktivieren niemals automatisch Produktionsregeln."
+        )
+        forward_linkage = dict(summary.get("real_forward_linkage") or {})
+        if forward_linkage.get("links"):
+            st.write(
+                "Verknüpfung mit echten Forward-Tests: "
+                f"{forward_linkage.get('exact_same_trade', 0)} exakt gleiche Trades · "
+                f"{forward_linkage.get('related_same_asset_day', 0)} verwandte Fälle · "
+                f"{forward_linkage.get('historical_monitoring_excluded', 0)} historische "
+                "Doppelzählungen ausgeschlossen"
+            )
+        st.caption(
+            "Bei exakt gleichem Asset, Signaltag, Setup und Ausführungsplan hat der echte Forward-Fall Vorrang. "
+            "Andere Strategien oder Pläne bleiben getrennte Experimente; keine Quelldatei wird umgeschrieben."
+        )
+        observational_report = dict(summary.get("observational_rsi_ema") or {})
+        if observational_report.get("feature_cases"):
+            st.markdown("**Beobachtende RSI-/EMA-Segmente**")
+            st.write(
+                f"Features vorhanden: {observational_report.get('feature_cases', 0)} von "
+                f"{observational_report.get('eligible_cases', 0)} geeigneten Fällen · "
+                f"Legacy/noch nicht vorhanden: {observational_report.get('legacy_or_unavailable_cases', 0)}"
+            )
+            st.caption(
+                "Diese festen Segmente beschreiben ausschließlich historische Muster. Kleine Gruppen bleiben "
+                "als nicht belastbar markiert; es erfolgt weder eine Schwellenwertsuche noch eine automatische "
+                "Regel-, Profil- oder Produktionsänderung. Holdout wird nicht zur nachträglichen Regelauswahl verwendet."
+            )
+            segment_titles = {
+                "rsi_ranges": "RSI-Bereiche",
+                "ema20_vs_ema50": "EMA20 gegenüber EMA50",
+                "close_vs_ema20": "Kurs gegenüber EMA20",
+                "close_vs_ema50": "Kurs gegenüber EMA50",
+                "close_ema_stack": "Kurs-/EMA-Anordnung",
+                "rsi_by_setup": "RSI nach Setup",
+                "ema20_vs_ema50_by_setup": "EMA20/EMA50 nach Setup",
+                "close_ema_stack_by_setup": "Kurs-/EMA-Anordnung nach Setup",
+                "market_phases": "Marktphase",
+                "volatility_regimes": "Volatilitätsregime",
+            }
+            with st.expander("RSI-/EMA-Segmenttabellen", expanded=False):
+                for segment_key, segment_rows in dict(
+                    observational_report.get("segments") or {}
+                ).items():
+                    display_rows = []
+                    for segment_row in segment_rows:
+                        split_metrics = {
+                            "Gesamt": segment_row,
+                            "Development": dict(segment_row.get("by_split") or {}).get(
+                                "development", {}
+                            ),
+                            "Validation": dict(segment_row.get("by_split") or {}).get(
+                                "validation", {}
+                            ),
+                            "Holdout": dict(segment_row.get("by_split") or {}).get(
+                                "holdout", {}
+                            ),
+                        }
+                        for split_label, metrics_row in split_metrics.items():
+                            display_rows.append(
+                                {
+                                    "Segment": segment_row.get("segment"),
+                                    "Fenster": split_label,
+                                    "Fälle": int(metrics_row.get("cases") or 0),
+                                    "Ausgewertet": int(metrics_row.get("evaluated") or 0),
+                                    "Ø R": metrics_row.get("average_r"),
+                                    "Profitfaktor": metrics_row.get("profit_factor"),
+                                    "Trefferquote %": metrics_row.get("hit_rate_pct"),
+                                    "Max Drawdown R": metrics_row.get("maximum_drawdown_r"),
+                                    "Kleine Stichprobe": bool(
+                                        int(metrics_row.get("effective_independent_evaluated") or 0)
+                                        < int(observational_report.get("minimum_segment_cases") or 50)
+                                    ),
+                                }
+                            )
+                    if display_rows:
+                        st.markdown(f"**{segment_titles.get(segment_key, segment_key)}**")
+                        st.dataframe(
+                            pd.DataFrame(display_rows),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+        recent_monitoring = dict(summary.get("recent_monitoring") or {})
+        if recent_monitoring.get("evaluated"):
+            st.write(
+                "Jüngstes Monitoring: "
+                f"{recent_monitoring['evaluated']} Ergebnisse · "
+                f"Trefferquote {float(recent_monitoring.get('hit_rate_pct') or 0):.1f}% · "
+                f"Durchschnitt {float(recent_monitoring.get('average_r') or 0):+.3f} R"
+            )
+            st.caption(
+                "Diese wiederkehrenden jüngsten Fälle messen aktuelle Marktpassung. Sie dürfen Validation, "
+                "Holdout und Strategiefreigabe nicht verbessern."
+            )
+        comparison = dict(summary.get("strategy_comparison") or {})
+        comparison_rows = list(comparison.get("rows") or [])
+        if comparison_rows:
+            st.markdown("**Strategievergleich mit getrenntem Holdout**")
+            st.dataframe(pd.DataFrame(comparison_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                "Pareto bedeutet nur: Im unberührten Holdout wurde keine andere geprüfte Version sowohl bei "
+                "Trefferquote als auch Durchschnitts-R eindeutig besser. Es ist keine Produktionsfreigabe."
+            )
+        challenger_report = dict(summary.get("technical_challengers") or {})
+        challenger_rows = list(challenger_report.get("challengers") or [])
+        if challenger_rows:
+            st.markdown("**Technische Long-v1-Challenger (nur Forschung)**")
+            st.dataframe(pd.DataFrame(challenger_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                "RSI, EMA20/EMA50, Kombinationen sowie Pullback und Breakout bleiben getrennt. "
+                "Interessant bedeutet nur einen stabilen Vorteil in Validation und Holdout; "
+                "eine automatische Produktionsaktivierung ist ausgeschlossen."
+            )
+        if summary.get("by_market_phase"):
+            st.markdown("**Ergebnisse nach Marktphase**")
+            st.dataframe(pd.DataFrame(summary["by_market_phase"]), use_container_width=True, hide_index=True)
+        for title, key in (
+            ("Ergebnisse nach Asset-Typ", "by_asset_type"),
+            ("Ergebnisse nach Setup", "by_setup_type"),
+            ("Ergebnisse nach Volatilität", "by_volatility_regime"),
+            ("Ergebnisse nach Forschungsfenster", "by_research_split"),
+            ("Ergebnisse nach historischer Testrunde", "by_selection_round"),
+            ("Ergebnisse nach Samplingmodus", "by_sampling_mode"),
+            ("Ergebnisse nach Signaljahr", "by_signal_year"),
+        ):
+            if summary.get(key):
+                st.markdown(f"**{title}**")
+                st.dataframe(pd.DataFrame(summary[key]), use_container_width=True, hide_index=True)
+        cases = load_swing_walk_forward_cases(DEFAULT_SWING_WALK_FORWARD_DB_PATH, limit=500)
+        archive_rows = swing_walk_forward_archive_rows(cases)
+        if archive_rows:
+            st.markdown("**Einzelne historische Fälle – neueste 500**")
+            st.dataframe(pd.DataFrame(archive_rows), use_container_width=True, hide_index=True)
+
+
+def render_swing_bot_evidence_status() -> None:
+    with st.expander("Autonomer Paper-Bot und Shadow-Live", expanded=False):
+        paper_audit = paper_bot_store_audit(DEFAULT_SWING_PAPER_DB_PATH)
+        shadow_audit = shadow_live_store_audit(DEFAULT_SWING_SHADOW_DB_PATH)
+        freeze_audit = strategy_freeze_store_audit(DEFAULT_STRATEGY_FREEZE_DB_PATH)
+        st.write(
+            f"Paper-Bot: {paper_audit.get('signals', 0)} Signale · "
+            f"{paper_audit.get('events', 0)} Zustandsereignisse · Status {paper_audit.get('status')}"
+        )
+        st.write(
+            f"Shadow-Live: {shadow_audit.get('drafts', 0)} Orderentwürfe · "
+            f"Status {shadow_audit.get('status')}"
+        )
+        st.write(
+            f"Strategie-Freezes: {freeze_audit.get('freezes', 0)} unveränderbare Versionen · "
+            f"Status {freeze_audit.get('status')}"
+        )
+        if DEFAULT_SWING_PAPER_DB_PATH.exists() and DEFAULT_SWING_SHADOW_DB_PATH.exists():
+            comparison = shadow_paper_comparison(
+                DEFAULT_SWING_SHADOW_DB_PATH,
+                DEFAULT_SWING_PAPER_DB_PATH,
+            )
+            st.caption(
+                f"Paper/Shadow verglichen: {comparison['compared']} · "
+                f"abweichende Pläne: {comparison['plan_deviations']}"
+            )
+        signals = load_paper_signals(DEFAULT_SWING_PAPER_DB_PATH)
+        if signals:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Ticker": (item["snapshot"].get("asset") or {}).get("ticker"),
+                            "Signal": item["snapshot"].get("signal_at"),
+                            "Setup": (item["snapshot"].get("strategy") or {}).get("setup_type"),
+                            "Letzter Zustand": (
+                                item["events"][-1].get("event_type")
+                                if item.get("events")
+                                else "virtuelle Order gespeichert"
+                            ),
+                            "Positionsstatus": derive_paper_position_state(item)["status"],
+                        }
+                        for item in signals[-200:]
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+        st.caption(
+            "Alle drei Speicher sind append-only und strikt von Walk-Forward, echtem Forward-Test "
+            "und persönlichen Trades getrennt. Paper und Shadow besitzen keinen Broker- oder Echtgeldpfad."
+        )
+
+
+def render_active_swing_trades() -> None:
+    records = active_trade_records()
+    st.subheader("Offene Trades")
+    if not records:
+        st.caption("Keine manuell geöffneten Trades vorhanden.")
+        return
+    for record in records:
+        setup_id = str(record.get("Setup-ID") or record.get("setup_id") or record.get("Ticker"))
+        snapshot, error = current_active_trade_snapshot(record)
+        with st.container(border=True):
+            st.markdown(f"**{record.get('Asset', record.get('Ticker'))} · {record.get('Ticker')}**")
+            st.caption(f"{record.get('Setup-Typ', 'Swing-Trade')} · eröffnet {record.get('Eröffnet am', 'Datum nicht verfügbar')}")
+            if error or snapshot is None:
+                st.warning(f"Aktualisierung nicht möglich: {error}")
+                continue
+            price_col, pnl_col, stop_col, target_col = st.columns(4)
+            price_col.metric("Aktueller Kurs", format_money(snapshot["current_price_eur"], "EUR"))
+            pnl_col.metric(
+                "Gewinn / Verlust",
+                format_money(snapshot["pnl_eur"], "EUR"),
+                f"{snapshot['pnl_pct']:+.2f} %",
+            )
+            stop_col.metric(
+                "Aktueller Stop",
+                "Nicht verfügbar" if snapshot["current_stop_eur"] is None else format_money(snapshot["current_stop_eur"], "EUR"),
+            )
+            target_col.metric(
+                "Nächstes Ziel",
+                "Kein weiteres Ziel" if snapshot["next_target_eur"] is None else format_money(snapshot["next_target_eur"], "EUR"),
+            )
+            st.markdown(f"**Aktuelle Handlung:** {snapshot['action']}")
+            st.write(snapshot["reason"])
+            st.caption(f"Letzte Aktualisierung: {snapshot['updated_at']}")
+
+            control_col, exit_col = st.columns(2)
+            with control_col:
+                with st.form(f"stop_update_{setup_id}"):
+                    current_stop = float(snapshot["current_stop_eur"] or record.get("Tatsächlicher Einstieg EUR") or 0.01)
+                    new_stop = st.number_input(
+                        "Neuer Stop in Euro",
+                        min_value=0.000001,
+                        value=current_stop,
+                        format="%.6f",
+                    )
+                    stop_submitted = st.form_submit_button("Stop lokal aktualisieren", use_container_width=True)
+                if stop_submitted:
+                    success, message = update_manual_trade_stop(setup_id, new_stop)
+                    (st.success if success else st.error)(message)
+                    if success:
+                        st.rerun()
+            with exit_col:
+                with st.form(f"close_trade_{setup_id}"):
+                    exit_price = st.number_input(
+                        "Tatsächlicher Ausstiegskurs in Euro",
+                        min_value=0.000001,
+                        value=float(snapshot["current_price_eur"]),
+                        format="%.6f",
+                    )
+                    exit_date = st.date_input("Ausstiegsdatum", value=pd.Timestamp.now().date(), key=f"exit_date_{setup_id}")
+                    exit_time = st.time_input(
+                        "Ausstiegszeit",
+                        value=pd.Timestamp.now().time().replace(microsecond=0),
+                        key=f"exit_time_{setup_id}",
+                    )
+                    exit_submitted = st.form_submit_button("Ausstieg dokumentieren", use_container_width=True)
+                if exit_submitted:
+                    success, message = mark_trade_manually_closed(
+                        setup_id,
+                        exit_price,
+                        datetime.combine(exit_date, exit_time),
+                    )
+                    (st.success if success else st.error)(message)
+                    if success:
+                        st.rerun()
+
+
+def render_swing_scanner(scan_result: dict, settings: dict) -> None:
+    approved = scan_result.get("approved", [])
+    rejected = scan_result.get("rejected", [])
+    errors = scan_result.get("errors", [])
+    statistics = scan_result.get("statistics", {})
+    summary_cols = st.columns(4)
+    summary_cols[0].metric("Marktlage", scan_result.get("market_label", "Nicht verfügbar"))
+    summary_cols[1].metric("Scanzeitpunkt", pd.Timestamp(scan_result["last_scan"]).strftime("%d.%m.%Y %H:%M"))
+    summary_cols[2].metric("Universum", int(statistics.get("universe_size", scan_result.get("checked_assets", 0))))
+    summary_cols[3].metric("Kursdaten geladen", int(statistics.get("loaded_assets", 0)))
+    stage_cols = st.columns(4)
+    stage_cols[0].metric("Vorfilter ausgewählt", int(statistics.get("prefilter_candidates", 0)))
+    stage_cols[1].metric("Tief geprüft", int(statistics.get("fully_evaluated", 0)))
+    stage_cols[2].metric("Freigegeben", len(approved))
+    stage_cols[3].metric("Datenfehler", int(statistics.get("failed_downloads", 0)))
+    st.caption(
+        f"Schnellen Vorfilter bestanden: {int(statistics.get('prefilter_passed_total', 0))}. "
+        "Alle bestandenen Kandidaten wurden vollständig geprüft."
+    )
+    st.caption(scan_result.get("market_summary", "Marktumfeld nicht verfügbar."))
+    if scan_result.get("forward_documentation"):
+        st.caption(str(scan_result["forward_documentation"]))
+
+    tr_tradeable: list[dict] = []
+    paper_only: list[dict] = []
+    for setup in approved:
+        target = (
+            tr_tradeable
+            if trade_republic_reference(swing_trade_republic_asset(setup)).get("status")
+            == TR_STATUS_TRADEABLE
+            else paper_only
+        )
+        target.append(setup)
+    st.subheader("Bei Trade Republic handelbare Swing-Trades")
+    st.caption(
+        f"Scannerqualität gesamt: {len(approved)} freigegebene Signale · "
+        f"TR-handelbare Listings: {len(tr_tradeable)} · Nur Paper/unbekannt: {len(paper_only)}"
+    )
+    if not tr_tradeable:
+        st.info("Aktuell ist kein freigegebenes Signal listing-spezifisch als bei Trade Republic handelbar verifiziert.")
+    if approved:
+        active_ids = {
+            str(state["snapshot"].get("signal_id") or "")
+            for state in (
+                load_swing_user_trade_states(DEFAULT_SWING_USER_DB_PATH)
+                if DEFAULT_SWING_USER_DB_PATH.exists()
+                else []
+            )
+        }
+        for setup in tr_tradeable:
+            render_swing_trade_card(setup, settings, active_ids)
+        if paper_only:
+            with st.expander("Nur Paper / nicht bei Trade Republic handelbar", expanded=False):
+                st.caption(
+                    "Diese Signale bleiben vollständig in Forward-Test, Qualitätsmessung und Lernbestand. "
+                    "Sie werden nicht als ausführbare Nutzertrades angeboten."
+                )
+                for setup in paper_only:
+                    render_swing_trade_card(setup, settings, active_ids, paper_only=True)
+    else:
+        st.success("Aktuell kein hochwertiges Scanner-Signal vorhanden.")
+
+    with st.expander("Erweiterte Einblicke und Datenqualität", expanded=False):
+        cluster_audit = dict(scan_result.get("portfolio_cluster_audit") or {})
+        if cluster_audit:
+            st.markdown("**Gleichzeitige Risiko-Cluster**")
+            st.caption(
+                "Branchenhäufungen und stark gleichlaufende Kandidaten werden gemessen, aber nicht heimlich abgewertet."
+            )
+            st.write(
+                f"Qualifizierte Kandidaten: {cluster_audit.get('qualified_candidates', 0)} · "
+                f"stark korrelierte Paare: {len(cluster_audit.get('high_correlation_pairs') or [])}"
+            )
+            if cluster_audit.get("concentrated_sectors"):
+                st.write(
+                    "Branchenhäufungen: "
+                    + ", ".join(
+                        f"{sector}: {count}"
+                        for sector, count in cluster_audit["concentrated_sectors"].items()
+                    )
+                )
+            if cluster_audit.get("high_correlation_pairs"):
+                st.dataframe(
+                    pd.DataFrame(cluster_audit["high_correlation_pairs"]),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+        asset_type_funnel = scan_result.get("asset_type_funnel") or {}
+        if asset_type_funnel:
+            st.markdown("**Assetklassen-Funnel**")
+            funnel_rows = [
+                {
+                    "Asset-Typ": asset_type,
+                    "Universum": values.get("universe_assets", 0),
+                    "Geladen": values.get("loaded_assets", 0),
+                    "Grobfilter bestanden": values.get("prefilter_passed", 0),
+                    "Tief geprüft": values.get("fully_evaluated", 0),
+                    "Setup bestanden": values.get("setup_approved", 0),
+                    "Freigegeben": values.get("portfolio_released", 0),
+                    "Grobfilter-Quote": values.get("prefilter_pass_rate_pct"),
+                    "Finalfilter-Quote": values.get("setup_approval_rate_pct"),
+                }
+                for asset_type, values in asset_type_funnel.items()
+                if int(values.get("universe_assets") or 0) > 0
+            ]
+            st.dataframe(pd.DataFrame(funnel_rows), use_container_width=True, hide_index=True)
+            bias_audit = scan_result.get("asset_type_bias_audit") or {}
+            if bias_audit:
+                st.caption(str(bias_audit.get("observation") or ""))
+                contributions = list(bias_audit.get("filter_contributions") or [])
+                if contributions:
+                    st.markdown("**Rechnerische Ursachen der ETF-/Aktien-Grobfilterdifferenz**")
+                    st.caption(
+                        "Positive Prozentpunkte bedeuten: Dieser Filter lehnt Aktien im aktuellen Lauf häufiger ab. "
+                        "Das ist eine Messung, keine Zielquote und keine automatische Gewichtungsänderung."
+                    )
+                    st.dataframe(pd.DataFrame(contributions), use_container_width=True, hide_index=True)
+                final_rows = [
+                    {
+                        "Asset-Typ": asset_type,
+                        "Finalfilter": filter_code,
+                        "Auslösungen": count,
+                    }
+                    for asset_type, values in asset_type_funnel.items()
+                    for filter_code, count in (values.get("final_rejection_filters") or {}).items()
+                    if int(values.get("universe_assets") or 0) > 0
+                ]
+                if final_rows:
+                    st.markdown("**Finalfilter-Auslösungen nach Assetklasse**")
+                    st.caption("Mehrere Filter können beim selben Kandidaten gleichzeitig auslösen.")
+                    st.dataframe(pd.DataFrame(final_rows), use_container_width=True, hide_index=True)
+
+        prefilter_rejected = scan_result.get("prefilter_rejected", [])
+        all_rejected = [*rejected, *prefilter_rejected]
+        st.markdown("**Abgelehnte Kandidaten**")
+        if not all_rejected and not errors:
+            st.caption("Keine zusätzlichen abgelehnten Kandidaten vorhanden.")
+        if all_rejected:
+            rejection_rows = [
+                {
+                    "Ticker": item.get("Ticker"),
+                    "Asset": item.get("Asset"),
+                    "Stufe": "Tiefenanalyse" if item in rejected else "Vorfilter",
+                    "Grund": " | ".join(str(reason) for reason in item.get("Ablehnungsgründe", [])),
+                }
+                for item in all_rejected
+            ]
+            st.dataframe(pd.DataFrame(rejection_rows), use_container_width=True, hide_index=True)
+        if errors:
+            st.markdown("**Datenfehler**")
+            for error in errors:
+                st.write(f"- {error}")
+
+        st.markdown("**Methodik und zentrale Grenzwerte**")
+        thresholds = scan_result.get("thresholds", {})
+        st.write(f"- Mindest-Datenqualität: {thresholds.get('min_data_quality', 7.0):.1f}/10")
+        st.write(f"- Mindest-CRV: {thresholds.get('min_crv', 2.0):.2f}")
+        st.write(f"- Mindest-Kaufsignal: {thresholds.get('min_buy_signal', 5.8):.1f}/10")
+        st.write("- Asset-Qualität: nur Diagnose und Dokumentation, kein kurzfristiges Swing-Hard-Gate")
+        st.write(f"- Mindest-Confidence: {thresholds.get('min_confidence', 5.8):.1f}/10")
+        st.write(
+            f"- Belastbare Trefferquote erst ab {thresholds.get('min_historical_cases', 20)} ausgewerteten Fällen"
+        )
+        st.write("- Nur Long-Swing-Trades: Rücksetzer im Aufwärtstrend oder bestätigter Ausbruch")
+
+        st.markdown("**Interne konservative Risikoregeln (nur lesbar)**")
+        policy = scan_result.get("risk_policy", risk_policy_as_dict())
+        st.write(f"- Maximales Risiko je Trade: {policy.get('max_risk_pct_per_trade', 0.5):.2f}%")
+        st.write(
+            f"- Dynamisches Gesamt-Risikobudget aller offenen Trades: "
+            f"{policy.get('max_total_open_risk_pct', 2.0):.2f}%"
+        )
+        st.write("- Keine feste Anzahl offener Trades; Risiko und Kapitalbindung bestimmen die Grenze")
+        st.write(f"- Maximale Gesamtbelastung: {policy.get('max_total_exposure_pct', 50.0):.1f}%")
+        st.write(f"- Maximale Einzelposition: {policy.get('max_position_exposure_pct', 20.0):.1f}%")
+        st.write("- Stop-Abstand maximal: Aktien 8%, ETFs 7%, Krypto 12%")
+
+        st.markdown("**Paper-Trading-Statistik**")
+        statistics = paper_trade_statistics(load_trade_history())
+        st.write(
+            f"Signale: {statistics['signals']} · ausgewertet: {statistics['evaluated']} · "
+            f"abgelaufen: {statistics['expired']}"
+        )
+        if statistics["hit_rate_pct"] is None or statistics["evaluated"] < DEFAULT_SWING_THRESHOLDS.min_historical_cases:
+            st.info("Trefferwahrscheinlichkeit noch nicht belastbar.")
+        else:
+            st.write(f"Trefferquote: {statistics['hit_rate_pct']:.1f} %")
+        if statistics["expected_value_pct"] is not None:
+            st.write(f"Durchschnittlicher Ergebniswert: {statistics['expected_value_pct']:.2f} %")
+        if statistics["profit_factor"] is not None:
+            st.write(f"Profitfaktor: {statistics['profit_factor']:.2f}")
+        if statistics["max_drawdown_pct"] is not None:
+            st.write(f"Maximaler kumulierter Drawdown: {statistics['max_drawdown_pct']:.2f} %")
+
+        if DEFAULT_SWING_FORWARD_DB_PATH.exists():
+            st.markdown("**Unveränderbarer Swing-Forward-Test**")
+            forward_audit = swing_forward_store_audit(DEFAULT_SWING_FORWARD_DB_PATH)
+            forward_signals = load_swing_forward_signals(DEFAULT_SWING_FORWARD_DB_PATH)
+            forward_scans = load_swing_forward_scans(DEFAULT_SWING_FORWARD_DB_PATH)
+            rejection_controls = load_swing_rejection_controls(DEFAULT_SWING_FORWARD_DB_PATH)
+            user_signal_ids = {
+                str((state.get("snapshot") or {}).get("signal_id") or "")
+                for state in (
+                    load_swing_user_trade_states(DEFAULT_SWING_USER_DB_PATH)
+                    if DEFAULT_SWING_USER_DB_PATH.exists()
+                    else []
+                )
+            }
+            user_signal_ids.discard("")
+            tr_forward_references = swing_forward_trade_republic_references(
+                forward_signals,
+                settings,
+            )
+            forward_stats = swing_forward_statistics(
+                forward_signals,
+                user_signal_ids=user_signal_ids,
+                tr_references=tr_forward_references,
+            )
+            learning_readiness = swing_learning_readiness(forward_signals)
+            asset_type_forward_comparison = swing_forward_asset_type_comparison(
+                forward_signals,
+                strategy_versions={SWING_STRATEGY_VERSION},
+            )
+            st.write(
+                f"Echte Scans: {forward_audit['scans']} · Signale: {forward_stats['signals']} · "
+                f"Paper-Einstiege: {forward_stats['paper_entries']} · eindeutig ausgewertet: {forward_stats['evaluated']}"
+            )
+            st.write(
+                f"Verpasst: {forward_stats['missed']} · vor Einstieg ungültig: "
+                f"{forward_stats['invalidated_before_entry']} · ohne Einstieg abgelaufen: "
+                f"{forward_stats['expired_without_entry']} · unklare Reihenfolge: {forward_stats['ambiguous']}"
+            )
+            counterfactual = forward_stats["counterfactual_controls"]
+            rejection_control_stats = swing_rejection_control_statistics(rejection_controls)
+            st.write(
+                f"Getrennte Nachkontrollen verpasster/ungültiger Signale: {counterfactual['cases']} "
+                "gereifte Horizonte."
+            )
+            st.caption(
+                "Diese Nachkontrollen zeigen nur, was nach einer korrekten Ablehnung geschah. "
+                "Sie sind keine Trades und verändern weder Trefferquote noch Gewinn-/Verluststatistik."
+            )
+            st.write(
+                f"Reproduzierbare Tiefenanalyse-Ablehnungsstichprobe: "
+                f"{rejection_control_stats['controls']} Kandidaten, "
+                f"{rejection_control_stats['outcomes']} gereifte Kontrollhorizonte."
+            )
+            if rejection_control_stats["rows"]:
+                st.dataframe(
+                    pd.DataFrame(rejection_control_stats["rows"]),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            split_cols = st.columns(3)
+            split_cols[0].metric(
+                "Scannerqualität gesamt",
+                int(forward_stats["scanner_quality_total"]["signals"]),
+            )
+            split_cols[1].metric(
+                "TR-handelbare Listings",
+                int(forward_stats["tr_tradeable_listings"]["signals"]),
+            )
+            split_cols[2].metric(
+                "TR-ausführbare Pläne",
+                int(forward_stats["tr_executable_trades"]["signals"]),
+            )
+            st.caption(
+                "Gesamtqualität wird über alle objektiven Paper-/Forward-Signale gemessen. "
+                "TR-Ausführbarkeit verlangt zusätzlich verifiziertes Listing, frischen TR-Preis und vollständigen TR-Plan."
+            )
+            st.write(
+                f"Nutzerportfolio freigegeben: {forward_stats['portfolio_released']['signals']} · "
+                f"Shadow-Signale trotz fachlicher Scannerfreigabe: "
+                f"{forward_stats['shadow_strategy_signals']['signals']}"
+            )
+            st.caption(
+                f"Lernfreigabe: {learning_readiness['evaluated']}/{learning_readiness['minimum_evaluated']} "
+                f"eindeutige Ergebnisse und {learning_readiness['observation_days']} Tage Beobachtungsdauer. "
+                "Historische Walk-Forward-Fälle zählen niemals als echte Forward-Fälle."
+            )
+            if forward_stats["evaluated"] < DEFAULT_SWING_THRESHOLDS.min_historical_cases:
+                st.info("Trefferwahrscheinlichkeit noch nicht belastbar.")
+            else:
+                st.write(f"Eindeutige Trefferquote: {forward_stats['hit_rate_pct']:.1f} %")
+            st.markdown("**ETF-/Aktien-Vergleich der neutralisierten Strategieversion**")
+            st.caption(asset_type_forward_comparison["message"])
+            st.dataframe(
+                pd.DataFrame(asset_type_forward_comparison["rows"]),
+                use_container_width=True,
+                hide_index=True,
+            )
+            if forward_stats["archive_rows"]:
+                archive_rows = forward_stats["archive_rows"]
+                archive_search = st.text_input(
+                    "Archiv durchsuchen (Asset, Ticker, ISIN oder Signal-ID)",
+                    key="swing_archive_search",
+                )
+                filter_columns = st.columns(3)
+                selected_statuses = set(
+                    filter_columns[0].multiselect(
+                        "Archivstatus",
+                        sorted({str(row["Status"]) for row in archive_rows}),
+                        key="swing_archive_status_filter",
+                    )
+                )
+                selected_setups = set(
+                    filter_columns[1].multiselect(
+                        "Setup",
+                        sorted({str(row["Setup"]) for row in archive_rows}),
+                        key="swing_archive_setup_filter",
+                    )
+                )
+                selected_regions = set(
+                    filter_columns[2].multiselect(
+                        "Region",
+                        sorted({str(row["Region"]) for row in archive_rows}),
+                        key="swing_archive_region_filter",
+                    )
+                )
+                second_filter_columns = st.columns(3)
+                selected_asset_types = set(
+                    second_filter_columns[0].multiselect(
+                        "Asset-Typ",
+                        sorted({str(row["Asset-Typ"]) for row in archive_rows}),
+                        key="swing_archive_asset_type_filter",
+                    )
+                )
+                selected_quality = set(
+                    second_filter_columns[1].multiselect(
+                        "Datenqualität",
+                        sorted({str(row["Datenqualität"]) for row in archive_rows}),
+                        key="swing_archive_quality_filter",
+                    )
+                )
+                selected_fx = set(
+                    second_filter_columns[2].multiselect(
+                        "Historischer FX",
+                        sorted({str(row["Historischer FX"]) for row in archive_rows}),
+                        key="swing_archive_fx_filter",
+                    )
+                )
+                third_filter_columns = st.columns(3)
+                selected_entry_methods = set(
+                    third_filter_columns[0].multiselect(
+                        "Einstiegsmethode",
+                        sorted({str(row["Einstiegsmethode"]) for row in archive_rows}),
+                        key="swing_archive_entry_method_filter",
+                    )
+                )
+                selected_sources = set(
+                    third_filter_columns[1].multiselect(
+                        "Quellentyp",
+                        sorted({str(row["Quelle"]) for row in archive_rows}),
+                        key="swing_archive_source_filter",
+                    )
+                )
+                selected_strategy_versions = set(
+                    third_filter_columns[2].multiselect(
+                        "Strategieversion",
+                        sorted({str(row["Strategieversion"]) for row in archive_rows}),
+                        key="swing_archive_strategy_version_filter",
+                    )
+                )
+                fourth_filter_columns = st.columns(2)
+                selected_user_trade_states = set(
+                    fourth_filter_columns[0].multiselect(
+                        "Nutzertrade dokumentiert",
+                        sorted({str(row["Nutzertrade"]) for row in archive_rows}),
+                        key="swing_archive_user_trade_filter",
+                    )
+                )
+                selected_result_states = set(
+                    fourth_filter_columns[1].multiselect(
+                        "Paper-Ergebnis",
+                        ["Gewinn", "Verlust/Null", "Noch offen/nicht wertbar"],
+                        key="swing_archive_result_filter",
+                    )
+                )
+                evidence_filter_columns = st.columns(3)
+                selected_market_phases = set(
+                    evidence_filter_columns[0].multiselect(
+                        "Marktphase",
+                        sorted({str(row["Marktphase"]) for row in archive_rows}),
+                        key="swing_archive_market_phase_filter",
+                    )
+                )
+                selected_volatility_regimes = set(
+                    evidence_filter_columns[1].multiselect(
+                        "Volatilitätsregime",
+                        sorted({str(row["Volatilitätsregime"]) for row in archive_rows}),
+                        key="swing_archive_volatility_regime_filter",
+                    )
+                )
+                selected_evidence_kinds = set(
+                    evidence_filter_columns[2].multiselect(
+                        "Evidenzart",
+                        sorted({str(row["Evidenzart"]) for row in archive_rows}),
+                        key="swing_archive_evidence_kind_filter",
+                    )
+                )
+                signal_days = sorted(
+                    {
+                        pd.Timestamp(row["Signalzeit"]).date()
+                        for row in archive_rows
+                        if row.get("Signalzeit")
+                    }
+                )
+                date_filter_columns = st.columns(2)
+                selected_signal_from = date_filter_columns[0].date_input(
+                    "Signal von",
+                    value=signal_days[0],
+                    min_value=signal_days[0],
+                    max_value=signal_days[-1],
+                    key="swing_archive_signal_from",
+                )
+                selected_signal_to = date_filter_columns[1].date_input(
+                    "Signal bis",
+                    value=signal_days[-1],
+                    min_value=signal_days[0],
+                    max_value=signal_days[-1],
+                    key="swing_archive_signal_to",
+                )
+                filtered_rows = filter_swing_forward_archive_rows(
+                    archive_rows,
+                    statuses=selected_statuses,
+                    setups=selected_setups,
+                    asset_types=selected_asset_types,
+                    regions=selected_regions,
+                    market_phases=selected_market_phases,
+                    volatility_regimes=selected_volatility_regimes,
+                    evidence_kinds=selected_evidence_kinds,
+                    data_qualities=selected_quality,
+                    fx_states=selected_fx,
+                    strategy_versions=selected_strategy_versions,
+                    sources=selected_sources,
+                    user_trade_states=selected_user_trade_states,
+                    entry_methods=selected_entry_methods,
+                    result_states=selected_result_states,
+                    search=archive_search,
+                    signal_from=selected_signal_from,
+                    signal_to=selected_signal_to,
+                )
+                st.caption(f"{len(filtered_rows)} von {len(archive_rows)} Archivfällen sichtbar.")
+                st.dataframe(
+                    pd.DataFrame(filtered_rows),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+                if filtered_rows:
+                    labels = {
+                        f"{row['Ticker']} · {row['Setup']} · {row['Signalzeit']} · {row['Signal-ID'][:8]}": row["Signal-ID"]
+                        for row in filtered_rows
+                    }
+                    selected_label = st.selectbox(
+                        "Archivfall im Detail",
+                        list(labels),
+                        key="swing_archive_detail_selection",
+                    )
+                    selected_signal = next(
+                        signal for signal in forward_signals if signal["signal_id"] == labels[selected_label]
+                    )
+                    detail_snapshot = dict(selected_signal.get("snapshot") or {})
+                    detail_events = list(selected_signal.get("events") or [])
+                    st.markdown("**Unveränderbarer Systemplan**")
+                    st.json(detail_snapshot.get("order_plan") or {}, expanded=False)
+                    st.markdown("**Append-only Ereignisverlauf**")
+                    st.dataframe(
+                        pd.DataFrame(
+                            [
+                                {
+                                    "Zeit": event.get("occurred_at"),
+                                    "Ereignis": event.get("event_type"),
+                                    "Datenqualität": (event.get("payload") or {}).get("data_quality"),
+                                    "Grund": (event.get("payload") or {}).get("reason"),
+                                }
+                                for event in detail_events
+                            ]
+                        ),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                if forward_stats["segments"]:
+                    st.markdown("**Segmentierte Messwerte**")
+                    st.dataframe(
+                        pd.DataFrame(forward_stats["segments"]),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+            failure_rows = swing_asset_failure_rows(forward_scans)
+            if failure_rows:
+                st.markdown("**Scanübergreifende technische Asset-Fehler**")
+                st.caption(
+                    "Wiederkehrende Fehler werden sichtbar gesammelt. Ein Ticker wird daraus niemals automatisch gelöscht."
+                )
+                st.dataframe(
+                    pd.DataFrame(failure_rows),
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
 
 POSITIVE_WORDS = {
@@ -4491,6 +6424,51 @@ def score_macro() -> ModuleScore:
     return ModuleScore(final_score, summary, details)
 
 
+def load_external_analysis_context(symbol: str) -> dict[str, object]:
+    """Load independent Yahoo research inputs concurrently without changing scores."""
+    neutral_macro = ModuleScore(
+        5.0,
+        "Makrodaten konnten nicht geladen werden. Makro wird neutral bewertet.",
+        ["Keine Makrodaten verfügbar."],
+    )
+    neutral_news = ModuleScore(
+        5.0,
+        "News-Daten nicht verfügbar. News wird neutral behandelt.",
+        ["Keine News verfügbar."],
+    )
+    defaults: dict[str, object] = {
+        "ticker_info": {},
+        "macro": neutral_macro,
+        "news": neutral_news,
+        "commodity_data": {},
+        "earnings_dates": pd.DataFrame(),
+    }
+    tasks: dict[str, Callable[[], object]] = {
+        "ticker_info": lambda: load_ticker_info(symbol),
+        "macro": score_macro,
+        "news": lambda: score_news(symbol),
+        "commodity_data": load_commodity_prices,
+        "earnings_dates": lambda: load_earnings_dates(symbol),
+    }
+    results = dict(defaults)
+    errors: list[str] = []
+    script_context = get_script_run_ctx(suppress_warning=True)
+    with ThreadPoolExecutor(
+        max_workers=len(tasks),
+        thread_name_prefix="analysis-data",
+        initializer=add_script_run_ctx,
+        initargs=(None, script_context),
+    ) as executor:
+        futures = {name: executor.submit(task) for name, task in tasks.items()}
+        for name, future in futures.items():
+            try:
+                results[name] = future.result()
+            except Exception as exc:
+                errors.append(f"{name}: {exc}")
+    results["errors"] = errors
+    return results
+
+
 def research_market_regime(df: pd.DataFrame, market_phase: MarketPhase, macro: ModuleScore) -> ResearchModule:
     macro_data = load_macro_prices()
     nasdaq_change = trend_change(macro_data.get("Nasdaq", pd.DataFrame()))
@@ -4712,8 +6690,12 @@ def research_geopolitical_context(symbol: str, profile: AssetProfile) -> Researc
     return ResearchModule("Geopolitik-Score", final_score, summary, details, beginner)
 
 
-def research_commodity_context(profile: AssetProfile) -> ResearchModule:
-    commodity_data = load_commodity_prices()
+def research_commodity_context(
+    profile: AssetProfile,
+    commodity_data: dict[str, pd.DataFrame] | None = None,
+) -> ResearchModule:
+    if commodity_data is None:
+        commodity_data = load_commodity_prices()
     details: list[str] = []
     available = 0
     interpretations = {
@@ -5025,149 +7007,6 @@ def research_innovation_context(info: dict, profile: AssetProfile, asset_quality
     return ResearchModule("Innovation / Hype", score, summary, details, beginner)
 
 
-def build_data_source_warnings(
-    ticker_info: dict,
-    original_currency: str,
-    fx_rate: float | None,
-    fx_ticker: str,
-    news: ModuleScore,
-    macro: ModuleScore,
-) -> list[str]:
-    warnings: list[str] = []
-    if not ticker_info:
-        warnings.append("Yahoo-Finance-Stammdaten sind nicht verfügbar; Asset-Name, Börse, Fundamentaldaten und institutionelle Daten können eingeschränkt sein.")
-    if original_currency != "EUR" and fx_rate is None:
-        warnings.append(f"EUR-Umrechnung für {original_currency} ist nicht verfügbar ({fx_ticker}); Anzeige erfolgt teilweise in Originalwährung.")
-    if any("Keine News verfügbar" in detail or "Keine aktuellen Nachrichten" in detail for detail in [news.summary, *news.details]):
-        warnings.append("Yahoo-Finance-News sind nicht verfügbar oder leer; News-Score wird neutral behandelt.")
-    if any("Keine Makrodaten verfügbar" in detail or "Makrodaten konnten nicht geladen" in detail for detail in [macro.summary, *macro.details]):
-        warnings.append("Makro-Proxies konnten nicht geladen werden; Makro-Score wird neutral behandelt.")
-    return warnings
-
-
-def data_quality_status(data_quality: ResearchModule, external_warnings: list[str]) -> tuple[str, str, list[str]]:
-    score = data_quality.score if data_quality.score is not None else 0.0
-    if score >= 8 and not external_warnings:
-        label = "Grün"
-        summary = "Datenqualität gut. Die Analyse ist aus Datensicht solide nutzbar."
-    elif score >= 6:
-        label = "Gelb"
-        summary = "Datenqualität eingeschränkt. Die Analyse ist nutzbar, aber einzelne Datenlücken sollten beachtet werden."
-    else:
-        label = "Rot"
-        summary = "Datenqualität schwach. Die Analyse ist nur vorsichtig nutzbar."
-
-    issues = [detail for detail in data_quality.details if "nicht" in detail.lower() or "fehlt" in detail.lower() or "weniger" in detail.lower()]
-    highlights = [*issues[:2], *external_warnings[:2]]
-    if not highlights:
-        highlights = ["Keine wesentlichen Datenlücken erkannt."]
-    return label, summary, highlights[:3]
-
-
-def score_weight_rows(profile: AssetProfile) -> list[dict[str, str]]:
-    descriptions = {
-        "Technik": "Trend, Momentum, RSI, MACD, Volumen, Unterstützungen und Widerstände.",
-        "Fundamentaldaten": "Langfristige Qualität des Assets; bei Krypto Netzwerk-/Adoptionsnähe statt klassischer Unternehmensdaten.",
-        "Makro": "Zinsen, Nasdaq, Dollar und weitere Makro-Proxies.",
-        "News": "Aktuelle Yahoo-Finance-News und einfaches Sentiment.",
-        "CRV": "Chance-Risiko-Verhältnis aus nächster Unterstützung und nächstem Widerstand.",
-    }
-    return [
-        {
-            "Baustein": name,
-            "Gewichtung": f"{weight * 100:.0f}%",
-            "Bedeutung": descriptions.get(name, "Bewertungsbaustein."),
-        }
-        for name, weight in profile.weights.items()
-    ]
-
-
-def weighted_total_score(
-    technical: ModuleScore,
-    fundamentals: ModuleScore,
-    macro: ModuleScore,
-    news: ModuleScore,
-    risk_reward: RiskReward,
-    weights: dict[str, float] | None = None,
-) -> tuple[float, dict[str, float]]:
-    parts = {
-        "Technik": technical.score,
-        "Fundamentaldaten": fundamentals.score,
-        "Makro": macro.score,
-        "News": news.score,
-        "CRV": risk_reward.score,
-    }
-    weights = weights or {"Technik": 0.30, "Fundamentaldaten": 0.30, "Makro": 0.20, "News": 0.10, "CRV": 0.10}
-    total = sum(parts[name] * weights.get(name, 0.0) for name in parts)
-    return round(float(total), 1), parts
-
-
-def score_from_optional(values: list[float], neutral_if_empty: float = 5.0) -> float:
-    if not values:
-        return neutral_if_empty
-    return round(float(np.mean(values)), 1)
-
-
-def data_quality_check(
-    symbol: str,
-    asset_profile: AssetProfile,
-    asset_identity: dict,
-    df: pd.DataFrame,
-    chart_history_label: str | None = None,
-    analysis_history_label: str | None = None,
-    chart_rows: int | None = None,
-) -> ResearchModule:
-    issues: list[str] = []
-    positives: list[str] = []
-
-    if symbol:
-        positives.append("Ticker gefunden.")
-    else:
-        issues.append("Ticker nicht gefunden.")
-    if asset_profile.asset_type and asset_profile.asset_type != "Derivat / unbekannt":
-        positives.append(f"Asset-Typ erkannt: {asset_profile.asset_type}.")
-    else:
-        issues.append("Asset-Typ unsicher oder unbekannt.")
-    if asset_identity.get("exchange") and asset_identity.get("exchange") != "Daten nicht verfügbar":
-        positives.append(f"Börse erkannt: {asset_identity.get('exchange')}.")
-    else:
-        issues.append("Börse nicht erkannt.")
-    if asset_identity.get("currency"):
-        positives.append(f"Währung erkannt: {asset_identity.get('currency')}.")
-    else:
-        issues.append("Währung nicht erkannt.")
-    if df.empty or "Close" not in df:
-        issues.append("Kursdaten fehlen.")
-    else:
-        positives.append(f"Kursdaten vorhanden: {len(df)} Zeilen.")
-    if chart_history_label:
-        positives.append(f"Chart-Historie: {chart_history_label}" + (f" ({chart_rows} Zeilen)." if chart_rows is not None else "."))
-    if analysis_history_label:
-        positives.append(f"Analyse-Historie: {analysis_history_label} ({len(df)} Zeilen).")
-    if "Volume" in df and df["Volume"].dropna().sum() > 0:
-        positives.append("Volumen verfügbar.")
-    else:
-        issues.append("Volumen nicht verfügbar.")
-    if len(df.dropna(subset=["Close"])) >= 200:
-        positives.append("Mindestens 200 Handelstage vorhanden.")
-    else:
-        issues.append("Weniger als 200 Handelstage vorhanden.")
-    latest = df.iloc[-1] if not df.empty else pd.Series(dtype=float)
-    if value_or_none(latest.get("SMA_50")) is not None:
-        positives.append("50er-Durchschnitt berechenbar.")
-    else:
-        issues.append("50er-Durchschnitt nicht berechenbar.")
-    if value_or_none(latest.get("SMA_200")) is not None:
-        positives.append("200er-Durchschnitt berechenbar.")
-    else:
-        issues.append("200er-Durchschnitt nicht berechenbar.")
-
-    score = round(clamp(10 - len(issues) * 1.2), 1)
-    summary = "Datenqualität gut." if not issues else "Datenqualität eingeschränkt: " + "; ".join(issues)
-    beginner = "Je mehr Daten fehlen, desto vorsichtiger solltest du die Analyse lesen. Fehlende Daten werden nicht erfunden."
-    return ResearchModule("Datenqualität", score, summary, positives + issues, beginner)
-
-
 def research_chart_score(df: pd.DataFrame, supports: list[float], resistances: list[float], market_phase: MarketPhase) -> ResearchModule:
     latest = df.iloc[-1]
     close = float(latest["Close"])
@@ -5377,157 +7216,6 @@ def research_liquidity_score(df: pd.DataFrame, info: dict, profile: AssetProfile
     return ResearchModule("Liquiditäts-Score", score, f"Liquidität {score}/10 aus verfügbaren Volumendaten.", details, beginner)
 
 
-def research_valuation_score(info: dict, profile: AssetProfile, df: pd.DataFrame, macro: ModuleScore) -> ResearchModule:
-    details: list[str] = []
-    points: list[float] = []
-    if profile.asset_type == "Krypto":
-        details.extend(["Zyklusdaten: Daten nicht verfügbar.", "On-Chain-Bewertungsdaten: Daten nicht verfügbar."])
-        points.append(macro.score)
-        score = score_from_optional(points)
-        beginner = "Bei Krypto ersetzt dieser Score klassische Bewertung durch Zyklus-/On-Chain-Kontext. Wenn diese Daten fehlen, bleibt die Aussage eingeschränkt."
-        return ResearchModule("Zyklus-/On-Chain-Score", score, f"Zyklus-/On-Chain-Score {score}/10; Spezialdaten nicht verfügbar.", details, beginner)
-
-    trailing_pe = value_or_none(info.get("trailingPE"))
-    forward_pe = value_or_none(info.get("forwardPE"))
-    peg_ratio = value_or_none(info.get("pegRatio"))
-    price_to_sales = value_or_none(info.get("priceToSalesTrailing12Months"))
-    enterprise_to_ebitda = value_or_none(info.get("enterpriseToEbitda"))
-    enterprise_value = value_or_none(info.get("enterpriseValue"))
-    free_cashflow = value_or_none(info.get("freeCashflow"))
-    price_to_book = value_or_none(info.get("priceToBook"))
-    market_cap = value_or_none(info.get("marketCap"))
-    enterprise_to_revenue = value_or_none(info.get("enterpriseToRevenue"))
-    sector = info.get("sector") or info.get("category")
-    industry = info.get("industry")
-    revenue_growth = value_or_none(info.get("revenueGrowth"))
-    earnings_growth = value_or_none(info.get("earningsGrowth"))
-    operating_margin = value_or_none(info.get("operatingMargins"))
-    profit_margin = value_or_none(info.get("profitMargins"))
-    debt_to_equity = value_or_none(info.get("debtToEquity"))
-    snapshot = stock_fundamental_snapshot(info) if profile.asset_type == "Aktie" else None
-    trailing_pe = snapshot.trailing_pe if snapshot else value_or_none(info.get("trailingPE"))
-    forward_pe = snapshot.forward_pe if snapshot else value_or_none(info.get("forwardPE"))
-    price_to_sales = snapshot.price_to_sales if snapshot else value_or_none(info.get("priceToSalesTrailing12Months"))
-    if trailing_pe is not None:
-        score = 8.0 if trailing_pe <= 18 else 6.0 if trailing_pe <= 30 else 4.0 if trailing_pe <= 50 else 2.5
-        points.append(score)
-        details.append(f"KGV: {trailing_pe:.1f} -> {score:.1f}/10; KGV wird nicht isoliert verwendet.")
-    else:
-        details.append(data_missing("KGV"))
-    if forward_pe is not None:
-        score = 8.0 if forward_pe <= 18 else 6.0 if forward_pe <= 30 else 4.0 if forward_pe <= 50 else 2.5
-        points.append(score)
-        details.append(f"Forward-KGV: {forward_pe:.1f} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Forward-KGV"))
-    if trailing_pe is not None and forward_pe is not None and trailing_pe > 0:
-        forward_discount = (trailing_pe - forward_pe) / trailing_pe
-        score = 7.5 if forward_discount >= 0.20 else 6.5 if forward_discount >= 0.05 else 5.0 if forward_discount >= -0.05 else 3.5
-        points.append(score)
-        details.append(
-            f"Forward-KGV-Abstand: {forward_discount * 100:+.1f}% gegen aktuelles KGV -> {score:.1f}/10. "
-            "Das ist ein Erwartungsindikator, keine Gewinnprognose der App."
-        )
-    else:
-        details.append(data_missing("Forward-KGV-Abstand"))
-    if peg_ratio is not None and peg_ratio > 0:
-        score = 8.0 if peg_ratio <= 1.2 else 6.5 if peg_ratio <= 2.0 else 4.5 if peg_ratio <= 3.5 else 2.5
-        points.append(score)
-        details.append(f"PEG-Ratio: {peg_ratio:.2f} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("PEG-Ratio"))
-    if price_to_sales is not None:
-        score = 8.0 if price_to_sales <= 3 else 6.0 if price_to_sales <= 8 else 4.0 if price_to_sales <= 15 else 2.5
-        points.append(score)
-        details.append(f"Kurs-Umsatz-Verhältnis: {price_to_sales:.1f} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Kurs-Umsatz-Verhältnis"))
-    if enterprise_to_ebitda is not None and enterprise_to_ebitda > 0:
-        score = 8.0 if enterprise_to_ebitda <= 12 else 6.5 if enterprise_to_ebitda <= 20 else 4.5 if enterprise_to_ebitda <= 35 else 2.5
-        points.append(score)
-        details.append(f"EV/EBITDA als EV/EBIT-Näherung: {enterprise_to_ebitda:.1f} -> {score:.1f}/10.")
-    else:
-        details.append("EV/EBIT: Daten nicht verfügbar.")
-    if enterprise_to_revenue is not None and enterprise_to_revenue > 0:
-        score = 8.0 if enterprise_to_revenue <= 3 else 6.5 if enterprise_to_revenue <= 7 else 4.5 if enterprise_to_revenue <= 12 else 2.5
-        points.append(score)
-        details.append(f"EV/Umsatz: {enterprise_to_revenue:.1f} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("EV/Umsatz"))
-    if enterprise_value is not None and free_cashflow is not None and free_cashflow > 0:
-        ev_fcf = enterprise_value / free_cashflow
-        score = 8.0 if ev_fcf <= 18 else 6.5 if ev_fcf <= 30 else 4.5 if ev_fcf <= 50 else 2.5
-        points.append(score)
-        details.append(f"EV/FCF: {ev_fcf:.1f} -> {score:.1f}/10.")
-    else:
-        details.append("EV/FCF: Daten nicht verfügbar.")
-    if price_to_book is not None and price_to_book > 0:
-        score = 8.0 if price_to_book <= 2 else 6.0 if price_to_book <= 6 else 4.0 if price_to_book <= 12 else 2.5
-        points.append(score)
-        details.append(f"Kurs/Buchwert: {price_to_book:.1f} -> {score:.1f}/10.")
-    else:
-        details.append(data_missing("Kurs/Buchwert"))
-    if market_cap is not None and free_cashflow is not None and market_cap > 0:
-        fcf_yield = free_cashflow / market_cap
-        score = 8.0 if fcf_yield >= 0.06 else 6.5 if fcf_yield >= 0.035 else 4.5 if fcf_yield >= 0.015 else 2.5
-        points.append(score)
-        details.append(f"Free-Cashflow-Rendite: {fcf_yield * 100:.1f}% -> {score:.1f}/10.")
-    else:
-        details.append("Free-Cashflow-Rendite: Daten nicht verfügbar.")
-    if revenue_growth is not None:
-        details.append(f"Umsatzwachstum: {revenue_growth * 100:.1f}%.")
-    else:
-        details.append(data_missing("Umsatzwachstum"))
-    if earnings_growth is not None:
-        details.append(f"Gewinnwachstum: {earnings_growth * 100:.1f}%.")
-    else:
-        details.append(data_missing("Gewinnwachstum"))
-    if operating_margin is not None or profit_margin is not None:
-        margin_text = []
-        if operating_margin is not None:
-            margin_text.append(f"operative Marge {operating_margin * 100:.1f}%")
-        if profit_margin is not None:
-            margin_text.append(f"Nettomarge {profit_margin * 100:.1f}%")
-        details.append("Margen: " + ", ".join(margin_text) + ".")
-    else:
-        details.append(data_missing("Margen"))
-    if debt_to_equity is not None:
-        details.append(f"Verschuldung Debt/Equity: {debt_to_equity:.1f}.")
-    else:
-        details.append(data_missing("Verschuldung / Debt-to-Equity"))
-    if sector or industry:
-        details.append(
-            "Relative Bewertungsbasis: "
-            f"Sektor {sector or 'Daten nicht verfügbar'}, Branche {industry or 'Daten nicht verfügbar'}."
-        )
-    else:
-        details.append("Relative Bewertungsbasis: Daten nicht verfügbar.")
-    details.append("Historische Bewertungszeitreihe: Daten nicht verfügbar. Yahoo Finance liefert hier keine belastbare KGV-/KUV-Historie.")
-    details.append("Peer-Vergleich: Daten nicht verfügbar. Es werden keine Vergleichsunternehmen oder Peer-Multiples erfunden.")
-    if snapshot:
-        price_to_book_score, price_to_book_label = score_valuation_multiple(snapshot.price_to_book, (2.5, 5.0, 10.0))
-        if price_to_book_score is not None:
-            points.append(price_to_book_score)
-            details.append(
-                f"Kurs-Buchwert-Verhältnis: {snapshot.price_to_book:.1f} ({price_to_book_label}) -> "
-                f"{price_to_book_score:.1f}/10."
-            )
-        else:
-            details.append(data_missing("Kurs-Buchwert-Verhältnis"))
-
-        ev_ebitda_score, ev_ebitda_label = score_valuation_multiple(snapshot.enterprise_to_ebitda, (10.0, 18.0, 30.0))
-        if ev_ebitda_score is not None:
-            points.append(ev_ebitda_score)
-            details.append(f"EV/EBITDA: {snapshot.enterprise_to_ebitda:.1f} ({ev_ebitda_label}) -> {ev_ebitda_score:.1f}/10.")
-        else:
-            details.append(data_missing("EV/EBITDA"))
-    if profile.asset_type == "ETF":
-        details.append("ETF-Bewertung über Index-KGV/Region: Daten nicht verfügbar.")
-    score = score_from_optional(points)
-    beginner = "Der Bewertungsscore prüft, ob der Preis im Verhältnis zu Gewinn/Umsatz teuer oder günstig wirkt. Fehlende Kennzahlen werden nicht erfunden."
-    return ResearchModule("Bewertungsscore", score, f"Bewertung {score}/10 aus verfügbaren Bewertungskennzahlen.", details, beginner)
-
-
 def research_fundamental_module(asset_quality: ModuleScore, profile: AssetProfile) -> ResearchModule:
     name = "Krypto-Netzwerk-/Adoptionsscore" if profile.asset_type == "Krypto" else "Fundamentaldaten-Score"
     beginner = (
@@ -5536,121 +7224,6 @@ def research_fundamental_module(asset_quality: ModuleScore, profile: AssetProfil
         else "Fundamentaldaten zeigen, ob das Unternehmen oder der ETF langfristig solide wirkt."
     )
     return ResearchModule(name, asset_quality.score, asset_quality.summary, asset_quality.details, beginner)
-
-
-def research_future_potential(info: dict, profile: AssetProfile, asset_quality: ModuleScore, news: ModuleScore) -> ResearchModule:
-    details: list[str] = []
-    points: list[float] = [asset_quality.score]
-    revenue_growth = value_or_none(info.get("revenueGrowth"))
-    earnings_growth = value_or_none(info.get("earningsGrowth"))
-    operating_margin = value_or_none(info.get("operatingMargins"))
-    if revenue_growth is not None:
-        score = clamp(5 + revenue_growth * 18)
-        points.append(score)
-        details.append(f"Umsatzwachstum: {revenue_growth * 100:.1f}% -> Zukunftspotenzial {score:.1f}/10.")
-    else:
-        details.append(data_missing("Umsatzwachstum"))
-    if earnings_growth is not None:
-        score = clamp(5 + earnings_growth * 16)
-        points.append(score)
-        details.append(f"Gewinnwachstum: {earnings_growth * 100:.1f}% -> Zukunftspotenzial {score:.1f}/10.")
-    else:
-        details.append(data_missing("Gewinnwachstum"))
-    if operating_margin is not None:
-        score = score_profitability_metric(operating_margin)
-        points.append(score)
-        details.append(f"Operative Marge: {operating_margin * 100:.1f}% -> Skalierbarkeit {score:.1f}/10.")
-    else:
-        details.append(data_missing("operative Marge"))
-    if profile.asset_type == "Aktie":
-        details.append("Langfristige Produkt-/KI-/Software-Chance: nur indirekt über Wachstum, Margen und News ableitbar; Spezialdaten nicht verfügbar.")
-    elif profile.asset_type == "Krypto":
-        details.append("Netzwerk-/Adoptionsdaten: Daten nicht verfügbar.")
-    if news.score >= 6.5:
-        points.append(6.5)
-        details.append("News-Sentiment stützt das Zukunftsnarrativ moderat.")
-    elif news.score <= 4:
-        points.append(4.0)
-        details.append("News-Sentiment belastet das Zukunftsnarrativ.")
-    score = score_from_optional(points)
-    summary = f"Zukunftspotenzial {score}/10 aus Qualität, Wachstum, Margen und verfügbarem Sentiment."
-    beginner = "Zukunftspotenzial fragt, ob das Asset langfristig wachsen kann. Fehlende Spezialdaten werden nicht erfunden."
-    return ResearchModule("Zukunftspotenzial", score, summary, details, beginner)
-
-
-def research_priced_expectations(info: dict, profile: AssetProfile, valuation: ResearchModule, momentum: ResearchModule, news: ModuleScore) -> ResearchModule:
-    details: list[str] = []
-    points: list[float] = []
-    valuation_score = valuation.score
-    if valuation_score is not None:
-        risk = clamp(10 - valuation_score)
-        points.append(risk)
-        details.append(f"Bewertungsniveau: Bewertungsscore {valuation_score:.1f}/10 -> eingepreiste Erwartungen {risk:.1f}/10.")
-    else:
-        details.append("Bewertungsniveau: Daten nicht verfügbar.")
-    if momentum.score is not None:
-        risk = 7.0 if momentum.score >= 7.5 else 5.5 if momentum.score >= 6 else 4.0 if momentum.score >= 4 else 3.0
-        points.append(risk)
-        details.append(f"Momentum: {momentum.score:.1f}/10 -> Optimismus-/Momentum-Anteil {risk:.1f}/10.")
-    else:
-        details.append("Momentum: Daten nicht verfügbar.")
-    if news.score >= 7:
-        points.append(6.5)
-        details.append("Medien-/News-Sentiment sehr positiv -> höhere eingepreiste Erwartungen.")
-    elif news.score <= 4:
-        points.append(3.5)
-        details.append("Medien-/News-Sentiment schwach -> weniger Euphorie eingepreist.")
-    else:
-        points.append(4.8)
-        details.append("Medien-/News-Sentiment neutral bis gemischt.")
-    recommendation_key = str(info.get("recommendationKey", "") or "").replace("_", " ").strip()
-    if recommendation_key:
-        details.append(f"Analysteneuphorie/Yahoo-Empfehlung: {recommendation_key}.")
-    else:
-        details.append("Analysteneuphorie: Daten nicht verfügbar.")
-    details.extend(
-        [
-            "IPO-Hype: Daten nicht verfügbar.",
-            "KI-Hype: Daten nicht verfügbar.",
-            "Kapitalzuflüsse: Daten nicht verfügbar.",
-            "Sentiment-Spezialdaten: Daten nicht verfügbar.",
-        ]
-    )
-    score = score_from_optional(points)
-    summary = f"Eingepreiste Erwartungen {score}/10. Hoher Wert bedeutet: viel Optimismus ist bereits im Kurs enthalten."
-    beginner = "Dieses Modul warnt, wenn ein fantastisches Unternehmen bereits sehr optimistisch bewertet ist."
-    return ResearchModule("Eingepreiste Erwartungen", score, summary, details, beginner)
-
-
-def research_expected_value(
-    close: float,
-    supports: list[float],
-    resistances: list[float],
-    buy_signal: ModuleScore,
-    asset_quality: ModuleScore,
-    risk_reward: RiskReward,
-    market_phase: MarketPhase,
-    latest: pd.Series,
-) -> ResearchModule:
-    bull_p, base_p, bear_p = scenario_probabilities(buy_signal, asset_quality, risk_reward, market_phase, close, supports, resistances, latest)
-    valid_resistances = [level for level in resistances if level > close]
-    valid_supports = [level for level in supports if level < close]
-    bull_return = ((valid_resistances[1] if len(valid_resistances) > 1 else valid_resistances[0]) - close) / close if valid_resistances else 0.12
-    base_return = ((valid_resistances[0] - close) / close * 0.45) if valid_resistances else 0.03
-    bear_return = ((valid_supports[1] if len(valid_supports) > 1 else valid_supports[0]) - close) / close if valid_supports else -0.10
-    expected_return = bull_return * bull_p / 100 + base_return * base_p / 100 + bear_return * bear_p / 100
-    expected_loss = abs(min(bear_return, 0)) * bear_p / 100
-    score = clamp(5 + expected_return * 25 - expected_loss * 10)
-    details = [
-        f"Bull-Case: {bull_return * 100:+.1f}% mit {bull_p}% Wahrscheinlichkeit.",
-        f"Base-Case: {base_return * 100:+.1f}% mit {base_p}% Wahrscheinlichkeit.",
-        f"Bear-Case: {bear_return * 100:+.1f}% mit {bear_p}% Wahrscheinlichkeit.",
-        f"Erwartete Rendite: {expected_return * 100:+.1f}%.",
-        f"Erwarteter Verlustbeitrag: {expected_loss * 100:.1f}%.",
-    ]
-    summary = f"Expected-Value-Score {score:.1f}/10. Erwartungswert {expected_return * 100:+.1f}% statt perfektem Einstieg."
-    beginner = "Expected Value fragt, ob Chance und Wahrscheinlichkeit höher wiegen als das Risiko. Ein perfekter Einstieg ist nicht zwingend nötig."
-    return ResearchModule("Expected Value", round(score, 1), summary, details, beginner)
 
 
 def module_from_existing(name: str, module: ModuleScore, beginner: str) -> ResearchModule:
@@ -5781,6 +7354,7 @@ def research_analyst_consensus(info: dict, profile: AssetProfile, original_curre
     return ResearchModule("Analysten-Konsens", final_score, summary, details + ["Werden Kursziele angehoben oder gesenkt: Daten nicht verfügbar."], beginner)
 
 
+@st.cache_data(ttl=60 * 60)
 def load_earnings_dates(symbol: str) -> pd.DataFrame:
     try:
         return safe_dataframe_from_yfinance(yf.Ticker(symbol).get_earnings_dates(limit=8))
@@ -5788,7 +7362,12 @@ def load_earnings_dates(symbol: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def research_earnings_module(symbol: str, info: dict, profile: AssetProfile) -> ResearchModule:
+def research_earnings_module(
+    symbol: str,
+    info: dict,
+    profile: AssetProfile,
+    earnings_dates: pd.DataFrame | None = None,
+) -> ResearchModule:
     if profile.asset_type != "Aktie":
         return ResearchModule(
             "Earnings-Modul",
@@ -5798,7 +7377,8 @@ def research_earnings_module(symbol: str, info: dict, profile: AssetProfile) -> 
             "Earnings sind Quartalszahlen. Für ETFs und viele Kryptos gibt es keine klassischen Unternehmensgewinne.",
         )
 
-    earnings_dates = load_earnings_dates(symbol)
+    if earnings_dates is None:
+        earnings_dates = load_earnings_dates(symbol)
     details: list[str] = []
     next_report = format_optional_date(info.get("earningsTimestamp") or info.get("earningsTimestampStart"))
     last_report = format_optional_date(info.get("mostRecentQuarter"))
@@ -6100,292 +7680,6 @@ def build_uncertainty_factors(
     return factors[:5]
 
 
-def scenario_probabilities(
-    buy_signal: ModuleScore,
-    asset_quality: ModuleScore,
-    risk_reward: RiskReward,
-    market_phase: MarketPhase,
-    close: float,
-    supports: list[float],
-    resistances: list[float],
-    latest: pd.Series,
-) -> tuple[int, int, int]:
-    bull = 25 + int((buy_signal.score - 5) * 4) + int((asset_quality.score - 5) * 2)
-    bear = 25 + int((5 - buy_signal.score) * 4)
-    if risk_reward.ratio is not None and risk_reward.ratio >= 2:
-        bull += 8
-        bear -= 5
-    elif risk_reward.ratio is not None and risk_reward.ratio < 1:
-        bull -= 4
-        bear += 6
-    if market_phase.phase == "Bullenmarkt":
-        bull += 8
-        bear -= 5
-    if market_phase.phase == "Bärenmarkt":
-        bull -= 8
-        bear += 10
-    if market_phase.phase == "Bodenbildungsphase":
-        bull += 3
-        bear += 2
-
-    sma_50 = value_or_none(latest.get("SMA_50"))
-    sma_200 = value_or_none(latest.get("SMA_200"))
-    if sma_50 is not None and sma_200 is not None:
-        if close > sma_50 > sma_200:
-            bull += 8
-            bear -= 4
-        elif close < sma_50 < sma_200:
-            bull -= 8
-            bear += 8
-
-    valid_supports = [level for level in supports if level < close]
-    valid_resistances = [level for level in resistances if level > close]
-    if valid_supports:
-        support_distance = (close - valid_supports[0]) / close
-        if support_distance <= 0.06:
-            bull += 4
-            bear -= 2
-        elif support_distance > 0.18:
-            bear += 4
-    else:
-        bear += 5
-
-    if valid_resistances:
-        resistance_room = (valid_resistances[0] - close) / close
-        if resistance_room >= 0.15:
-            bull += 5
-        elif resistance_room <= 0.04:
-            bull -= 4
-            bear += 3
-    else:
-        bull -= 3
-
-    volatility = value_or_none(latest.get("Volatility"))
-    if volatility is not None:
-        if volatility > 0.75:
-            bull -= 3
-            bear += 6
-        elif volatility < 0.25:
-            bear -= 3
-
-    bull = int(np.clip(bull, 10, 65))
-    bear = int(np.clip(bear, 10, 65))
-    base = 100 - bull - bear
-    if base < 20:
-        diff = 20 - base
-        bull = max(10, bull - diff // 2)
-        bear = max(10, bear - (diff - diff // 2))
-        base = 100 - bull - bear
-    return bull, base, bear
-
-
-def build_scenarios(
-    close: float,
-    supports: list[float],
-    resistances: list[float],
-    buy_signal: ModuleScore,
-    asset_quality: ModuleScore,
-    risk_reward: RiskReward,
-    market_phase: MarketPhase,
-    latest: pd.Series,
-    original_currency: str,
-    fx_rate: float | None,
-    currency_mode: str,
-) -> list[dict]:
-    bull_p, base_p, bear_p = scenario_probabilities(buy_signal, asset_quality, risk_reward, market_phase, close, supports, resistances, latest)
-    valid_resistances = [level for level in resistances if level > close]
-    valid_supports = [level for level in supports if level < close]
-    first_resistance = valid_resistances[0] if valid_resistances else None
-    second_resistance = valid_resistances[1] if len(valid_resistances) > 1 else first_resistance
-    first_support = valid_supports[0] if valid_supports else None
-    second_support = valid_supports[1] if len(valid_supports) > 1 else first_support
-    base_target = first_resistance if buy_signal.score >= 6.5 else close if buy_signal.score >= 5 else first_support
-    bull_target = format_display_money(second_resistance, original_currency, fx_rate, currency_mode) if second_resistance else "Daten nicht verfügbar"
-    base_target_text = format_display_money(base_target, original_currency, fx_rate, currency_mode) if base_target else "Daten nicht verfügbar"
-    bear_target = format_display_money(second_support, original_currency, fx_rate, currency_mode) if second_support else "Daten nicht verfügbar"
-    volatility = value_or_none(latest.get("Volatility"))
-    volatility_text = f"Volatilität {volatility * 100:.1f}%" if volatility is not None else "Volatilität: Daten nicht verfügbar"
-    return [
-        {
-            "Szenario": "Bull-Case",
-            "Was müsste passieren?": "Trend bestätigt sich, MACD bleibt positiv, Volumen zieht an und der nächste Widerstand wird überwunden.",
-            "Kursziel": bull_target,
-            "Wahrscheinlichkeit": f"{bull_p}%",
-            "Wichtigste Treiber": f"{market_phase.phase}, CRV {risk_reward.score:.1f}/10, {volatility_text}.",
-        },
-        {
-            "Szenario": "Base-Case",
-            "Was müsste passieren?": "Der Kurs bleibt in der aktuellen Struktur und reagiert an Unterstützung und Widerstand wie bisher.",
-            "Kursziel": base_target_text,
-            "Wahrscheinlichkeit": f"{base_p}%",
-            "Wichtigste Treiber": "Wahrscheinlichstes Szenario bei gemischten Signalen und intakter Kursstruktur.",
-        },
-        {
-            "Szenario": "Bear-Case",
-            "Was müsste passieren?": "Unterstützung bricht, Momentum bleibt schwach oder das Makro-/News-Umfeld verschlechtert sich.",
-            "Kursziel": bear_target,
-            "Wahrscheinlichkeit": f"{bear_p}%",
-            "Wichtigste Treiber": "Risiko steigt besonders bei Bruch der nächsten Unterstützung oder hoher Volatilität.",
-        },
-    ]
-
-
-def build_buy_zones(
-    close: float,
-    supports: list[float],
-    resistances: list[float],
-    latest: pd.Series,
-    original_currency: str,
-    fx_rate: float | None,
-    currency_mode: str,
-) -> list[dict]:
-    sma_50 = value_or_none(latest.get("SMA_50"))
-    valid_supports = [level for level in supports if level < close]
-    valid_resistances = [level for level in resistances if level > close]
-    support = valid_supports[0] if valid_supports else None
-    resistance = valid_resistances[0] if valid_resistances else None
-    aggressive = close
-    fair = support
-    safe = resistance if resistance else sma_50 if sma_50 is not None and sma_50 > close else None
-    invalid = support * 0.98 if support else None
-    return [
-        {
-            "Zone": "Aggressive Kaufzone",
-            "Marke": format_display_money(aggressive, original_currency, fx_rate, currency_mode),
-            "Status": "Aktueller Kurs",
-            "Bedeutung": "Nur sinnvoll, wenn Kaufsignal stark ist und man bewusst in kleiner Tranche startet.",
-        },
-        {
-            "Zone": "Faire Kaufzone",
-            "Marke": format_display_money(fair, original_currency, fx_rate, currency_mode) if fair else "Daten nicht verfügbar",
-            "Status": "Berechenbar" if fair else "Keine klare Unterstützung",
-            "Bedeutung": "Nahe erster Unterstützung; wenn keine Unterstützung erkannt wird, wird keine faire Kaufzone erfunden.",
-        },
-        {
-            "Zone": "Sicherheits-Kaufzone",
-            "Marke": format_display_money(safe, original_currency, fx_rate, currency_mode) if safe else "Daten nicht verfügbar",
-            "Status": "Berechenbar" if safe else "Keine klare Bestätigungsmarke",
-            "Bedeutung": "Nach bestätigter Trendwende oder Ausbruch über den wichtigsten Widerstand; ohne passende Marke lieber beobachten.",
-        },
-        {
-            "Zone": "Ungültig, wenn Unterstützung bricht",
-            "Marke": format_display_money(invalid, original_currency, fx_rate, currency_mode) if invalid else "Daten nicht verfügbar",
-            "Status": "Berechenbar" if invalid else "Keine klare Ungültigkeitsmarke",
-            "Bedeutung": "Unter dieser Zone ist die technische Idee beschädigt; ohne Marke muss die Position manuell neu bewertet werden.",
-        },
-    ]
-
-
-def research_action(buy_signal: ModuleScore, risk_reward: RiskReward, supports: list[float], close: float) -> str:
-    near_support = bool(supports and 0 <= (close - supports[0]) / close <= 0.04)
-    if buy_signal.score < 3.5:
-        return "Risiko zu hoch"
-    if buy_signal.score < 5:
-        return "Heute nicht kaufen"
-    if buy_signal.score < 6.5:
-        return "Beobachten"
-    if near_support and risk_reward.score >= 6:
-        return "Nachkaufzone erreicht"
-    if buy_signal.score >= 8:
-        return "Kleine Tranche möglich"
-    return "Nachkauf nur bei Bestätigung"
-
-
-def professional_decision(
-    asset_quality: ModuleScore,
-    future_potential: ResearchModule,
-    valuation: ResearchModule,
-    priced_expectations: ResearchModule,
-    bubble_risk: ResearchModule,
-    buy_signal: ModuleScore,
-    expected_value: ResearchModule,
-    macro: ModuleScore,
-    market_phase: MarketPhase,
-    confidence: ResearchModule | None = None,
-) -> dict[str, str]:
-    quality = asset_quality.score
-    future = future_potential.score if future_potential.score is not None else 5.0
-    valuation_score = valuation.score if valuation.score is not None else 5.0
-    expectations = priced_expectations.score if priced_expectations.score is not None else 5.0
-    bubble = bubble_risk.score if bubble_risk.score is not None else 5.0
-    entry = buy_signal.score
-    ev = expected_value.score if expected_value.score is not None else 5.0
-    confidence_score = confidence.score if confidence and confidence.score is not None else 5.0
-
-    positive_quality = quality >= 7.0 and future >= 6.0
-    valuation_ok = valuation_score >= 5.2 and bubble < 7.8 and expectations < 7.8
-    chance_positive = ev >= 5.8
-    entry_acceptable = entry >= 4.8
-
-    if quality <= 3.5 and entry <= 3.8:
-        title = "Verkaufen / Risiko reduzieren"
-    elif valuation_score <= 3.2 or bubble >= 8.2 or expectations >= 8.4:
-        title = "Nicht kaufen"
-    elif positive_quality and valuation_ok and chance_positive and entry >= 7.4:
-        title = "Kaufen"
-    elif positive_quality and valuation_ok and chance_positive and entry_acceptable:
-        title = "Gestaffelt kaufen"
-    elif positive_quality and valuation_ok and ev >= 5.2:
-        title = "Kleine Tranche"
-    elif ev >= 5.2 and entry >= 5.0 and valuation_score >= 4.5:
-        title = "Beobachten"
-    else:
-        title = "Abwarten"
-
-    if title == "Kaufen" and all([quality >= 8.0, valuation_score >= 6.5, entry >= 7.5, ev >= 7.0, bubble <= 5.5]):
-        title = "Stark kaufen"
-
-    reasons = {
-        "Unternehmensqualität schwach": quality < 4.5,
-        "Bewertung zu hoch": valuation_score < 4.2,
-        "Blasenrisiko zu hoch": bubble >= 7.5 or expectations >= 7.5,
-        "Makro schlecht": macro.score < 4.0 or market_phase.phase == "Bärenmarkt",
-        "Trend klar negativ": entry < 4.0,
-        "Einstieg technisch unattraktiv": entry < 5.0,
-        "CRV schlecht": ev < 4.8,
-        "Datenlage zu schwach": confidence_score < 4.5,
-    }
-    main_reason = "Kein klarer Ablehnungsgrund; Chance und Risiko werden abgewogen."
-    if title in {"Nicht kaufen", "Abwarten", "Beobachten", "Verkaufen / Risiko reduzieren"}:
-        main_reason = next((reason for reason, active in reasons.items() if active), "Signal noch nicht eindeutig genug.")
-
-    not_main = []
-    if quality >= 7.0 and main_reason != "Unternehmensqualität schwach":
-        not_main.append("nicht wegen Unternehmensqualität")
-    if valuation_score >= 5.2 and main_reason != "Bewertung zu hoch":
-        not_main.append("nicht wegen Bewertung")
-    if entry >= 5.0 and main_reason != "Einstieg technisch unattraktiv":
-        not_main.append("nicht wegen Timing")
-    not_main_reason = ", sondern wegen " + main_reason.lower() + "." if not_main else "Daten nicht eindeutig genug."
-    if not_main:
-        not_main_reason = f"{', '.join(not_main).capitalize()}{not_main_reason}"
-
-    if title == "Stark kaufen":
-        summary = "Außergewöhnlich attraktive Chance: Qualität, Bewertung, Einstieg und Expected Value passen selten gut zusammen."
-    elif title == "Gestaffelt kaufen":
-        summary = "Starkes Asset und positives CRV; der Einstieg muss nicht perfekt sein, daher eher in Tranchen statt alles sofort."
-    elif title == "Kleine Tranche":
-        summary = "Langfristig interessant, aber kurzfristige Unsicherheit ist erhöht; kleine Startposition statt voller Kauf."
-    elif title == "Nicht kaufen":
-        summary = "Gutes Unternehmen kann trotzdem ein schlechtes Investment sein, wenn Bewertung, Hype oder CRV dagegen sprechen."
-    else:
-        summary = "Die Entscheidung trennt Qualität, Bewertung, Timing und Expected Value statt pauschal vorsichtig oder bullisch zu sein."
-
-    return {
-        "Titel": title,
-        "Asset-Qualität": f"{quality:.1f}/10",
-        "Zukunftspotenzial": f"{future:.1f}/10",
-        "Bewertung": "Daten nicht verfügbar" if valuation.score is None else f"{valuation_score:.1f}/10",
-        "Eingepreiste Erwartungen": "Daten nicht verfügbar" if priced_expectations.score is None else f"{expectations:.1f}/10",
-        "Blasenrisiko": "Daten nicht verfügbar" if bubble_risk.score is None else f"{bubble:.1f}/10",
-        "Technischer Einstieg": f"{entry:.1f}/10",
-        "Expected Value": "Daten nicht verfügbar" if expected_value.score is None else f"{ev:.1f}/10",
-        "Gesamtfazit": summary,
-        "Hauptgrund der Ablehnung": main_reason,
-        "Nicht der Hauptgrund": not_main_reason,
-    }
-
-
 def build_research_conclusion(
     action: str,
     modules: list[ResearchModule],
@@ -6451,10 +7745,16 @@ def build_research_pack(
     chart_history_label: str | None = None,
     analysis_history_label: str | None = None,
     chart_rows: int | None = None,
+    external_research: bool = True,
+    portfolio_result: PortfolioResult | None = None,
+    has_position: bool = False,
+    ticker_info: dict | None = None,
+    commodity_data: dict[str, pd.DataFrame] | None = None,
+    earnings_dates: pd.DataFrame | None = None,
 ) -> ResearchPack:
     latest = df.iloc[-1]
     close = float(latest["Close"])
-    info = load_ticker_info(symbol)
+    info = ticker_info if ticker_info is not None else load_ticker_info(symbol)
     data_quality = data_quality_check(symbol, asset_profile, asset_identity, df, chart_history_label, analysis_history_label, chart_rows)
     chart = research_chart_score(df, supports, resistances, market_phase)
     momentum = research_momentum_score(df)
@@ -6463,8 +7763,18 @@ def build_research_pack(
     future_potential = research_future_potential(info, asset_profile, asset_quality, news)
     market_regime = research_market_regime(df, market_phase, macro)
     macro_impact = research_macro_impact(asset_profile, macro)
-    geopolitics = research_geopolitical_context(symbol, asset_profile)
-    commodity_context = research_commodity_context(asset_profile)
+    geopolitics = (
+        research_geopolitical_context(symbol, asset_profile)
+        if external_research
+        else ResearchModule(
+            "Geopolitischer Kontext",
+            None,
+            "Im täglichen Hintergrundlauf werden keine massenhaften News-Abfragen durchgeführt.",
+            ["Abdeckung: Preis-, Fundamentaldaten- und Makrologik aktiv; asset-spezifische News hier bewusst ausgelassen."],
+            "Dieser Kontext bleibt offen, damit fehlende News nicht als positives oder negatives Signal gewertet werden.",
+        )
+    )
+    commodity_context = research_commodity_context(asset_profile, commodity_data)
     bubble_risk = research_bubble_risk(info, df, valuation, momentum, news)
     priced_expectations = research_priced_expectations(info, asset_profile, valuation, momentum, news)
     innovation = research_innovation_context(info, asset_profile, asset_quality, bubble_risk, news)
@@ -6474,7 +7784,17 @@ def build_research_pack(
     risk = research_risk_score(df, risk_reward, asset_profile)
     liquidity = research_liquidity_score(df, info, asset_profile)
     analyst = research_analyst_consensus(info, asset_profile, original_currency, fx_rate, currency_mode)
-    earnings = research_earnings_module(symbol, info, asset_profile)
+    earnings = (
+        research_earnings_module(symbol, info, asset_profile, earnings_dates)
+        if external_research
+        else ResearchModule(
+            "Earnings-/Event-Kalender",
+            None,
+            "Im täglichen Hintergrundlauf wird kein separater Earnings-Kalender je Asset abgefragt.",
+            ["Abdeckung: allgemeine Ticker-Metadaten vorhanden; zusätzlicher Kalenderabruf bewusst ausgelassen."],
+            "Der fehlende Kalender senkt die Datenabdeckung und wird nicht als neutrales Ereignissignal ausgegeben.",
+        )
+    )
     event_risk = research_event_risk_module(info, asset_profile, macro)
     institutional = research_institutional_data(info, asset_profile)
     expected_value = research_expected_value(close, supports, resistances, buy_signal, asset_quality, risk_reward, market_phase, latest)
@@ -6486,9 +7806,38 @@ def build_research_pack(
     uncertainty_factors = build_uncertainty_factors(data_quality, event_risk, earnings, geopolitics, news, macro, latest, market_phase, supports)
     scenarios = build_scenarios(close, supports, resistances, buy_signal, asset_quality, risk_reward, market_phase, latest, original_currency, fx_rate, currency_mode)
     buy_zones = build_buy_zones(close, supports, resistances, latest, original_currency, fx_rate, currency_mode)
-    decision = professional_decision(asset_quality, future_potential, valuation, priced_expectations, bubble_risk, buy_signal, expected_value, macro, market_phase, confidence)
-    action = decision["Titel"]
+    decision = synthesize_investment_recommendation(
+        asset_profile,
+        asset_quality,
+        future_potential,
+        valuation,
+        priced_expectations,
+        bubble_risk,
+        buy_signal,
+        expected_value,
+        macro,
+        market_phase,
+        risk_reward,
+        confidence,
+        data_quality,
+        supports,
+        resistances,
+        df,
+        latest,
+        original_currency,
+        fx_rate,
+        currency_mode,
+        uncertainty_factors,
+        portfolio_result,
+        has_position,
+        info,
+    )
+    action = str(decision["Titel"])
     conclusion = build_research_conclusion(action, modules, buy_signal, asset_quality, risk_reward, supports, resistances, latest, original_currency, fx_rate, currency_mode)
+    conclusion["Welche Marke ist entscheidend?"] = str(decision["Widerlegungsbedingung"])
+    conclusion["Was wäre mein konkreter Plan?"] = (
+        f"{decision['Nächste Handlung']} Alternative: {decision['Alternative Handlung']}"
+    )
     return ResearchPack(data_quality, modules, institutional_modules, confidence, uncertainty_factors, scenarios, buy_zones, action, decision, conclusion)
 
 
@@ -6589,6 +7938,7 @@ def build_prediction_record(
         "risk_reward_score": risk_reward.score,
         "risk_reward_ratio": risk_reward.ratio,
         "signal_snapshot": build_signal_snapshot(latest, risk_reward, research_pack.modules),
+        "simple_trend_baseline": simple_trend_snapshot(df["Close"].tolist()),
         "module_scores": [
             {"name": module.name, "score": module.score, "summary": module.summary}
             for module in research_pack.modules
@@ -6599,6 +7949,149 @@ def build_prediction_record(
         "invalidation_or_buy_zones": research_pack.buy_zones,
         "review_after": empty_review_schedule(),
         "note": "Prognose-Tracking speichert nur Szenarien zur späteren Auswertung. Keine Order, keine Broker-Anbindung.",
+    }
+
+
+def forecast_direction_from_signal(buy_signal_score: float) -> str:
+    """Map the existing buy-signal score to the documented direction metric."""
+    if buy_signal_score >= 5.5:
+        return "Steigend"
+    if buy_signal_score <= 4.5:
+        return "Fallend"
+    return "Seitwärts"
+
+
+def build_background_forecast_snapshot(
+    asset: dict,
+    run_date: str,
+    logic_version: str = FORECAST_LOGIC_VERSION,
+) -> dict:
+    """Run the existing analysis pipeline without a Streamlit session or mass news calls."""
+    symbol = str(asset.get("ticker") or "").strip().upper()
+    if not symbol:
+        raise ValueError("Asset ohne Ticker im Prognoseuniversum")
+
+    analysis_raw_data = load_price_data(symbol, "max", "1d")
+    if analysis_raw_data.empty or "Close" not in analysis_raw_data:
+        raise RuntimeError("Keine belastbaren Kursdaten verfügbar")
+
+    df = calculate_indicators(analysis_raw_data, "1d")
+    supports = local_levels(df["Low"], "support")
+    resistances = local_levels(df["High"], "resistance")
+    score_result = calculate_score_v2(df, supports, resistances)
+    latest = df.iloc[-1]
+    close = float(latest["Close"])
+    ticker_info = load_ticker_info(symbol)
+    candidate = {
+        "name": asset.get("name") or symbol,
+        "exchange": ticker_info.get("exchangeName") or ticker_info.get("exchange") or "Daten nicht verfügbar",
+    }
+    asset_identity = build_asset_identity(symbol, ticker_info, candidate)
+    original_currency = asset_identity["currency"]
+    fx_rate, _ = get_fx_rate_to_eur(original_currency)
+    auto_profile = detect_asset_type(symbol, ticker_info)
+    curated_type = str(asset.get("asset_type") or "")
+    if auto_profile.asset_type == "Derivat / unbekannt" and curated_type in {"Aktie", "ETF", "Krypto"}:
+        asset_profile = override_asset_profile(auto_profile, curated_type)
+    else:
+        asset_profile = auto_profile
+
+    market_phase = detect_market_phase(df)
+    risk_reward = calculate_risk_reward(close, supports, resistances)
+    macro = score_macro()
+    asset_quality = score_asset_quality_from_info(symbol, asset_profile, df, ticker_info)
+    news = ModuleScore(
+        5.0,
+        "Asset-spezifische News werden im täglichen Massenlauf bewusst nicht abgefragt.",
+        ["News-Abdeckung: ausgelassen; die neutrale Ersatzlage verändert keine Score-Gewichtung."],
+    )
+    buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, asset_profile)
+    history_label = history_label_from_frame(analysis_raw_data, "maximale verfügbare Historie")
+    research_pack = build_research_pack(
+        symbol,
+        asset_profile,
+        asset_identity,
+        df,
+        supports,
+        resistances,
+        market_phase,
+        risk_reward,
+        asset_quality,
+        buy_signal,
+        macro,
+        news,
+        original_currency,
+        fx_rate,
+        "Nur EUR",
+        history_label,
+        history_label,
+        len(analysis_raw_data),
+        external_research=False,
+    )
+    data_quality_label, _, _ = data_quality_status(research_pack.data_quality, [])
+    levels = numeric_scenario_levels(close, supports, resistances, buy_signal.score)
+    direction = forecast_direction_from_signal(buy_signal.score)
+    probability_snapshot = build_raw_up_probability(
+        research_pack.scenarios,
+        levels,
+        close,
+    )
+
+    def eur(value: float | None) -> float | None:
+        if value is None or fx_rate is None:
+            return None
+        return round(float(value) * float(fx_rate), 6)
+
+    target = levels["resistance"] if direction == "Steigend" else levels["support"] if direction == "Fallend" else levels["base"]
+    risk = levels["support"] if direction == "Steigend" else levels["resistance"] if direction == "Fallend" else None
+    horizons = [
+        {
+            "horizon": label,
+            "days": days,
+            "expected_direction": direction,
+            "expected_low_eur": eur(levels["low"]),
+            "expected_high_eur": eur(levels["high"]),
+            "target_eur": eur(target),
+            "risk_eur": eur(risk),
+            "probability_up": probability_snapshot.get("probability_up"),
+            "probability_schema_version": probability_snapshot.get("schema_version"),
+        }
+        for label, days in FORECAST_HORIZONS.items()
+    ]
+    return {
+        "run_date": run_date,
+        "created_at": datetime.now().astimezone().isoformat(),
+        "ticker": symbol,
+        "asset_name": asset_identity.get("name") or asset.get("name") or symbol,
+        "asset_type": asset_profile.asset_type,
+        "region": asset.get("region") or "Unbekannt",
+        "category": asset.get("category") or "Unbekannt",
+        "price_original": close,
+        "original_currency": original_currency,
+        "fx_rate_to_eur": fx_rate,
+        "price_eur": eur(close),
+        "asset_quality": asset_quality.score,
+        "buy_signal": buy_signal.score,
+        "market_phase": market_phase.phase,
+        "predicted_direction": direction,
+        "confidence": research_pack.confidence.score,
+        "data_quality": research_pack.data_quality.score,
+        "data_quality_label": data_quality_label,
+        "history_rows": len(analysis_raw_data),
+        "data_coverage": "Kursdaten, Ticker-Metadaten, Fundamentaldaten und Makrodaten; keine massenhaften asset-spezifischen News- oder Earnings-Abfragen.",
+        "uncertainties": research_pack.uncertainty_factors,
+        "scenarios": research_pack.scenarios,
+        "professional_decision": research_pack.decision,
+        "signal_snapshot": build_signal_snapshot(latest, risk_reward, research_pack.modules),
+        "probability_snapshot": probability_snapshot,
+        "module_scores": [
+            {"name": module.name, "score": module.score, "summary": module.summary}
+            for module in research_pack.modules
+        ],
+        "horizons": horizons,
+        "model_type": FORECAST_MODEL_ENTRY,
+        "logic_version": logic_version,
+        "source": "daily-background",
     }
 
 
@@ -6697,55 +8190,20 @@ def final_recommendation_v2(
     risk_reward: RiskReward,
     research_action_text: str,
     confidence: ResearchModule,
-    decision: dict[str, str],
+    decision: dict[str, object],
 ) -> tuple[str, str]:
-    title = decision.get("Titel", research_action_text)
-
-    context = f"Asset-Qualität: {asset_quality.score}/10. Kaufsignal: {buy_signal.score}/10."
-    if asset_quality.score >= 7 and buy_signal.score < 6.5:
-        context += " Die Anlage wirkt langfristig interessant, aber der aktuelle Einstieg ist noch nicht klar bestätigt."
-    elif asset_quality.score < 5 and buy_signal.score >= 6.5:
-        context += " Der Zeitpunkt wirkt besser als die langfristige Qualität; das spricht eher für vorsichtige Tranchen statt große Käufe."
-    else:
-        context += " Qualität und Timing widersprechen sich nicht stark."
-
-    if research_action_text == title:
-        research_text = "Research-Modul und Kaufsignal zeigen dieselbe Handlungseinschätzung."
-    else:
-        research_text = (
-            f"Research-Modul ergänzt: {research_action_text}. "
-            "Wenn diese Einschätzung vom Kaufsignal abweicht, ist das kein zweites Signal, sondern ein Hinweis auf Timing, Datenqualität oder CRV."
-        )
-
-    depot_text = "Portfolio-Modus ist aus; der Depot-Effekt wird nicht berücksichtigt."
-    if portfolio_result.enabled:
-        if portfolio_result.available and portfolio_result.score is not None:
-            depot_text = f"Depot-Effekt: {portfolio_result.score}/10. {portfolio_result.summary}"
-            if abs(portfolio_result.score - buy_signal.score) >= 2:
-                depot_text += " Der Depot-Effekt verändert nicht das Kaufsignal, zeigt aber, ob ein Kauf für dein Depot verkraftbar wäre."
-        else:
-            depot_text = portfolio_result.summary
-
-    confidence_text = "Daten nicht verfügbar."
-    if confidence.score is not None:
-        confidence_text = f"{confidence.score:.1f}/10. {confidence.summary}"
-
+    title = str(decision.get("Titel") or research_action_text)
+    reasons = " ".join(decision_items(decision, "Hauptgründe")[:3])
+    risks = " ".join(decision_items(decision, "Zentrale Risiken")[:2])
     html = f"""
     <div class="decision-box">
         <div class="recommendation-label">Zentrale Einschätzung</div>
         <div class="decision-title">{title}</div>
-        <div class="decision-section"><strong>Professionelle Entscheidung:</strong> {decision.get("Gesamtfazit", buy_signal.summary)}</div>
-        <div class="decision-section"><strong>Asset-Qualität:</strong> {decision.get("Asset-Qualität", "Daten nicht verfügbar")} · <strong>Zukunftspotenzial:</strong> {decision.get("Zukunftspotenzial", "Daten nicht verfügbar")} · <strong>Bewertung:</strong> {decision.get("Bewertung", "Daten nicht verfügbar")}</div>
-        <div class="decision-section"><strong>Eingepreiste Erwartungen:</strong> {decision.get("Eingepreiste Erwartungen", "Daten nicht verfügbar")} · <strong>Blasenrisiko:</strong> {decision.get("Blasenrisiko", "Daten nicht verfügbar")} · <strong>Technischer Einstieg:</strong> {decision.get("Technischer Einstieg", "Daten nicht verfügbar")} · <strong>Expected Value:</strong> {decision.get("Expected Value", "Daten nicht verfügbar")}</div>
-        <div class="decision-section"><strong>Hauptgrund der Ablehnung/Vorsicht:</strong> {decision.get("Hauptgrund der Ablehnung", "Kein klarer Ablehnungsgrund.")}</div>
-        <div class="decision-section"><strong>Nicht der Hauptgrund:</strong> {decision.get("Nicht der Hauptgrund", "Daten nicht verfügbar.")}</div>
-        <div class="decision-section"><strong>Primär nach Kaufsignal:</strong> {buy_signal.summary}</div>
-        <div class="decision-section"><strong>Research-Einordnung:</strong> {research_text}</div>
-        <div class="decision-section"><strong>Langfristiger Kontext:</strong> {context}</div>
-        <div class="decision-section"><strong>Depot-Effekt:</strong> {depot_text}</div>
-        <div class="decision-section"><strong>Vertrauen:</strong> {confidence_text}</div>
-        <div class="decision-section"><strong>Marktphase / CRV:</strong> {market_phase.phase}. {risk_reward.summary}</div>
-        <div class="decision-section"><strong>Wahrscheinlichkeiten:</strong> {format_probabilities(market_phase.probabilities)}</div>
+        <div class="decision-section"><strong>Warum:</strong> {reasons or decision.get("Gesamtfazit", buy_signal.summary)}</div>
+        <div class="decision-section"><strong>Nächste Handlung:</strong> {decision.get("Nächste Handlung", research_action_text)}</div>
+        <div class="decision-section"><strong>Alternative:</strong> {decision.get("Alternative Handlung", "Daten nicht verfügbar")}</div>
+        <div class="decision-section"><strong>Risiken:</strong> {risks or risk_reward.summary}</div>
+        <div class="decision-section"><strong>Confidence:</strong> {decision.get("Confidence", recommendation_confidence_label(confidence.score))} · <strong>Anlagehorizont:</strong> {decision.get("Anlagehorizont", "mehrjährig")}</div>
     </div>
     """
     return title, html
@@ -6756,23 +8214,27 @@ def format_probabilities(probabilities: dict[str, int]) -> str:
 
 
 def beginner_buy_answer(buy_signal_score: float, action_title: str) -> tuple[str, str]:
-    if buy_signal_score >= 8:
-        answer = "Ja"
-    elif buy_signal_score >= 6.5:
-        answer = "Eher Ja"
-    elif buy_signal_score >= 5.0:
-        answer = "Neutral"
-    elif buy_signal_score >= 3.5:
-        answer = "Eher Nein"
+    if action_title == "Jetzt kaufen":
+        answer = "Ja, mit Plan"
+    elif action_title == "Erste Tranche kaufen":
+        answer = "Eher ja, klein starten"
+    elif action_title == "Bei Bestätigung kaufen":
+        answer = "Noch nicht – Bestätigung abwarten"
+    elif action_title == "Auf konkrete Kaufzone warten":
+        answer = "Noch nicht – Kaufzone abwarten"
+    elif action_title == "Halten":
+        answer = "Halten"
+    elif action_title == "Teilweise reduzieren":
+        answer = "Eher reduzieren"
     else:
-        answer = "Nein"
+        answer = "Nein, aktuell vermeiden"
 
     score_text = str(buy_signal_score).replace(".", ",")
     text = (
         f"Meine einfache Einschätzung heute: {answer}. "
-        f"Das Kaufsignal liegt bei {score_text}/10 und die Empfehlung lautet: {action_title}. "
-        "Ein Kauf ist nur sinnvoll, wenn der Chart die genannten Marken bestätigt. "
-        "Bei Unsicherheit ist Abwarten oder ein kleiner Einstieg besser als ein großer Sofortkauf. "
+        f"Die zentrale Empfehlung lautet „{action_title}“; das separate Kaufsignal liegt bei {score_text}/10. "
+        "Die Empfehlung berücksichtigt zusätzlich Qualität, Bewertung, CRV, Marktphase, Risiken, Datenlage und optional den Depot-Effekt. "
+        "Für bedingte Einstiege stehen konkrete Rücksetzer-, Bestätigungs- und Widerlegungsmarken in der Analyse. "
         "Die App ist nur eine Analysehilfe und ersetzt keine eigene Entscheidung."
     )
     return answer, text
@@ -7180,53 +8642,6 @@ def calculate_score_v2(df: pd.DataFrame, supports: list[float], resistances: lis
     return ScoreResult(score=score, recommendation=recommendation, reasons=reasons[:5], breakdown=breakdown)
 
 
-def format_currency(value: float) -> str:
-    return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def format_money(value: float, currency: str = "EUR") -> str:
-    number = format_currency(value)
-    currency = (currency or "EUR").upper()
-    if currency == "EUR":
-        return f"{number} €"
-    return f"{number} {currency}"
-
-
-def convert_to_eur(value: float, fx_rate: float | None) -> float | None:
-    if fx_rate is None:
-        return None
-    return value * fx_rate
-
-
-def format_display_money(value: float, original_currency: str, fx_rate: float | None, display_mode: str) -> str:
-    original_currency = (original_currency or "EUR").upper()
-    if original_currency == "EUR":
-        return format_money(value, "EUR")
-
-    eur_value = convert_to_eur(value, fx_rate)
-    if eur_value is None:
-        return f"Daten nicht verfügbar ({format_money(value, original_currency)})"
-    if display_mode == "Nur EUR":
-        return format_money(eur_value, "EUR")
-    return f"{format_money(eur_value, 'EUR')} ({format_money(value, original_currency)})"
-
-
-def converted_price_frame(df: pd.DataFrame, fx_rate: float | None) -> pd.DataFrame:
-    if fx_rate is None:
-        return df.copy()
-    display_df = df.copy()
-    for column in ["Open", "High", "Low", "Close", "SMA_50", "SMA_200"]:
-        if column in display_df:
-            display_df[column] = display_df[column] * fx_rate
-    return display_df
-
-
-def converted_levels(levels: list[float], fx_rate: float | None) -> list[float]:
-    if fx_rate is None:
-        return levels
-    return [level * fx_rate for level in levels]
-
-
 def add_level_lines(fig: go.Figure, levels: Iterable[float], color: str, label: str) -> None:
     for idx, level in enumerate(levels, start=1):
         fig.add_hline(
@@ -7553,12 +8968,749 @@ def render_analysis_card(title: str, status: str, explanation: str) -> None:
     )
 
 
+def decision_items(decision: dict[str, object], key: str) -> list[str]:
+    value = decision.get(key)
+    if isinstance(value, list):
+        return [str(item) for item in value if item]
+    return [str(value)] if value else []
+
+
+def render_text_card(label: str, value: object, note: str | None = None) -> None:
+    safe_note = f'<div class="text-card-note">{html_escape(note)}</div>' if note else ""
+    st.markdown(
+        f"""
+        <div class="text-card">
+            <div class="text-card-label">{html_escape(label)}</div>
+            <div class="text-card-value">{html_escape(str(value))}</div>
+            {safe_note}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_recommendation_summary(
+    decision: dict[str, object],
+    asset_quality: ModuleScore,
+    buy_signal: ModuleScore,
+    risk_reward: RiskReward,
+    portfolio_result: PortfolioResult,
+) -> None:
+    del asset_quality, buy_signal, risk_reward, portfolio_result
+    title = str(decision.get("Titel") or "Keine Empfehlung verfügbar")
+    st.markdown("### Empfehlung und konkreter Plan")
+    message = f"Empfehlung: {title}"
+    if title in {"Jetzt kaufen", "Erste Tranche kaufen", "Halten"}:
+        st.success(message)
+    elif title in {"Bei Bestätigung kaufen", "Auf konkrete Kaufzone warten"}:
+        st.info(message)
+    elif title == "Teilweise reduzieren":
+        st.warning(message)
+    else:
+        st.error(message)
+
+    assessment_cols = st.columns(3)
+    with assessment_cols[0]:
+        render_text_card(
+            "Langfristige Attraktivität",
+            decision.get("Langfristige Einschätzung") or "Nicht verfügbar",
+            "Qualität, Wachstum und langfristige Risiken",
+        )
+    with assessment_cols[1]:
+        render_text_card(
+            "Preisattraktivität",
+            decision.get("Preisattraktivität") or "Nicht verfügbar",
+            "Preis im Verhältnis zu Bewertung und erwarteter Rendite",
+        )
+    with assessment_cols[2]:
+        render_text_card(
+            "Kurzfristiges Timing",
+            decision.get("Aktuelles Timing") or "Nicht verfügbar",
+            "Trend, Bodenbildung, Zonen und Momentum",
+        )
+
+    reason_col, risk_col = st.columns(2)
+    with reason_col:
+        st.markdown("**Warum?**")
+        for reason in decision_items(decision, "Hauptgründe")[:3]:
+            st.write(f"- {reason}")
+    with risk_col:
+        st.markdown("**Wichtigste Risiken**")
+        for risk in decision_items(decision, "Zentrale Risiken")[:2]:
+            st.write(f"- {risk}")
+
+    st.markdown("**Konkreter Handlungsplan**")
+    st.write(f"**Jetzt:** {decision.get('Handlung jetzt', 'Analyse neu bewerten.')}")
+    st.write(f"**Rücksetzer-Kaufzone:** {decision.get('Kaufzone', 'Keine belastbare Kaufzone verfügbar.')}")
+    st.write(f"**Reihenfolge der Tranchen:** {decision.get('Tranchierung', 'Keine belastbare Staffelung verfügbar.')}")
+    st.write(f"**Bei einem Rücksetzer:** {decision.get('Handlung bei Rücksetzer', 'Keine belastbare Kaufzone verfügbar.')}")
+    st.write(f"**Falls der Rücksetzer nicht kommt:** {decision.get('Handlung bei weiterer Stärke', 'Keine belastbare Bestätigung verfügbar.')}")
+    st.warning(f"**Widerlegung:** {decision.get('Widerlegungsbedingung', 'Keine belastbare Marke verfügbar.')}")
+    st.caption(f"Gültigkeit: {decision.get('Gültigkeit', 'Bei neuen Daten neu bewerten.')}")
+    st.caption(str(decision.get("Positionsgröße") or "Prozentangaben beziehen sich auf die geplante Position; keine Eurobeträge werden erfunden."))
+
+
+def modules_with_names(modules: list[ResearchModule], *markers: str) -> list[ResearchModule]:
+    lowered = [marker.lower() for marker in markers]
+    return [module for module in modules if any(marker in module.name.lower() for marker in lowered)]
+
+
+def render_module_expander(
+    label: str,
+    modules: list[ResearchModule],
+    *,
+    beginner_mode: bool = False,
+    details: list[str] | None = None,
+) -> None:
+    with st.expander(label, expanded=False):
+        if not modules and not details:
+            st.info("Für diesen Bereich sind derzeit keine belastbaren Daten verfügbar.")
+            return
+        for module in modules:
+            score_text = "n/a" if module.score is None else f"{module.score:.1f}/10"
+            st.markdown(f"**{module.name} · {score_text}**")
+            st.write(module.summary)
+            if beginner_mode and module.beginner:
+                st.caption(module.beginner)
+            for detail in module.details:
+                st.write(f"- {detail}")
+        for detail in details or []:
+            st.write(f"- {detail}")
+
+
+def user_relevant_modules(modules: list[ResearchModule]) -> list[ResearchModule]:
+    relevant: list[ResearchModule] = []
+    for module in modules:
+        summary = module.summary.strip().lower()
+        if module.score is None and (not summary or "nicht verfügbar" in summary):
+            continue
+        if "daten nicht verfügbar" in summary and module.score in {None, 5.0}:
+            continue
+        relevant.append(module)
+    return relevant
+
+
+def unique_text_items(*groups: Iterable[str], limit: int = 5) -> list[str]:
+    items: list[str] = []
+    for group in groups:
+        for raw_item in group:
+            item = str(raw_item).strip()
+            if not item or item in items or item.lower().startswith("keine klar"):
+                continue
+            items.append(item)
+            if len(items) >= limit:
+                return items
+    return items
+
+
+def user_facing_detail_text(text: str) -> str:
+    raw = str(text).strip()
+    lowered = raw.lower()
+    if "asset-qualität" in lowered:
+        return "Die verfügbaren Qualitätsdaten unterstützen die langfristige Investmentthese."
+    if "zukunftspotenzial" in lowered:
+        return "Wachstum, Margen und verfügbare Zukunftsdaten unterstützen die Investmentthese."
+    if "charttechnik" in lowered:
+        return "Kursstruktur, Trend und Momentum liefern aktuell Rückenwind."
+    if "bewertung" in lowered and "/10" in lowered:
+        return "Die Bewertung wurde gegen Wachstum, Qualität und eingepreiste Erwartungen abgewogen."
+    without_scores = re.sub(r"\b\d+(?:[.,]\d+)?/10\b", "", raw)
+    without_counts = re.sub(r"\s+aus\s+\d+\s+verfügbaren\s+Kennzahlen", "", without_scores, flags=re.IGNORECASE)
+    return re.sub(r"\s{2,}", " ", without_counts).replace(" .", ".").strip()
+
+
+def compact_scenario_rows(scenarios: list[dict]) -> list[dict[str, str]]:
+    triggers = {
+        "Bull-Case": "Bestätigter Aufwärtstrend und positive operative Entwicklung.",
+        "Base-Case": "Intakte Kursstruktur bei weitgehend stabilen Rahmenbedingungen.",
+        "Bear-Case": "Bruch der zentralen These oder deutliche Verschlechterung des Umfelds.",
+    }
+    return [
+        {
+            "Szenario": str(row.get("Szenario") or "Szenario"),
+            "Notwendige Entwicklung": str(row.get("Was müsste passieren?") or "Daten nicht verfügbar"),
+            "Wahrscheinlichkeit": str(row.get("Wahrscheinlichkeit") or "Daten nicht verfügbar"),
+            "Mögliche Folge": str(row.get("Kursziel") or "Daten nicht verfügbar"),
+            "Wichtigster Auslöser": triggers.get(str(row.get("Szenario")), "Neue belastbare Markt- oder Asset-Daten."),
+        }
+        for row in scenarios
+    ]
+
+
+def recommendation_risk_rows(decision: dict[str, object]) -> list[dict[str, str]]:
+    value = decision.get("Risiko-Details")
+    if not isinstance(value, list):
+        return []
+    return [
+        {
+            "Risiko": str(item.get("Risiko") or "Daten nicht verfügbar"),
+            "Relevanz": str(item.get("Relevanz") or "nicht eingestuft"),
+            "Erkennbar an": str(item.get("Erkennbar an") or "neuen belastbaren Daten"),
+        }
+        for item in value
+        if isinstance(item, dict)
+    ]
+
+
+def detail_analysis_tab_labels(portfolio_enabled: bool) -> list[str]:
+    labels = [
+        "Investmentthese",
+        "Preis & Bewertung",
+        "Einstieg & Vorgehen",
+        "Chancen",
+        "Risiken",
+        "Szenarien",
+        "Markt & Umfeld",
+    ]
+    if portfolio_enabled:
+        labels.append("Portfolio-Effekt")
+    return labels
+
+
+def advanced_analysis_tab_labels() -> list[str]:
+    return ["Technische Kennzahlen", "Fundamentale Kennzahlen", "Datenqualität", "Methodik", "Prognosequalität"]
+
+
+def forecast_status_messages(summary: dict, last_run: dict | None = None) -> list[str]:
+    evaluated = int(summary.get("evaluated") or 0)
+    open_count = int(summary.get("open") or 0)
+    due = int(summary.get("due") or 0)
+    missing_market_data = int(summary.get("missing_market_data") or 0)
+    total = evaluated + open_count
+    if total == 0:
+        messages = ["Noch keine Prognosen vorhanden."]
+        if last_run is None:
+            messages.append(
+                "Die automatische Prognoseerfassung ist noch nicht aktiv oder in der Prognosedatenbank wurde noch kein Hintergrundlauf dokumentiert."
+            )
+        else:
+            messages.append(
+                f"Der letzte Hintergrundlauf vom {last_run.get('run_date', 'unbekannten Datum')} hat noch keine auswertbaren Prognosen hinterlassen."
+            )
+        return messages
+
+    messages = [
+        f"{evaluated} Prognosezeiträume ausgewertet.",
+        f"{open_count} Prognosezeiträume noch offen.",
+    ]
+    if missing_market_data:
+        messages.append(
+            f"{missing_market_data} fällige Auswertungen sind wegen fehlender verwertbarer Marktdaten derzeit nicht möglich."
+        )
+    other_due = max(due - missing_market_data, 0)
+    if other_due:
+        messages.append(
+            f"{other_due} weitere Prognosen sind bereits fällig und werden beim nächsten Hintergrundlauf erneut geprüft."
+        )
+    not_due = max(open_count - due, 0)
+    if not_due:
+        messages.append(f"{not_due} Prognosezeiträume sind vorhanden, aber noch nicht fällig.")
+    next_due = summary.get("next_due_date")
+    if next_due:
+        parsed = pd.to_datetime(next_due, errors="coerce")
+        formatted = str(next_due) if pd.isna(parsed) else parsed.strftime("%d.%m.%Y")
+        messages.append(f"Erste nächste Auswertung möglich ab: {formatted}.")
+    if last_run is None:
+        messages.append("Hintergrundbetrieb noch nicht dokumentiert; Einrichtung oder ersten Lauf prüfen.")
+    return messages
+
+
+def analysis_search_candidates(query: str, history: list[dict] | None = None) -> list[dict]:
+    history = history if history is not None else load_search_history()
+    recent = [
+        ticker_candidate(
+            str(item.get("symbol") or ""),
+            name=str(item.get("name") or item.get("symbol") or ""),
+            exchange=str(item.get("exchange") or "Daten nicht verfügbar"),
+            currency=str(item.get("currency") or ""),
+            source="Zuletzt analysiert",
+        )
+        for item in history
+        if item.get("symbol")
+    ]
+    clean_query = normalize_query(query)
+    if not clean_query:
+        if recent:
+            return dedupe_candidates(recent)[:8]
+        return [ticker_candidate(symbol, source="Beispiel") for symbol in ["NVDA", "NOW", "EUNL.DE", "BTC-EUR"]]
+    matching_recent = [
+        candidate
+        for candidate in recent
+        if clean_query in normalize_query(f"{candidate.get('symbol', '')} {candidate.get('name', '')}")
+    ]
+    return dedupe_candidates([*matching_recent, *find_ticker_candidates(query)])[:8]
+
+
+def render_forecast_quality_panel(
+    database_path: Path = DEFAULT_DATABASE_PATH,
+    calibration_path: Path = DEFAULT_CALIBRATION_PATH,
+) -> None:
+    st.subheader("Prognosequalität")
+    st.caption(
+        "Zentrale Erfolgsdefinition: Richtungstrefferquote. Fehlende oder nicht wertbare Daten werden nicht gezählt."
+    )
+    summary = forecast_summary(database_path)
+    last_run = recent_run_status(database_path)
+    operation = forecast_operational_status(database_path)
+    with st.container(border=True):
+        st.markdown("**Automatischer Datenlauf**")
+        status_cols = st.columns(4)
+        status_cols[0].metric("Betriebsstatus", operation["label"])
+        last_run_value = operation.get("last_run") or {}
+        status_cols[1].metric("Letzter Lauf", last_run_value.get("run_date") or "Noch keiner")
+        status_cols[2].metric(
+            "Verarbeitet",
+            f"{int(last_run_value.get('processed_count') or 0)} / {int(last_run_value.get('universe_count') or 0)}",
+        )
+        next_run = pd.to_datetime(operation.get("next_run_at"), errors="coerce")
+        status_cols[3].metric(
+            "Nächster geplanter Lauf",
+            "Unbekannt" if pd.isna(next_run) else next_run.strftime("%d.%m. %H:%M"),
+        )
+        message_renderer = {
+            "success": st.success,
+            "info": st.info,
+            "warning": st.warning,
+            "error": st.error,
+        }.get(operation.get("severity"), st.info)
+        message_renderer(operation["message"])
+        sampling = last_run_value.get("sampling") or {}
+        if sampling.get("mode") == "weekly_cohort":
+            st.caption(
+                "Wochenstichprobe: "
+                f"{sampling.get('cohort_label') or sampling.get('cohort_id')} · "
+                f"{int(sampling.get('scheduled_assets') or 0)} Assets aus "
+                f"{int(sampling.get('weekly_universe_count') or 0)} pro Woche · "
+                f"Universum {sampling.get('universe_version') or 'unbekannt'}"
+            )
+        elif sampling.get("mode") == "evaluation_only":
+            st.caption(
+                "Dieser Termin prüft nur fällige Ergebnisse. Es werden keine neuen "
+                "Forward-Snapshots erzeugt."
+            )
+        if last_run_value.get("sampling_invalid"):
+            st.warning("Die gespeicherten Wochenkohorten-Metadaten sind nicht lesbar.")
+        if int(last_run_value.get("failure_count") or 0):
+            st.caption(f"Fehlgeschlagene Assets im letzten Lauf: {int(last_run_value['failure_count'])}")
+        operation_details = []
+        if last_run_value.get("elapsed_seconds") is not None:
+            operation_details.append(f"Laufzeit: {float(last_run_value['elapsed_seconds']):.1f} Sekunden")
+        if last_run_value.get("processed_per_minute") is not None:
+            operation_details.append(
+                f"Tempo: {float(last_run_value['processed_per_minute']):.2f} Assets/Minute"
+            )
+        operation_details.append(
+            f"Rate-Limit-Fehler: {int(last_run_value.get('rate_limit_failures') or 0)}"
+        )
+        if last_run_value.get("database_growth_bytes") is not None:
+            operation_details.append(
+                f"Datenbankwachstum: {int(last_run_value['database_growth_bytes']):+d} Bytes"
+            )
+        st.caption(" · ".join(operation_details))
+        if operation.get("last_error"):
+            st.caption(f"Letzter dokumentierter Fehler: {operation['last_error']}")
+        if int(operation.get("consecutive_problem_runs") or 0) >= 2:
+            st.error(
+                f"{int(operation['consecutive_problem_runs'])} aufeinanderfolgende Läufe hatten Probleme. "
+                "Bitte Aufgabenplanung, Internetverbindung und Laufprotokoll prüfen."
+            )
+    weekly_report = load_weekly_report()
+    if weekly_report:
+        with st.expander("Wöchentliche Marktstichprobe", expanded=False):
+            schedule = weekly_report.get("schedule") or {}
+            if schedule.get("active") is False:
+                start_day = pd.to_datetime(schedule.get("start_date"), errors="coerce")
+                start_text = (
+                    "unbekannt" if pd.isna(start_day) else start_day.strftime("%d.%m.%Y")
+                )
+                st.info(f"Die neue Wochenrotation startet am {start_text}.")
+            coverage = weekly_report.get("coverage") or {}
+            universe = weekly_report.get("universe") or {}
+            operations = weekly_report.get("operations") or {}
+            weekly_cols = st.columns(4)
+            weekly_cols[0].metric(
+                "Erfolgreiche Assets",
+                f"{int(coverage.get('successful_assets') or 0)} / "
+                f"{int(universe.get('planned_assets') or 0)}",
+            )
+            weekly_cols[1].metric(
+                "Abgeschlossene Kohorten",
+                f"{int(coverage.get('completed_cohorts') or 0)} / "
+                f"{int(coverage.get('planned_cohorts') or 0)}",
+            )
+            weekly_cols[2].metric(
+                "Fehlgeschlagene Assets",
+                int(coverage.get("failed_assets") or 0),
+            )
+            weekly_cols[3].metric(
+                "Rate-Limit-Fehler",
+                int(operations.get("rate_limit_failures") or 0),
+            )
+            overdue = coverage.get("overdue_cohorts") or []
+            if overdue:
+                st.warning(
+                    f"{len(overdue)} fällige Wochenkohorte(n) fehlen noch und werden ohne "
+                    "Rückdatierung beim nächsten möglichen Termin nachgeholt."
+                )
+            st.caption(
+                f"Universum {universe.get('version') or 'unbekannt'} · "
+                f"Abdeckung {float(coverage.get('successful_asset_coverage_pct') or 0):.2f} % · "
+                f"Datenbankintegrität {(weekly_report.get('evaluations') or {}).get('integrity') or 'unbekannt'}"
+            )
+    st.info("\n\n".join(forecast_status_messages(summary, last_run)))
+    metric_cols = st.columns(4)
+    metric_cols[0].metric(
+        "Gesamte Trefferquote",
+        (
+            "Getrennt nach Analyseart"
+            if summary.get("mixed_models")
+            else "Noch keine Daten" if summary["hit_rate"] is None else f"{summary['hit_rate']:.1f} %"
+        ),
+    )
+    metric_cols[1].metric("Ausgewertet", int(summary["evaluated"]))
+    metric_cols[2].metric("Offen", int(summary["open"]))
+    metric_cols[3].metric(
+        "Ø Abweichung",
+        "n/a" if summary["average_deviation_pct"] is None else f"{summary['average_deviation_pct']:.2f} %",
+    )
+    outcome_cols = st.columns(4)
+    outcome_cols[0].metric(
+        "Immer-steigend-Referenz",
+        "Noch keine Daten"
+        if summary.get("always_up_hit_rate") is None
+        else f"{float(summary['always_up_hit_rate']):.1f} %",
+    )
+    outcome_cols[1].metric(
+        "Vorsprung zur Referenz",
+        "Noch keine Daten"
+        if summary.get("model_advantage_vs_always_up_pct") is None
+        else f"{float(summary['model_advantage_vs_always_up_pct']):+.1f} Pp.",
+    )
+    outcome_cols[2].metric(
+        "Ø Rendite",
+        "Noch keine Daten"
+        if summary.get("average_return_pct") is None
+        else f"{float(summary['average_return_pct']):+.2f} %",
+    )
+    outcome_cols[3].metric(
+        "Ø schlechteste Bewegung",
+        "Noch keine Daten"
+        if summary.get("average_drawdown_pct") is None
+        else f"{float(summary['average_drawdown_pct']):+.2f} %",
+    )
+    if summary.get("evaluation_coverage_pct") is not None:
+        st.caption(
+            f"Ergebnisabdeckung fälliger Fälle: {float(summary['evaluation_coverage_pct']):.1f} % · "
+            f"davon für Richtungsmetriken wertbar: {float(summary.get('metric_coverage_pct') or 0):.1f} %."
+        )
+    if summary.get("simple_trend_hit_rate") is not None:
+        st.caption(
+            f"20-Tage-Trendreferenz: {float(summary['simple_trend_hit_rate']):.1f} % · "
+            f"Modellvorsprung: {float(summary.get('model_advantage_vs_simple_trend_pct') or 0):+.1f} Pp. · "
+            f"Ø Überschussrendite zum Marktbenchmark: "
+            f"{float(summary.get('average_excess_return_pct') or 0):+.2f} %."
+        )
+    if summary["evaluated"] < 20:
+        st.caption("Noch nicht belastbar – weniger als 20 Prognosezeiträume wurden ausgewertet.")
+    if summary.get("hit_rate_ci_low_pct") is not None:
+        st.caption(
+            "95-%-Unsicherheitsbereich der Richtungstrefferquote: "
+            f"{float(summary['hit_rate_ci_low_pct']):.1f} bis "
+            f"{float(summary['hit_rate_ci_high_pct']):.1f} %."
+        )
+    if summary.get("up_precision_pct") is not None:
+        classification_parts = [
+            f"Precision Steigend: {float(summary['up_precision_pct']):.1f} %",
+            f"Recall Steigend: {float(summary.get('up_recall_pct') or 0):.1f} %",
+        ]
+        if summary.get("balanced_accuracy_pct") is not None:
+            classification_parts.append(
+                f"Balanced Accuracy: {float(summary['balanced_accuracy_pct']):.1f} %"
+            )
+        st.caption(" · ".join(classification_parts))
+    if int(summary.get("probability_evaluated") or 0) > 0:
+        st.caption(
+            "Nicht kalibrierte Rohwahrscheinlichkeit · "
+            f"{int(summary['probability_evaluated'])} Fälle · "
+            f"Brier Score {float(summary['brier_score']):.4f} · "
+            f"Log Loss {float(summary['log_loss']):.4f} · "
+            f"Kalibrierungsfehler {float(summary['calibration_error_pct']):.1f} %."
+        )
+        if int(summary["probability_evaluated"]) < 50:
+            st.caption(
+                "Diese Wahrscheinlichkeitswerte sind noch nicht belastbar kalibriert; "
+                "sie dienen zunächst nur der ehrlichen Forward-Messung."
+            )
+    if summary.get("mixed_models"):
+        st.caption(
+            "Mehrere Analysearten werden nicht zu einer gemeinsamen Trefferquote vermischt. "
+            "Die belastbare Einordnung steht getrennt unter Analyseart."
+        )
+
+    calibration_profile = load_calibration_profile(calibration_path)
+    with st.expander("Automatisches Kalibrierungsprofil", expanded=False):
+        if not calibration_profile:
+            st.info(
+                "Noch kein Kalibrierungsprofil vorhanden. Es wird nach dem nächsten Hintergrundlauf "
+                "automatisch aus echten Auswertungen erzeugt."
+            )
+        else:
+            calibration_overall = calibration_profile.get("overall") or {}
+            calibration_cols = st.columns(3)
+            calibration_cols[0].metric(
+                "Ausgewertete Fälle", int(calibration_overall.get("evaluated_cases") or 0)
+            )
+            calibration_cols[1].metric(
+                "Reifegrad", calibration_overall.get("maturity_label") or "Daten nicht verfügbar"
+            )
+            calibration_cols[2].metric(
+                "Manuelle Prüfhinweise",
+                len(calibration_profile.get("manual_review_suggestions") or []),
+            )
+            st.caption(
+                f"Profilversion: {calibration_profile.get('profile_version') or 'Unbekannt'} · "
+                f"Datenfingerabdruck: {str(calibration_profile.get('data_fingerprint') or 'Unbekannt')[:12]}"
+            )
+            st.success(
+                "Das Profil sammelt und bewertet historische Ergebnisse. Produktionsregeln und "
+                "Score-Gewichte werden dadurch nicht automatisch verändert."
+            )
+            if int(calibration_overall.get("probability_evaluated") or 0) > 0:
+                st.caption(
+                    f"Rohwahrscheinlichkeiten: {int(calibration_overall['probability_evaluated'])} Fälle · "
+                    f"Brier {float(calibration_overall['brier_score']):.4f} · "
+                    f"Log Loss {float(calibration_overall['log_loss']):.4f} · "
+                    f"Kalibrierungsfehler {float(calibration_overall['calibration_error_pct']):.1f} %."
+                )
+            learning_readiness = calibration_profile.get("learning_readiness") or {}
+            st.caption(
+                "Lern-Datensatz: "
+                f"{int(learning_readiness.get('eligible_cases') or 0)} verifizierte gereifte Fälle · "
+                f"Status {learning_readiness.get('status') or 'nicht verfügbar'} · "
+                "Produktivaktivierung: gesperrt."
+            )
+            monitoring = calibration_profile.get("monitoring") or {}
+            if monitoring:
+                operations = monitoring.get("operational") or {}
+                evaluation_coverage = operations.get("evaluation_coverage_pct")
+                run_success_coverage = operations.get("recent_run_success_coverage_pct")
+                stale_due_total = int(operations.get("stale_due_total") or 0)
+                evaluation_coverage_text = (
+                    "noch nicht messbar"
+                    if evaluation_coverage is None
+                    else f"{float(evaluation_coverage):.1f} %"
+                )
+                run_success_coverage_text = (
+                    "noch nicht messbar"
+                    if run_success_coverage is None
+                    else f"{float(run_success_coverage):.1f} %"
+                )
+                st.markdown("**Rollierende Qualitäts- und Driftüberwachung**")
+                st.caption(
+                    f"Status {monitoring.get('status') or 'nicht verfügbar'} · "
+                    f"Kalendarisch fällige Ergebnisabdeckung {evaluation_coverage_text} · "
+                    f"mehr als drei Tage fällig: {stale_due_total} · "
+                    f"Asset-Erfolgsabdeckung im jüngsten Fenster {run_success_coverage_text} · "
+                    "rein beobachtend, keine automatische Modell- oder Regeländerung."
+                )
+                monitoring_alerts = monitoring.get("alerts") or []
+                if monitoring_alerts:
+                    for alert in monitoring_alerts[:10]:
+                        message = (
+                            f"{alert.get('scope') or 'Monitoring'}: "
+                            f"{alert.get('message') or 'Prüfung erforderlich.'}"
+                        )
+                        if alert.get("severity") == "critical":
+                            st.error(message)
+                        else:
+                            st.warning(message)
+                else:
+                    st.caption(
+                        "Noch kein belastbarer Driftvergleich oder keine auffällige Verschlechterung; "
+                        "kleine Datenmengen werden nicht als Drift ausgegeben."
+                    )
+            for suggestion in (calibration_profile.get("manual_review_suggestions") or [])[:10]:
+                st.write(
+                    f"- **{suggestion.get('priority', 'mittel').title()} · "
+                    f"{suggestion.get('scope', 'Segment')}:** {suggestion.get('suggestion')} "
+                    f"{suggestion.get('evidence')}"
+                )
+
+    breakdown_cols = st.columns(3)
+    with breakdown_cols[0]:
+        st.markdown("**Trefferquote nach Zeitraum**")
+        horizon_rows = [
+            {
+                "Zeitraum": row["label"],
+                "Ausgewertet": int(row["evaluated"] or 0),
+                "Trefferquote": "n/a" if row["hit_rate"] is None else f"{float(row['hit_rate']):.1f} %",
+                "Brier": (
+                    "n/a"
+                    if row.get("brier_score") is None
+                    else f"{float(row['brier_score']):.4f}"
+                ),
+            }
+            for row in summary["by_horizon"]
+        ]
+        st.dataframe(pd.DataFrame(horizon_rows), use_container_width=True, hide_index=True)
+    with breakdown_cols[1]:
+        st.markdown("**Trefferquote nach Asset-Typ**")
+        type_rows = [
+            {
+                "Asset-Typ": row["label"],
+                "Ausgewertet": int(row["evaluated"] or 0),
+                "Trefferquote": "n/a" if row["hit_rate"] is None else f"{float(row['hit_rate']):.1f} %",
+            }
+            for row in summary["by_asset_type"]
+        ]
+        st.dataframe(pd.DataFrame(type_rows), use_container_width=True, hide_index=True)
+    with breakdown_cols[2]:
+        st.markdown("**Trefferquote nach Analyseart**")
+        model_rows = [
+            {
+                "Analyseart": row["label"],
+                "Ausgewertet": int(row["evaluated"] or 0),
+                "Trefferquote": "n/a" if row["hit_rate"] is None else f"{float(row['hit_rate']):.1f} %",
+                "Brier": (
+                    "n/a"
+                    if row.get("brier_score") is None
+                    else f"{float(row['brier_score']):.4f}"
+                ),
+            }
+            for row in summary["by_model"]
+        ]
+        st.dataframe(pd.DataFrame(model_rows), use_container_width=True, hide_index=True)
+
+    with st.expander("Weitere Qualitätssegmente", expanded=False):
+        st.caption(
+            "Gesamtwerte können Schwächen einzelner Regionen, Marktphasen, Datenqualitäten oder "
+            "Logikversionen verdecken. Segmente ohne echte Auswertung bleiben als nicht belastbar sichtbar."
+        )
+
+        def segment_table(rows: list[dict]) -> pd.DataFrame:
+            return pd.DataFrame(
+                [
+                    {
+                        "Segment": row.get("label") or "Unbekannt",
+                        "Ausgewertet": int(row.get("evaluated") or 0),
+                        "Trefferquote": (
+                            "n/a"
+                            if row.get("hit_rate") is None
+                            else f"{float(row['hit_rate']):.1f} %"
+                        ),
+                        "Ø Rendite": (
+                            "n/a"
+                            if row.get("average_return_pct") is None
+                            else f"{float(row['average_return_pct']):+.2f} %"
+                        ),
+                        "Ø Überschuss": (
+                            "n/a"
+                            if row.get("average_excess_return_pct") is None
+                            else f"{float(row['average_excess_return_pct']):+.2f} %"
+                        ),
+                    }
+                    for row in rows[:20]
+                ]
+            )
+
+        segment_cols = st.columns(2)
+        with segment_cols[0]:
+            st.markdown("**Region**")
+            st.dataframe(segment_table(summary.get("by_region") or []), use_container_width=True, hide_index=True)
+            st.markdown("**Datenqualität**")
+            st.dataframe(
+                segment_table(summary.get("by_data_quality") or []),
+                use_container_width=True,
+                hide_index=True,
+            )
+        with segment_cols[1]:
+            st.markdown("**Marktphase**")
+            st.dataframe(
+                segment_table(summary.get("by_market_phase") or []),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.markdown("**Logikversion**")
+            st.dataframe(
+                segment_table(summary.get("by_logic_version") or []),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    filter_cols = st.columns([2, 1, 1, 1, 1])
+    search = filter_cols[0].text_input("Asset oder Ticker", key="forecast_quality_search")
+    asset_type = filter_cols[1].selectbox(
+        "Asset-Typ", ["Alle", "Aktie", "ETF", "Krypto", "Derivat / unbekannt"], key="forecast_quality_type"
+    )
+    model_labels = {"Alle": "Alle", **{label: key for key, label in FORECAST_MODEL_LABELS.items()}}
+    model_label = filter_cols[2].selectbox(
+        "Analyseart", list(model_labels), key="forecast_quality_model"
+    )
+    horizon = filter_cols[3].selectbox(
+        "Prognosezeitraum", ["Alle", *FORECAST_HORIZONS], key="forecast_quality_horizon"
+    )
+    result_status = filter_cols[4].selectbox(
+        "Ergebnis", ["Alle", "Offen", "Treffer", "Fehler"], key="forecast_quality_result"
+    )
+    today = pd.Timestamp.now().date()
+    created_range = st.date_input(
+        "Erstellungszeitraum",
+        value=(today - pd.Timedelta(days=365), today),
+        key="forecast_quality_created_range",
+    )
+    if isinstance(created_range, (list, tuple)) and len(created_range) == 2:
+        created_from, created_to = created_range
+    else:
+        created_from = created_to = None
+    page_size = 50
+    page = st.number_input("Seite", min_value=1, value=1, step=1, key="forecast_quality_page")
+    rows, total = forecast_quality_rows(
+        database_path,
+        search=search,
+        asset_type=asset_type,
+        model_type=model_labels[model_label],
+        horizon=horizon,
+        result_status=result_status,
+        created_from=created_from,
+        created_to=created_to,
+        limit=page_size,
+        offset=(int(page) - 1) * page_size,
+    )
+    st.caption(f"{total} passende Prognosezeiträume · maximal {page_size} Zeilen pro Seite")
+    if rows:
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    else:
+        st.info("Für die gewählten Filter liegen noch keine Prognosedaten vor.")
+    if last_run:
+        st.caption(
+            f"Letzter Hintergrundlauf: {last_run['run_date']} · {last_run['status']} · "
+            f"{last_run['success_count']} erfolgreich · {last_run['failure_count']} fehlgeschlagen"
+        )
+
+
 def main() -> None:
     st.set_page_config(page_title=APP_TITLE, layout="wide")
 
     st.markdown(
         """
         <style>
+        :root {
+            --ia-radius: 16px;
+            --ia-border: rgba(148, 163, 184, 0.28);
+            --ia-surface: rgba(15, 23, 42, 0.30);
+            --ia-muted: #cbd5e1;
+        }
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            border-radius: var(--ia-radius);
+            border-color: var(--ia-border);
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.24), rgba(15, 23, 42, 0.12));
+            box-shadow: 0 12px 32px rgba(2, 6, 23, 0.10);
+        }
+        .stButton > button {
+            border-radius: 12px;
+            min-height: 2.8rem;
+            font-weight: 650;
+        }
         .recommendation-box {
             border: 1px solid rgba(148, 163, 184, 0.35);
             border-radius: 8px;
@@ -7583,6 +9735,36 @@ def main() -> None:
             font-size: 0.98rem;
             line-height: 1.45;
             margin-top: 8px;
+        }
+        .text-card {
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 8px;
+            padding: 14px 16px;
+            background: rgba(15, 23, 42, 0.30);
+            margin-bottom: 12px;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .text-card-label {
+            color: #9ca3af;
+            font-size: 0.86rem;
+            margin-bottom: 4px;
+        }
+        .text-card-value {
+            font-size: 1.25rem;
+            font-weight: 650;
+            line-height: 1.3;
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+        .text-card-note {
+            color: #cbd5e1;
+            font-size: 0.88rem;
+            line-height: 1.4;
+            margin-top: 6px;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
         .analysis-card {
             border: 1px solid rgba(148, 163, 184, 0.25);
@@ -7620,167 +9802,352 @@ def main() -> None:
             margin-top: 10px;
             color: #e5e7eb;
         }
+        [data-testid="stMetricValue"],
+        [data-testid="stMetricValue"] > div,
+        [data-testid="stMarkdownContainer"],
+        [data-testid="stAlertContainer"] {
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word;
+        }
+        @media (max-width: 700px) {
+            [data-testid="stHorizontalBlock"] {
+                flex-wrap: wrap;
+            }
+            [data-testid="stColumn"] {
+                flex: 1 1 100% !important;
+                width: 100% !important;
+                min-width: 100% !important;
+            }
+            .recommendation-value, .decision-title {
+                font-size: 1.8rem;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    st.title(APP_TITLE)
+    page_state_key = "active_page"
+    valid_pages = {"home", "analysis", "opportunities", "swing_finder", "scanner"}
+    if page_state_key not in st.session_state:
+        st.session_state[page_state_key] = "home"
+    if st.session_state[page_state_key] == "scanner":
+        st.session_state[page_state_key] = "swing_finder"
+    if st.session_state[page_state_key] not in valid_pages:
+        st.session_state[page_state_key] = "home"
+    active_page = st.session_state[page_state_key]
+
+    if active_page == "home":
+        home_title_col, home_quality_col = st.columns([4, 1])
+        with home_title_col:
+            st.title("Investment Assistant")
+        with home_quality_col:
+            quality_summary = forecast_summary()
+            operation = forecast_operational_status()
+            hit_rate = quality_summary["hit_rate"]
+            st.metric(
+                "Prognose-Trefferquote",
+                "Nach Analyseart" if quality_summary.get("mixed_models") else "–" if hit_rate is None else f"{hit_rate:.1f} %",
+            )
+            st.caption(f"Datenlauf: {operation['label']}")
+            if operation["severity"] == "error":
+                st.error("Automatischen Datenlauf prüfen")
+            for status_line in forecast_status_messages(quality_summary, recent_run_status())[:3]:
+                st.caption(status_line)
+            if quality_summary["evaluated"] < 20:
+                st.caption("Noch nicht belastbar")
+        st.subheader("Was möchtest du untersuchen?")
+        st.write("Drei getrennte Bereiche für drei unterschiedliche Anlagefragen.")
+
+        analysis_col, opportunities_col, scanner_col = st.columns(3, gap="large")
+        with analysis_col:
+            with st.container(border=True):
+                st.subheader("Asset-Analyse")
+                st.caption("Bekanntes Asset · konkreter Einstieg")
+                st.write("Eine Aktie, einen ETF oder eine Kryptowährung gezielt bewerten.")
+                if st.button("Asset-Analyse öffnen", type="primary", use_container_width=True):
+                    st.session_state[page_state_key] = "analysis"
+                    st.rerun()
+
+        with opportunities_col:
+            with st.container(border=True):
+                st.subheader("Investment Opportunities")
+                st.caption("Monate bis Jahre · neue Ideen")
+                st.write("Hochwertige mittel- und langfristige Investmentchancen entdecken.")
+                if st.button("Investment Opportunities öffnen", use_container_width=True):
+                    st.session_state[page_state_key] = "opportunities"
+                    st.rerun()
+
+        with scanner_col:
+            with st.container(border=True):
+                st.subheader("Swing Trade Finder")
+                st.caption("Tage bis Wochen · konkrete Setups")
+                st.write("Selektive Long-Swing-Trades mit Einstieg, Stop und Zielen finden.")
+                if st.button("Swing Trade Finder öffnen", use_container_width=True):
+                    st.session_state[page_state_key] = "swing_finder"
+                    st.rerun()
+
+        st.warning(DISCLAIMER)
+        st.caption("Keine Broker-Anbindung. Keine Kauf- oder Verkaufsautomatisierung. Die letzte Entscheidung trifft immer der Nutzer.")
+        return
+
+    if st.button("← Zurück zur Startseite", key=f"back_to_home_{active_page}"):
+        st.session_state[page_state_key] = "home"
+        st.rerun()
+
+    if active_page == "opportunities":
+        st.title("Investment Opportunities")
+        st.write("Neue mittel- und langfristige Investmentideen entdecken.")
+        st.info(
+            "Dieser Bereich wird als eigenständiges Modul aufgebaut. Der heutige Swing Trade Finder wird dafür "
+            "nicht fachlich wiederverwendet, und es werden keine scheinbaren Kandidaten erzeugt."
+        )
+        current_col, future_col = st.columns(2, gap="large")
+        with current_col:
+            with st.container(border=True):
+                st.subheader("Aktuell attraktiv")
+                st.caption("Mehrere Monate bis ungefähr drei Jahre")
+                st.write("Geplant: gute Unternehmen mit attraktivem Verhältnis aus Preis, Potenzial und Risiko.")
+        with future_col:
+            with st.container(border=True):
+                st.subheader("Zukunftschancen 3+ Jahre")
+                st.caption("Drei bis sieben Jahre")
+                st.write("Geplant: Unternehmen mit strukturellem Wachstum und noch nicht voll eingepreistem Potenzial.")
+        st.warning(DISCLAIMER)
+        st.caption("Keine Broker-Anbindung. Keine Kauf- oder Verkaufsautomatisierung.")
+        return
+
+    if active_page == "swing_finder":
+        st.title("Swing Trade Finder")
+        st.write("Automatischer Marktfilter für wenige, vollständig geprüfte Long-Swing-Setups.")
+
+        if not load_risk_acknowledgement(SWING_RISK_ACK_PATH):
+            st.warning(RISK_NOTICE)
+            st.caption("Diese Bestätigung wird nur lokal gespeichert und muss pro Installation einmal erfolgen.")
+            if st.button("Verstanden und fortfahren", type="primary", use_container_width=True):
+                acknowledged_at = datetime.now().astimezone().isoformat()
+                if save_risk_acknowledgement(SWING_RISK_ACK_PATH, acknowledged_at):
+                    st.rerun()
+                else:
+                    st.error("Die lokale Bestätigung konnte nicht sicher gespeichert werden.")
+            return
+
+        st.caption("Die App führt keine Käufe, Verkäufe oder Orders aus.")
+
+        expire_due_paper_trades()
+        trading_capital_eur = st.number_input(
+            "Verfügbares Tradingkapital in Euro",
+            min_value=0.0,
+            value=0.0,
+            step=1_000.0,
+            help="Ein Kapital größer als 0 € ermöglicht die automatische, konservative Positionsberechnung.",
+        )
+        settings = internal_swing_settings(trading_capital_eur)
+
+        universe_report = load_swing_universe(DEFAULT_SWING_UNIVERSE_PATH)
+        with st.expander("Erweiterte Einstellungen und Universum", expanded=False):
+            st.caption("Alle Werte sind intern festgelegt und hier bewusst nicht veränderbar.")
+            policy = risk_policy_as_dict()
+            st.write(
+                f"Risikoregel {policy['version']}: höchstens {policy['max_risk_pct_per_trade']:.2f}% Risiko je Trade, "
+                f"{policy['max_total_open_risk_pct']:.2f}% offenes Gesamtrisiko, "
+                f"{policy['max_total_exposure_pct']:.1f}% Gesamtbelastung "
+                f"und {policy['max_position_exposure_pct']:.1f}% je Position."
+            )
+            st.caption("Die Anzahl gleichzeitiger Trades ist dynamisch und nicht mehr auf drei begrenzt.")
+            prefilter = prefilter_thresholds_as_dict()
+            st.write(
+                f"Vorfilter: mindestens {prefilter['min_history_rows']} Tageszeilen; anschließend werden "
+                "alle ernsthaft möglichen Kandidaten vollständig analysiert."
+            )
+            st.write(
+                f"Universum {universe_report.assets[0].version if universe_report.assets else 'nicht verfügbar'}: "
+                f"{universe_report.active_count} aktive gültige Assets."
+            )
+            if universe_report.errors:
+                for error in universe_report.errors:
+                    st.error(error)
+            if universe_report.assets:
+                universe_rows = [asset.as_dict() for asset in universe_report.assets]
+                st.dataframe(pd.DataFrame(universe_rows), use_container_width=True, hide_index=True)
+
+        scan_requested = st.button("Markt jetzt scannen", type="primary", use_container_width=True)
+
+        scan_state_key = "swing_scanner_result"
+        if scan_requested:
+            if universe_report.active_count < 1_000:
+                st.error("Der Scan wurde gestoppt: Das geprüfte Universum enthält weniger als 1.000 aktive Assets.")
+                return
+            with st.spinner("Lade das Marktuniversum, filtere schnell vor und prüfe alle möglichen Kandidaten vollständig..."):
+                scan_result = scan_swing_market(settings)
+            try:
+                forward_record = record_swing_forward_scan(scan_result)
+                signal_snapshots = {
+                    str(item["signal_id"]): dict(item["snapshot"])
+                    for item in load_swing_forward_signals(DEFAULT_SWING_FORWARD_DB_PATH)
+                }
+                for setup in scan_result["approved"]:
+                    signal_id = forward_record["signal_ids_by_setup"].get(str(setup.get("setup_id") or ""))
+                    if signal_id:
+                        setup["forward_signal_id"] = signal_id
+                        setup["forward_signal_snapshot"] = signal_snapshots.get(signal_id, {})
+                try:
+                    scan_result["historical_real_forward_linkage"] = (
+                        refresh_swing_walk_forward_forward_links(
+                            DEFAULT_SWING_WALK_FORWARD_DB_PATH,
+                            DEFAULT_SWING_FORWARD_DB_PATH,
+                        )
+                    )
+                except Exception as linkage_exc:
+                    scan_result["historical_real_forward_linkage"] = {
+                        "status": "attention",
+                        "error": str(linkage_exc),
+                        "automatic_rule_change": False,
+                    }
+                scan_result["forward_documentation"] = (
+                    f"Echter Forward-Scan unveränderbar gespeichert: Scan {forward_record['scan_id'][:12]}, "
+                    f"{forward_record['signals_total']} Signal(e)."
+                )
+            except Exception as exc:
+                scan_result["forward_documentation"] = f"Forward-Speicherung fehlgeschlagen: {exc}"
+                scan_result["errors"].append(scan_result["forward_documentation"])
+            paper_records = [swing_setup_trade_record(setup) for setup in scan_result["approved"]]
+            documented_count, documented_message = auto_document_trade_setups(paper_records)
+            scan_result["paper_documentation"] = documented_message
+            st.session_state[scan_state_key] = scan_result
+            if documented_count:
+                st.success(documented_message)
+
+        render_swing_user_trades()
+        render_swing_bot_evidence_status()
+        render_swing_walk_forward_research()
+
+        scan_result = st.session_state.get(scan_state_key)
+        if not isinstance(scan_result, dict):
+            latest_background_scan = None
+            if DEFAULT_SWING_FORWARD_DB_PATH.exists():
+                background_scans = load_swing_forward_scans(DEFAULT_SWING_FORWARD_DB_PATH)
+                latest_background_scan = background_scans[-1] if background_scans else None
+            initial_cols = st.columns(4)
+            if latest_background_scan is None:
+                initial_cols[0].metric("Marktlage", "Noch kein Scan")
+                initial_cols[1].metric("Universum", universe_report.active_count)
+                initial_cols[2].metric("Kursdaten geladen", 0)
+                initial_cols[3].metric("Freigegeben", 0)
+                st.info(
+                    "Starte den Scan. Alle Assets durchlaufen zuerst den schnellen Vorfilter; alle ernsthaft möglichen "
+                    "Kandidaten werden tief analysiert. Wenn nichts alle Mindestregeln erfüllt, wird kein Trade erzwungen."
+                )
+            else:
+                background_snapshot = dict(latest_background_scan.get("snapshot") or {})
+                background_statistics = dict(background_snapshot.get("statistics") or {})
+                initial_cols[0].metric("Marktlage", background_snapshot.get("market_label", "Nicht verfügbar"))
+                initial_cols[1].metric("Zuletzt geprüft", int(background_statistics.get("universe_size") or 0))
+                initial_cols[2].metric("Kursdaten geladen", int(background_statistics.get("loaded_assets") or 0))
+                initial_cols[3].metric("Freigegeben", int(background_statistics.get("approved_trades") or 0))
+                st.caption(
+                    f"Letzter automatischer Regional-Scan: {latest_background_scan.get('observed_at', 'Zeit nicht verfügbar')} · "
+                    f"Bereich {background_snapshot.get('scan_scope', 'nicht verfügbar')}. "
+                    "Ein manueller Vollscan ist für diese gespeicherten Ergebnisse nicht erforderlich."
+                )
+                render_swing_background_signals(settings)
+            return
+
+        render_swing_scanner(scan_result, settings)
+        return
+
+    heading_col, settings_col = st.columns([5, 1])
+    with heading_col:
+        st.title("Asset-Analyse")
+        st.write("Einzelne Aktien, ETFs oder Kryptowährungen analysieren und bewerten.")
+    with settings_col:
+        with st.popover("⚙ Einstellungen", use_container_width=True):
+            period_label = st.selectbox("Zeitraum", list(PERIOD_OPTIONS), index=2)
+            interval = st.selectbox("Intervall", INTERVAL_OPTIONS, index=4)
+            refresh_label = st.selectbox("Auto-Refresh", list(REFRESH_OPTIONS), index=0)
+            currency_label = st.selectbox(
+                "Währungsanzeige", ["Nur Euro", "Euro und Originalwährung"], index=0
+            )
+            currency_mode = "Nur EUR" if currency_label == "Nur Euro" else "EUR + Originalwährung"
+            position_status = st.radio(
+                "Aktuelle Position", ["Ich habe keine Position", "Ich halte bereits"], index=0
+            )
+            portfolio_enabled = st.toggle("Portfolio in Bewertung einbeziehen", value=False)
+            beginner_mode = st.toggle("Anfänger-Modus", value=True)
+            with st.expander("Erweiterte Einstellungen", expanded=False):
+                manual_asset_type = st.selectbox(
+                    "Asset-Typ manuell korrigieren",
+                    ["Automatisch", "Aktie", "ETF", "Krypto", "Unbekannt"],
+                    index=0,
+                )
+                st.caption("Nur verwenden, wenn die automatische Erkennung unzutreffend ist.")
+            with st.expander("Erweiterte Einblicke", expanded=False):
+                show_forecast_quality = st.toggle("Prognosequalität", value=False)
 
     st.warning(DISCLAIMER)
     st.caption("Keine Broker-Anbindung. Keine Kauf- oder Verkaufsautomatisierung. Die letzte Entscheidung trifft immer der Nutzer.")
 
-    with st.sidebar:
-        st.header("Analyse")
-        query = st.text_input("Asset-Name oder Ticker", value="", placeholder="z. B. Xiaomi, PLTR, Bitcoin")
-        period_label = st.selectbox("Zeitraum", list(PERIOD_OPTIONS), index=2)
-        interval = st.selectbox("Intervall", INTERVAL_OPTIONS, index=4)
-        refresh_label = st.selectbox("Auto-Refresh", list(REFRESH_OPTIONS), index=0)
-        currency_mode = st.selectbox("Währungsanzeige", ["EUR + Originalwährung", "Nur EUR"], index=0)
-        manual_asset_type = st.selectbox("Asset-Typ", ["Automatisch", "Aktie", "ETF", "Krypto", "Unbekannt"], index=0)
-        position_status = st.radio("Aktuelle Position", ["Ich habe keine Position", "Ich halte bereits"], index=0)
-        portfolio_enabled = st.toggle("Portfolio in Bewertung einbeziehen", value=False)
-        beginner_mode = st.toggle("Anfänger-Modus", value=True)
-        with st.expander("Forward-Testing", expanded=False):
-            trade_setups = load_trade_history()
-            forward_tests = load_forward_tests()
-            predictions = load_prediction_history()
-            st.caption(f"Gespeicherte Trading-Setups: {len(trade_setups)}")
-            if st.button("Fällige Trading-Setups auswerten", use_container_width=True):
-                updated, message = evaluate_due_trade_history()
-                if updated:
-                    st.success(message)
-                else:
-                    st.info(message)
-            decisions = load_decision_history()
-            st.caption(f"Gespeicherte Nutzerentscheidungen: {len(decisions)}")
-            if st.button("Fällige Entscheidungen auswerten", use_container_width=True):
-                updated, message = evaluate_due_decision_history()
-                if updated:
-                    st.success(message)
-                else:
-                    st.info(message)
-            st.caption(f"Gespeicherte Analysen: {len(forward_tests)}")
-            if st.button("Fällige Forward-Tests auswerten", use_container_width=True):
-                updated, message = evaluate_due_forward_tests()
-                if updated:
-                    st.success(message)
-                else:
-                    st.info(message)
-            st.caption(f"Gespeicherte Prognosen: {len(predictions)}")
-            if st.button("Fällige Prognosen auswerten", use_container_width=True):
-                updated, message = evaluate_due_predictions()
-                if updated:
-                    st.success(message)
-                else:
-                    st.info(message)
+    if show_forecast_quality:
+        render_forecast_quality_panel()
+        st.divider()
 
-        with st.expander("Opportunity Scanner", expanded=False):
-            scanner_watchlist_raw = st.text_area(
-                "Watchlist",
-                value=DEFAULT_SCANNER_WATCHLIST,
-                help="Kommagetrennte Yahoo-Finance-Ticker. Der Scanner macht nur Vorschläge und handelt nicht automatisch.",
-            )
-            scanner_symbols = parse_watchlist_symbols(scanner_watchlist_raw)
-            st.caption(f"{len(scanner_symbols)} Ticker vorbereitet.")
-            scan_requested = st.button("Watchlist scannen", use_container_width=True)
-
-        candidates = find_ticker_candidates(query)
-        candidate_labels = [format_candidate(candidate) for candidate in candidates]
-        selected_label = st.selectbox("Gefundene Yahoo-Finance-Treffer", candidate_labels or [""])
-        selected_candidate_data = candidates[candidate_labels.index(selected_label)] if selected_label and candidate_labels else None
-        if selected_candidate_data:
-            st.caption(
-                f"{selected_candidate_data['name']} | Ticker: {selected_candidate_data['symbol']} | Börse: {selected_candidate_data['exchange']}"
-            )
-        elif query.strip():
-            st.error("Kein passender Yahoo-Finance-Treffer gefunden.")
-            suggestions = similar_ticker_suggestions(query)
-            if suggestions:
-                st.info("Ähnliche bekannte Treffer: " + ", ".join(format_candidate(item) for item in suggestions))
-
-        history = load_search_history()
-        selected_history_data = None
-        if history:
-            with st.expander("Zuletzt erfolgreiche Suchen", expanded=False):
-                history_labels = [
-                    f"{item.get('name', item.get('symbol'))} | {item.get('symbol')} | {item.get('exchange', 'Daten nicht verfügbar')}"
-                    for item in history[:8]
-                ]
-                selected_history_label = st.selectbox("Schnellwahl aus Historie", [""] + history_labels)
-                if selected_history_label:
-                    selected_history_data = history[history_labels.index(selected_history_label)]
-                    st.caption(f"Aus Historie übernommen: {selected_history_data.get('symbol', '')}")
-                for item in history[:5]:
-                    st.write(f"{item.get('name', item.get('symbol'))} | {item.get('symbol')} | {item.get('exchange', 'Daten nicht verfügbar')}")
-        manual_symbol = st.text_input(
-            "Manueller Ticker überschreibt Auswahl",
+    st.subheader("Asset suchen")
+    search_col, button_col = st.columns([5, 1])
+    with search_col:
+        query = st.text_input(
+            "Asset-Name oder Yahoo-Finance-Ticker",
             value="",
-            placeholder="z. B. NVDA, BTC-EUR, EUNL.DE",
+            placeholder="z. B. ServiceNow, NVDA, EUNL.DE oder Bitcoin",
+            label_visibility="collapsed",
         )
-        analyze = st.button("Analysieren", type="primary", use_container_width=True)
+    with button_col:
+        analyze_clicked = st.button("Analysieren", type="primary", use_container_width=True)
+
+    candidates = analysis_search_candidates(query)
+    candidate_labels = [
+        f"{format_candidate(candidate)} · {candidate.get('source', 'Yahoo Finance')}"
+        for candidate in candidates
+    ]
+    selected_candidate_data = None
+    if candidate_labels:
+        selected_label = st.selectbox(
+            "Vorschläge",
+            candidate_labels,
+            help="Zuletzt erfolgreich analysierte Assets werden priorisiert; bei Eingabe kommen Yahoo-Finance-Treffer hinzu.",
+        )
+        selected_candidate_data = candidates[candidate_labels.index(selected_label)]
+        st.caption(
+            f"Auswahl: {selected_candidate_data['name']} · {selected_candidate_data['symbol']} · "
+            f"{selected_candidate_data['exchange']}"
+        )
+    elif query.strip():
+        st.error("Kein passender Yahoo-Finance-Treffer gefunden. Fehlgeschlagene Suchen werden nicht gespeichert.")
+        similar = similar_ticker_suggestions(query)
+        if similar:
+            st.info("Mögliche Alternativen: " + ", ".join(format_candidate(item) for item in similar))
+
+    if analyze_clicked:
+        if selected_candidate_data:
+            st.session_state["analysis_candidate"] = dict(selected_candidate_data)
+            st.session_state["analysis_query"] = query.strip() or selected_candidate_data["symbol"]
+            st.session_state["analysis_started_at"] = datetime.now().astimezone().isoformat()
+            detail_state_key = f"analysis_detail_visible_{str(selected_candidate_data['symbol']).upper()}"
+            st.session_state[detail_state_key] = False
+        else:
+            st.error("Bitte wähle zuerst ein Asset aus der Vorschlagsliste aus.")
+
+    selected_candidate_data = st.session_state.get("analysis_candidate")
+    symbol = str(selected_candidate_data.get("symbol", "")).upper() if selected_candidate_data else ""
+    analyze = bool(symbol)
 
     refresh_seconds = REFRESH_OPTIONS[refresh_label]
     if refresh_seconds:
         st.markdown(f"<meta http-equiv='refresh' content='{refresh_seconds}'>", unsafe_allow_html=True)
         st.caption(f"Auto-Refresh aktiv: Die Seite lädt alle {refresh_seconds} Sekunden neu. Yahoo-Finance-Daten können verzögert sein.")
 
-    if scan_requested:
-        if not scanner_symbols:
-            st.info("Bitte mindestens einen Yahoo-Finance-Ticker für den Opportunity Scanner eintragen.")
-        else:
-            with st.spinner("Scanne Watchlist nach Chancen..."):
-                scanner_results, scanner_errors = scan_opportunities(scanner_symbols)
-            render_opportunity_scanner(scanner_results, scanner_errors)
-            setup_symbols = [
-                item["Ticker"]
-                for item in scanner_results
-                if item["Richtung"] in {"Long", "Short / Absicherung"}
-            ][:5]
-            if not setup_symbols:
-                setup_symbols = [item["Ticker"] for item in scanner_results[:3]]
-            with st.spinner("Erzeuge Trading-Setups aus Scanner-Kandidaten..."):
-                trading_setups: list[dict] = []
-                trading_errors: list[str] = []
-                for setup_symbol in setup_symbols:
-                    setup, setup_error = build_trading_setup(setup_symbol)
-                    if setup is not None:
-                        trading_setups.append(setup)
-                    if setup_error:
-                        trading_errors.append(setup_error)
-            documented_count, documented_message = auto_document_trade_setups(trading_setups)
-            if documented_count > 0:
-                st.success(documented_message)
-            elif trading_setups:
-                st.caption(documented_message)
-            render_trading_mode(trading_setups, trading_errors)
-            st.divider()
-
-    if manual_symbol.strip():
-        symbol = manual_symbol.strip().upper()
-        selected_candidate_data = ticker_candidate(symbol, source="Manuelle Eingabe")
-    elif selected_history_data:
-        symbol = str(selected_history_data.get("symbol", "")).upper()
-        selected_candidate_data = {
-            "symbol": symbol,
-            "name": selected_history_data.get("name", symbol),
-            "exchange": selected_history_data.get("exchange", "Daten nicht verfügbar"),
-            "currency": selected_history_data.get("currency", ""),
-            "quote_type": selected_history_data.get("quote_type", ""),
-            "source": "Suchhistorie",
-        }
-    else:
-        symbol = str(selected_candidate_data.get("symbol", "")).upper() if selected_candidate_data else ""
-    if not query.strip():
-        st.info("Gib links ein Asset oder einen Yahoo-Finance-Ticker ein.")
-        return
-
-    if not symbol:
-        st.info("Kein Ticker gefunden. Bitte gib einen Yahoo-Finance-Ticker manuell ein.")
-        return
-
     if not analyze:
-        st.info("Ticker ausgewählt. Starte die Analyse mit dem Button „Analysieren“.")
+        st.info("Wähle einen Vorschlag und starte die Analyse.")
         return
 
     if analyze:
@@ -7789,18 +10156,21 @@ def main() -> None:
             selected_period = "5d"
             st.info("Intraday-Daten sind bei Yahoo Finance nur für kürzere Zeiträume sinnvoll. Der Zeitraum wurde für diesen Abruf auf 5 Tage gesetzt.")
         chart_history_label = PERIOD_HISTORY_LABELS.get(selected_period, selected_period)
-        with st.spinner(f"Lade Chart-Daten für {symbol}..."):
-            try:
-                chart_raw_data = load_price_data(symbol, selected_period, interval)
-            except RuntimeError as exc:
-                st.error(str(exc))
-                return
         with st.spinner(f"Lade langfristige Analyse-Daten für {symbol}..."):
             try:
                 analysis_raw_data = load_price_data(symbol, "max", "1d")
             except RuntimeError as exc:
                 st.error(str(exc))
                 return
+        if interval == "1d":
+            chart_raw_data = daily_chart_frame_from_analysis(analysis_raw_data, selected_period)
+        else:
+            with st.spinner(f"Lade Chart-Daten für {symbol}..."):
+                try:
+                    chart_raw_data = load_price_data(symbol, selected_period, interval)
+                except RuntimeError as exc:
+                    st.error(str(exc))
+                    return
 
         if analysis_raw_data.empty or "Close" not in analysis_raw_data:
             st.error("Für diesen Ticker konnten keine Kursdaten geladen werden. Prüfe das Yahoo-Finance-Symbol oder probiere eine andere Börse.")
@@ -7821,21 +10191,45 @@ def main() -> None:
         latest = df.iloc[-1]
         has_position = position_status == "Ich halte bereits"
         close_value = float(latest["Close"])
-        ticker_info = load_ticker_info(symbol)
+        with st.spinner(f"Lade externe Research-Daten für {symbol} parallel..."):
+            external_context = load_external_analysis_context(symbol)
+        ticker_info_value = external_context.get("ticker_info")
+        ticker_info = dict(ticker_info_value) if isinstance(ticker_info_value, dict) else {}
+        macro_value = external_context.get("macro")
+        macro = macro_value if isinstance(macro_value, ModuleScore) else ModuleScore(5.0, "Makrodaten nicht verfügbar.", [])
+        news_value = external_context.get("news")
+        news = news_value if isinstance(news_value, ModuleScore) else ModuleScore(5.0, "News-Daten nicht verfügbar.", [])
+        commodity_value = external_context.get("commodity_data")
+        commodity_data = commodity_value if isinstance(commodity_value, dict) else {}
+        earnings_value = external_context.get("earnings_dates")
+        earnings_dates = earnings_value if isinstance(earnings_value, pd.DataFrame) else pd.DataFrame()
+        if selected_candidate_data:
+            ticker_info = dict(ticker_info)
+            if selected_candidate_data.get("quote_type") and not ticker_info.get("quoteType"):
+                ticker_info["quoteType"] = selected_candidate_data["quote_type"]
+            if selected_candidate_data.get("currency") and not ticker_info.get("currency"):
+                ticker_info["currency"] = selected_candidate_data["currency"]
         asset_identity = build_asset_identity(symbol, ticker_info, selected_candidate_data)
         original_currency = asset_identity["currency"]
         fx_rate, fx_ticker = get_fx_rate_to_eur(original_currency)
-        save_successful_search(query, asset_identity)
+        save_successful_search(str(st.session_state.get("analysis_query") or symbol), asset_identity)
         auto_profile = detect_asset_type(symbol, ticker_info)
+        if auto_profile.asset_type == "Derivat / unbekannt" and manual_asset_type == "Automatisch":
+            st.warning("Der Asset-Typ konnte nicht sicher erkannt werden. Bitte korrigiere ihn nur bei sicherer Kenntnis.")
+            uncertain_type = st.selectbox(
+                "Asset-Typ korrigieren",
+                ["Unbekannt", "Aktie", "ETF", "Krypto"],
+                key=f"uncertain_asset_type_{symbol}",
+            )
+            manual_asset_type = uncertain_type
         asset_profile = override_asset_profile(auto_profile, manual_asset_type)
         market_phase = detect_market_phase(df)
         risk_reward = calculate_risk_reward(close_value, supports, resistances)
         technical = technical_module(score_result, market_phase)
-        macro = score_macro()
-        asset_quality = score_asset_quality(symbol, asset_profile, df)
+        asset_quality = score_asset_quality_from_info(symbol, asset_profile, df, ticker_info)
         fundamentals = asset_quality
-        news = score_news(symbol)
         buy_signal = score_buy_signal(score_result, market_phase, risk_reward, latest, asset_profile)
+        portfolio_result = evaluate_portfolio(symbol, portfolio_enabled, buy_signal.score, asset_profile)
         research_pack = build_research_pack(
             symbol,
             asset_profile,
@@ -7855,8 +10249,12 @@ def main() -> None:
             chart_history_label,
             analysis_history_label,
             len(chart_raw_data),
+            portfolio_result=portfolio_result,
+            has_position=has_position,
+            ticker_info=ticker_info,
+            commodity_data=commodity_data,
+            earnings_dates=earnings_dates,
         )
-        portfolio_result = evaluate_portfolio(symbol, portfolio_enabled, buy_signal.score, asset_profile)
         data_source_warnings = build_data_source_warnings(
             ticker_info,
             original_currency,
@@ -7909,7 +10307,6 @@ def main() -> None:
             forward_history,
             decision_history,
             prediction_history,
-            local_history_quality_table,
         )
         calibration_suggestion_status, calibration_suggestion_table = calibration_suggestion_rows(
             trade_history,
@@ -7928,16 +10325,7 @@ def main() -> None:
             asset_profile,
             market_phase,
         )
-        action_title, action_html = final_recommendation_v2(
-            asset_quality,
-            buy_signal,
-            portfolio_result,
-            market_phase,
-            risk_reward,
-            research_pack.action,
-            research_pack.confidence,
-            research_pack.decision,
-        )
+        action_title = str(research_pack.decision.get("Titel") or research_pack.action)
         similar_setup_status, similar_setup_table = similar_setup_rows(
             asset_profile,
             market_phase,
@@ -7955,570 +10343,365 @@ def main() -> None:
         display_chart_resistances = converted_levels(chart_resistances, fx_rate)
         quality_label, quality_summary, quality_highlights = data_quality_status(research_pack.data_quality, data_source_warnings)
 
-        st.subheader(f"{asset_identity['name']} · technische Analyse")
-        st.caption(f"Ticker: {asset_identity['symbol']} | Börse: {asset_identity['exchange']}")
+        analysis_started_at = str(st.session_state.get("analysis_started_at") or datetime.now().astimezone().isoformat())
+        try:
+            analysis_time = datetime.fromisoformat(analysis_started_at).astimezone().strftime("%d.%m.%Y · %H:%M Uhr")
+        except ValueError:
+            analysis_time = datetime.now().astimezone().strftime("%d.%m.%Y · %H:%M Uhr")
+
+        st.subheader(f"{asset_identity['name']} · {asset_identity['symbol']}")
+        identity_cols = st.columns(4)
+        identity_cols[0].metric(
+            "Aktueller Kurs",
+            format_display_money(float(latest["Close"]), original_currency, fx_rate, currency_mode),
+        )
+        identity_cols[1].metric("Anlagehorizont", str(research_pack.decision.get("Anlagehorizont") or "mehrjährig"))
+        identity_cols[2].metric("Confidence", str(research_pack.decision.get("Confidence") or "niedrig").capitalize())
+        identity_cols[3].metric("Asset-Typ", asset_profile.asset_type)
+        st.caption(
+            f"Analyse: {analysis_time} · Börse: {asset_identity['exchange']} · Ticker: {asset_identity['symbol']}"
+        )
         if original_currency == "EUR":
-            st.caption("Originalwährung: EUR. Keine Umrechnung nötig.")
+            st.caption("Originalwährung: EUR · keine Umrechnung nötig")
         elif fx_rate is None:
-            st.warning(f"Originalwährung: {original_currency}. EUR-Umrechnung aktuell nicht verfügbar ({fx_ticker}). Preise werden in Originalwährung angezeigt.")
-        else:
-            st.caption(f"Originalwährung: {original_currency}. Verwendeter Wechselkurs: 1 {original_currency} = {fx_rate:.4f} EUR ({fx_ticker}).")
-        st.caption("Portfolio-Modus: AN" if portfolio_result.enabled else "Portfolio-Modus: AUS")
-        st.caption(f"Chart-Historie: {chart_history_label} | Analyse-Historie: {analysis_history_label}")
-        if portfolio_result.enabled and not portfolio_result.available:
-            st.warning(portfolio_result.summary)
-        quality_score_text = "n/a" if research_pack.data_quality.score is None else f"{research_pack.data_quality.score:.1f}/10"
-        quality_message = f"Datenqualität {quality_label} ({quality_score_text}): {quality_summary}"
-        if quality_label == "Grün":
-            st.success(quality_message)
-        elif quality_label == "Gelb":
-            st.warning(quality_message)
-        else:
-            st.error(quality_message)
-        st.caption("Wichtigste Datenhinweise: " + " | ".join(quality_highlights))
-        with st.expander("Details zu Datenqualität und externen Quellen", expanded=False):
-            st.markdown("**Datenqualitäts-Check**")
-            for detail in research_pack.data_quality.details:
-                st.write(f"- {detail}")
-            if data_source_warnings:
-                st.markdown("**Externe Datenquellen**")
-                for warning in data_source_warnings:
-                    st.write(f"- {warning}")
-        st.markdown(action_html, unsafe_allow_html=True)
-        auto_forward_key = f"auto_forward_{symbol}_{action_title}_{pd.Timestamp.now().date().isoformat()}"
-        if auto_forward_key not in st.session_state:
-            auto_record = build_forward_test_record(
-                symbol,
-                asset_identity,
-                asset_profile,
-                latest,
-                asset_quality,
-                buy_signal,
-                market_phase,
-                risk_reward,
-                research_pack,
-                portfolio_result,
+            st.warning(
+                f"Die EUR-Umrechnung für {original_currency} ist derzeit nicht verfügbar ({fx_ticker}). "
+                "Betroffene Beträge werden transparent in Originalwährung gekennzeichnet."
             )
-            auto_record["auto_saved"] = True
-            auto_record["note"] = "Automatisch gespeicherte Empfehlung für späteres Forward-Testing. Keine Order, keine Broker-Anbindung."
-            if save_forward_test(auto_record):
-                st.session_state[auto_forward_key] = True
-        if st.button("Analyse als Forward-Test speichern", use_container_width=True):
-            record = build_forward_test_record(
-                symbol,
-                asset_identity,
-                asset_profile,
-                latest,
-                asset_quality,
-                buy_signal,
-                market_phase,
-                risk_reward,
-                research_pack,
-                portfolio_result,
+        elif currency_mode == "EUR + Originalwährung":
+            st.caption(f"Originalwährung: {original_currency} · 1 {original_currency} = {fx_rate:.4f} EUR ({fx_ticker})")
+
+        render_recommendation_summary(
+            research_pack.decision,
+            asset_quality,
+            buy_signal,
+            risk_reward,
+            portfolio_result,
+        )
+
+        detail_state_key = f"analysis_detail_visible_{symbol}"
+        detail_visible = bool(st.session_state.get(detail_state_key, False))
+        detail_button_label = "Analyse im Detail ausblenden" if detail_visible else "Analyse im Detail anzeigen"
+        if st.button(detail_button_label, type="secondary", use_container_width=True, key=f"detail_toggle_{symbol}"):
+            detail_visible = not detail_visible
+            st.session_state[detail_state_key] = detail_visible
+            st.rerun()
+        if not detail_visible:
+            st.caption("Weitere fachliche Einordnung und technische Nachweise bleiben bis zum Öffnen bewusst ausgeblendet.")
+            return
+
+        st.divider()
+        st.markdown("## Verständliche Detailanalyse")
+        st.caption("Warum lautet die Empfehlung so? Die technische Berechnung folgt getrennt in der erweiterten Analyse.")
+
+        all_research_modules = [*research_pack.modules, *research_pack.institutional_modules]
+        fundamental_modules = modules_with_names(research_pack.modules, "fundamentaldaten", "krypto-netzwerk")
+        future_modules = modules_with_names(research_pack.modules, "zukunftspotenzial")
+        valuation_modules = modules_with_names(research_pack.modules, "bewertungsscore")
+        expectation_modules = modules_with_names(research_pack.modules, "eingepreiste erwartungen")
+        innovation_modules = modules_with_names(research_pack.modules, "innovation")
+        risk_modules = modules_with_names(research_pack.modules, "risiko-score", "blasenrisiko")
+        market_modules = modules_with_names(research_pack.modules, "marktregime")
+        macro_modules = modules_with_names(research_pack.modules, "makro-wirkung", "makro-score")
+        commodity_modules = modules_with_names(research_pack.modules, "rohstoff", "krypto-zyklus")
+        news_modules = modules_with_names(research_pack.modules, "news-score", "geopolitik")
+        event_modules = modules_with_names(research_pack.institutional_modules, "earnings", "event-risiko")
+        institutional_modules = modules_with_names(research_pack.institutional_modules, "analyst", "institutionelle")
+        top_chances = unique_text_items(
+            [user_facing_detail_text(item) for item in list(research_pack.conclusion.get("Was spricht für Kauf?", []))],
+            [user_facing_detail_text(module.summary) for module in user_relevant_modules([*future_modules, *innovation_modules])],
+            limit=5,
+        )
+        risk_rows = recommendation_risk_rows(research_pack.decision)
+
+        detail_labels = detail_analysis_tab_labels(portfolio_result.enabled)
+        detail_tabs = st.tabs(detail_labels)
+        thesis_tab, valuation_tab, entry_tab, chances_tab, risks_tab, scenarios_tab, market_tab = detail_tabs[:7]
+        portfolio_tab = detail_tabs[7] if portfolio_result.enabled else None
+
+        with thesis_tab:
+            st.markdown("### Investmentthese")
+            st.info(
+                f"Kurzfazit: Langfristige Attraktivität {research_pack.decision.get('Langfristige Einschätzung')}. "
+                "Diese Sicht bewertet Qualität und Zukunftspotenzial getrennt vom heutigen Preis und vom Einstiegstiming."
             )
-            if save_forward_test(record):
-                st.success("Forward-Test gespeichert. Die Datei `forward_tests.json` bleibt lokal und löst keine Order aus.")
-            else:
-                st.error("Forward-Test konnte nicht gespeichert werden.")
-        with st.expander("Eigene Entscheidung dokumentieren", expanded=False):
-            decision_choice = st.selectbox(
-                "Was machst du mit dieser Analyse?",
-                ["Beobachten", "Kleine Tranche", "Gestaffelt kaufen", "Kaufen", "Nicht kaufen", "Halten", "Verkaufen"],
-                index=0,
-                key=f"decision_choice_{symbol}",
+            st.markdown("**Warum könnte das Investment langfristig funktionieren?**")
+            for item in top_chances[:3] or ["Die vorhandenen Daten liefern derzeit keinen belastbaren positiven Langfristtreiber."]:
+                st.write(f"- {item}")
+            st.markdown("**Zentrale Annahme**")
+            st.write(str(research_pack.decision.get("Zentrale Annahme")))
+            st.markdown("**Was würde die These beschädigen?**")
+            st.write(str(research_pack.decision.get("These beschädigt wenn")))
+
+        with valuation_tab:
+            st.markdown("### Preis und Bewertung")
+            st.info(
+                f"Kurzfazit: Der aktuelle Preis ist {str(research_pack.decision.get('Preisattraktivität')).lower()}. "
+                "Der Kursabstand zum Hoch wird nur zusammen mit Bewertung, These und erwarteter Rendite beurteilt."
             )
-            decision_note = st.text_area("Optionaler Kommentar", value="", key=f"decision_note_{symbol}")
-            if st.button("Entscheidung speichern", use_container_width=True, key=f"save_decision_{symbol}"):
-                decision_record = build_decision_record(
-                    symbol,
-                    asset_identity,
-                    asset_profile,
-                    latest,
-                    asset_quality,
-                    buy_signal,
-                    market_phase,
-                    research_pack,
-                    decision_choice,
-                    decision_note,
-                )
-                if save_decision_record(decision_record):
-                    st.success("Entscheidung gespeichert. Es wurde keine Order ausgelöst.")
+            valuation_cols = st.columns(2)
+            with valuation_cols[0]:
+                render_text_card("Preisattraktivität", research_pack.decision.get("Preisattraktivität"))
+            with valuation_cols[1]:
+                render_text_card("Bewertungsdaten", research_pack.decision.get("Bewertungseinordnung"))
+            st.markdown("**Abstand zum früheren Hoch**")
+            st.write(str(research_pack.decision.get("Allzeithoch-Kontext")))
+            st.markdown("**Fundamentaldaten beziehungsweise These seit dem Hoch**")
+            st.write(str(research_pack.decision.get("Fundamentaldaten seit Hoch")))
+            st.markdown("**Möglicher Grund für den Kursrückgang**")
+            st.write(str(research_pack.decision.get("Grund für Kursrückgang")))
+            st.markdown("**Wie passt die Bewertung zum Wachstum?**")
+            st.write(str(research_pack.decision.get("Bewertung und Wachstum")))
+            st.markdown("**Erwartete Rendite der Szenarien**")
+            st.write(str(research_pack.decision.get("Szenario-Rendite")))
+            st.markdown("**Welche Erwartungen sind bereits eingepreist?**")
+            expectation_summaries = [user_facing_detail_text(module.summary) for module in user_relevant_modules(expectation_modules)]
+            st.write(expectation_summaries[0] if expectation_summaries else "Daten nicht verfügbar; es wird keine Erwartung erfunden.")
+            st.markdown("**Anfälligkeit für Enttäuschungen**")
+            st.write(str(research_pack.decision.get("Enttäuschungsanfälligkeit")))
+            st.caption("Einzelne Bewertungsmultiplikatoren stehen ausschließlich in der erweiterten Analyse.")
+
+        with entry_tab:
+            st.markdown("### Einstieg und Vorgehen")
+            st.info(
+                f"Kurzfazit: Timing {research_pack.decision.get('Aktuelles Timing')} · "
+                f"Empfehlung {action_title}. Alle folgenden Wege verwenden dieselben zentralen Zonen wie die Hauptansicht."
+            )
+            st.write(f"**Jetzt:** {research_pack.decision.get('Handlung jetzt')}")
+            st.write(f"**Rücksetzer-Kaufzone:** {research_pack.decision.get('Kaufzone')}")
+            st.write(f"**Reihenfolge der Tranchen:** {research_pack.decision.get('Tranchierung')}")
+            st.write(f"**Bei Rücksetzer:** {research_pack.decision.get('Handlung bei Rücksetzer')}")
+            st.write(f"**Falls der Rücksetzer nicht kommt:** {research_pack.decision.get('Handlung bei weiterer Stärke')}")
+            st.warning(f"**Widerlegungsmarke:** {research_pack.decision.get('Widerlegungsbedingung')}")
+            st.caption(f"Gültigkeit: {research_pack.decision.get('Gültigkeit')}")
+            chart_currency = "EUR" if fx_rate is not None else original_currency
+            st.plotly_chart(
+                render_price_chart(display_df, display_chart_supports, display_chart_resistances, chart_currency),
+                use_container_width=True,
+            )
+
+        with chances_tab:
+            st.markdown("### Chancen")
+            st.info("Kurzfazit: Die wichtigsten Chancen sind nach ihrer Bedeutung für die langfristige These geordnet.")
+            for index, item in enumerate(top_chances or ["Keine belastbare zentrale Chance verfügbar."], start=1):
+                st.markdown(f"**{index}. {item}**")
+            st.caption("Die Reihenfolge priorisiert die für die aktuelle Empfehlung verwendeten Langfrist- und Research-Treiber.")
+
+        with risks_tab:
+            st.markdown("### Risiken")
+            st.info("Kurzfazit: Entscheidend sind die Risiken, die Preis, These oder Einstieg konkret widerlegen können.")
+            if not risk_rows:
+                st.info("Keine strukturierten zentralen Risiken verfügbar; neue Daten können die Einschätzung dennoch verändern.")
+            for row in risk_rows:
+                st.markdown(f"**{row['Risiko']}**")
+                st.write(f"Relevanz: {row['Relevanz']}")
+                st.caption(f"Erkennbar an: {row['Erkennbar an']}")
+
+        with scenarios_tab:
+            st.markdown("### Szenarien")
+            st.info("Kurzfazit: Die Szenarien zeigen mögliche Bandbreiten und Auslöser; sie sind keine garantierten Kursziele.")
+            for scenario in compact_scenario_rows(research_pack.scenarios):
+                st.markdown(f"**{scenario['Szenario']} · {scenario['Wahrscheinlichkeit']}**")
+                st.write(f"Notwendige Entwicklung: {scenario['Notwendige Entwicklung']}")
+                st.write(f"Mögliche Folge: {scenario['Mögliche Folge']}")
+                st.caption(f"Wichtigster Auslöser: {scenario['Wichtigster Auslöser']}")
+            st.caption("Szenarien sind Bandbreiten, keine garantierten Kursziele.")
+
+        with market_tab:
+            st.markdown("### Markt und Umfeld")
+            st.info("Kurzfazit: Angezeigt werden nur Markt-, Branchen-, Makro- und Nachrichtenfaktoren, die für dieses Asset relevant und verfügbar sind.")
+            st.markdown("**Gesamtmarkt**")
+            st.write(f"{market_phase.phase}: {market_phase.summary}")
+            sector = str(ticker_info.get("sector") or "").strip()
+            industry = str(ticker_info.get("industry") or "").strip()
+            if sector or industry:
+                st.markdown("**Branche**")
+                st.write(" · ".join(item for item in [sector, industry] if item))
+            for module in user_relevant_modules([*macro_modules, *news_modules]):
+                st.markdown(f"**{module.name}**")
+                st.write(user_facing_detail_text(module.summary))
+            sector_context = f"{sector} {industry}".lower()
+            commodity_relevant = asset_profile.asset_type == "Krypto" or any(
+                marker in sector_context for marker in ["energy", "basic materials", "utilities", "industrial", "rohstoff"]
+            )
+            if commodity_relevant:
+                for module in user_relevant_modules(commodity_modules):
+                    st.markdown(f"**{module.name}**")
+                    st.write(user_facing_detail_text(module.summary))
+            st.caption("Leere oder für das Asset nicht relevante Proxy-Module werden in dieser Ebene nicht angezeigt.")
+
+        if portfolio_tab is not None:
+            with portfolio_tab:
+                st.markdown("### Portfolio-Effekt")
+                st.info("Kurzfazit: Der Depot-Effekt verändert weder die langfristige Attraktivität noch das kurzfristige Kaufsignal; er steuert nur das Portfoliorisiko.")
+                if not portfolio_result.available:
+                    st.warning(portfolio_result.summary)
                 else:
-                    st.error("Entscheidung konnte nicht gespeichert werden.")
-        if beginner_mode:
-            buy_answer, buy_text = beginner_buy_answer(buy_signal.score, action_title)
-            st.markdown(
-                f"""
-                <div class="decision-box">
-                    <div class="recommendation-label">Würde ich heute kaufen?</div>
-                    <div class="decision-title">{buy_answer}</div>
-                    <div class="decision-section">{buy_text}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        st.caption(f"Asset-Typ: {asset_profile.asset_type} ({asset_profile.quote_type}). {asset_profile.summary}")
-        st.info(f"Marktphase: {market_phase.phase}. {market_phase.summary}")
-
-        metric_cols = st.columns(7 if portfolio_result.enabled else 6)
-        metric_cols[0].metric("Aktueller Kurs", format_display_money(float(latest["Close"]), original_currency, fx_rate, currency_mode))
-        metric_cols[1].metric("Datenqualität", f"{quality_label} {quality_score_text}")
-        metric_cols[2].metric("Asset-Qualität", f"{asset_quality.score}/10")
-        metric_cols[3].metric("Kaufsignal", f"{buy_signal.score}/10")
-        if portfolio_result.enabled:
-            metric_cols[4].metric("Depot-Effekt", "n/a" if portfolio_result.score is None else f"{portfolio_result.score}/10")
-            metric_cols[5].metric("CRV", "n/a" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}")
-            metric_cols[6].metric("RSI 14", "n/a" if pd.isna(latest["RSI_14"]) else f"{latest['RSI_14']:.1f}")
-        else:
-            metric_cols[4].metric("CRV", "n/a" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}")
-            metric_cols[5].metric("RSI 14", "n/a" if pd.isna(latest["RSI_14"]) else f"{latest['RSI_14']:.1f}")
-
-        level_cols = st.columns(2)
-        level_cols[0].metric("Wichtigste Unterstützung", "n/a" if not supports else format_display_money(supports[0], original_currency, fx_rate, currency_mode))
-        level_cols[1].metric("Wichtigster Widerstand", "n/a" if not resistances else format_display_money(resistances[0], original_currency, fx_rate, currency_mode))
-
-        prob_cols = st.columns(len(market_phase.probabilities))
-        for col, (name, probability) in zip(prob_cols, market_phase.probabilities.items()):
-            col.metric(name, f"{probability}%")
-
-        st.markdown("**Professionelle Research-Scores**")
-        research_cols = st.columns(4)
-        for idx, module in enumerate(research_pack.modules):
-            value = "n/a" if module.score is None else f"{module.score:.1f}/10"
-            research_cols[idx % 4].metric(module.name, value)
-
-        if beginner_mode:
-            with st.expander("Anfänger-Erklärungen anzeigen", expanded=True):
-                for title, meaning, interpretation in beginner_explanations(
-                    latest,
-                    supports,
-                    resistances,
-                    asset_profile,
-                    market_phase,
-                    risk_reward,
-                    fundamentals,
-                    news,
-                    macro,
-                    technical,
-                    portfolio_result,
-                    asset_quality,
-                    buy_signal,
-                    research_pack.data_quality,
-                    quality_label,
-                    quality_highlights,
-                    original_currency,
-                    fx_rate,
-                    currency_mode,
-                ):
-                    render_analysis_card(title, meaning, interpretation)
-
-        chart_currency = "EUR" if fx_rate is not None else original_currency
-        st.plotly_chart(render_price_chart(display_df, display_chart_supports, display_chart_resistances, chart_currency), use_container_width=True)
-
-        with st.expander("Professionelles Research-Modul anzeigen", expanded=True):
-            st.markdown("**Datenqualitäts-Check**")
-            st.write(research_pack.data_quality.summary)
-            for detail in research_pack.data_quality.details:
-                st.write(f"- {detail}")
-            if data_source_warnings:
-                st.markdown("**Eingeschränkte externe Datenquellen**")
-                for warning in data_source_warnings:
-                    st.write(f"- {warning}")
-
-            st.markdown("**Modul-Scores**")
-            st.dataframe(
-                pd.DataFrame(
-                    [
-                        {
-                            "Modul": module.name,
-                            "Score": "n/a" if module.score is None else f"{module.score:.1f}/10",
-                            "Einordnung": score_band(module.score, is_warning_score_module(module)),
-                            "Kurzfazit": module.summary,
-                            "Praktische Bedeutung": research_score_interpretation(module),
-                        }
-                        for module in research_pack.modules
-                    ]
-                ),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-            st.markdown("**Professionelle Kauf-/Nichtkauf-Entscheidung**")
-            st.dataframe(
-                pd.DataFrame(
-                    [
-                        {"Bereich": key, "Einordnung": value}
-                        for key, value in research_pack.decision.items()
-                        if key != "Titel"
-                    ]
-                ),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-            if beginner_mode:
-                st.markdown("**Einfache Erklärung der Research-Scores**")
-                for module in research_pack.modules:
-                    render_analysis_card(module.name, module.beginner, f"{module.summary} {research_score_interpretation(module)}")
-
-            st.markdown("**Institutionelle Research-Module**")
-            st.dataframe(
-                pd.DataFrame(
-                    [
-                        {
-                            "Modul": module.name,
-                            "Score": "n/a" if module.score is None else f"{module.score:.1f}/10",
-                            "Einordnung": score_band(module.score, is_warning_score_module(module)),
-                            "Kurzfazit": module.summary,
-                            "Praktische Bedeutung": research_score_interpretation(module),
-                        }
-                        for module in research_pack.institutional_modules
-                    ]
-                ),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-            with st.expander("Details zu institutionellen Modulen", expanded=False):
-                for module in research_pack.institutional_modules:
-                    render_analysis_card(module.name, "n/a" if module.score is None else f"{module.score:.1f}/10 - {score_band(module.score, is_warning_score_module(module))}", f"{module.beginner} {research_score_interpretation(module)}")
-                    for detail in module.details:
+                    st.write(portfolio_result.summary)
+                    for detail in portfolio_result.details:
                         st.write(f"- {detail}")
+                    st.caption(str(research_pack.decision.get("Positionsgröße")))
 
-            st.markdown("**Vertrauen in Analyse**")
-            render_analysis_card(
-                research_pack.confidence.name,
-                "n/a" if research_pack.confidence.score is None else f"{research_pack.confidence.score:.1f}/10",
-                research_pack.confidence.summary,
-            )
-            for detail in research_pack.confidence.details:
-                st.write(f"- {detail}")
-            st.markdown("**Historische Confidence aus lokaler Historie**")
-            st.write(historical_confidence_status)
-            st.dataframe(pd.DataFrame(historical_confidence_table), use_container_width=True, hide_index=True)
+        with st.expander("Erweiterte Analyse", expanded=False):
+            st.caption("Technische Parameter, Rohdaten und Modellinformationen zur Kontrolle und Nachvollziehbarkeit.")
+            technical_tab, fundamental_tab, data_tab, methodology_tab, forecast_tab = st.tabs(advanced_analysis_tab_labels())
 
-            st.markdown("**Ähnliche historische Setups**")
-            st.write(similar_setup_status)
-            st.dataframe(pd.DataFrame(similar_setup_table), use_container_width=True, hide_index=True)
+            with technical_tab:
+                close_value = float(latest["Close"])
+                technical_metrics = st.columns(4)
+                rsi_value = latest_value(latest, "RSI_14")
+                macd_value = latest_value(latest, "MACD")
+                volatility_value = latest_value(latest, "Volatility")
+                technical_metrics[0].metric("RSI 14", "n/a" if rsi_value is None else f"{rsi_value:.2f}")
+                technical_metrics[1].metric("MACD", "n/a" if macd_value is None else f"{macd_value:.4f}")
+                technical_metrics[2].metric("Volatilität", "n/a" if volatility_value is None else f"{volatility_value * 100:.1f}%")
+                technical_metrics[3].metric("CRV", "n/a" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}")
+                explanations = [
+                    ("RSI 14", *rsi_explanation(rsi_value)),
+                    ("MACD", *macd_explanation(macd_value, latest_value(latest, "MACD_Signal"))),
+                    ("Gleitende Durchschnitte", *trend_explanation(close_value, latest_value(latest, "SMA_50"), latest_value(latest, "SMA_200"))),
+                    ("Unterstützung und Widerstand", *level_explanation(close_value, supports, resistances, original_currency, fx_rate, currency_mode)),
+                    ("Volatilität", *volatility_explanation(volatility_value)),
+                ]
+                for title, status, explanation in explanations:
+                    render_analysis_card(title, status, explanation)
+                st.markdown("**Technische Berechnungsdetails**")
+                for name, points, text in score_result.breakdown:
+                    st.write(f"- {name}: {points:g} Punkte · {text}")
+                st.write(risk_reward.summary)
+                st.dataframe(pd.DataFrame(research_pack.buy_zones), use_container_width=True, hide_index=True)
+                with st.expander("Indikator-Charts und Kursrohdaten", expanded=False):
+                    chart_cols = st.columns(2)
+                    with chart_cols[0]:
+                        rsi_fig = render_line_chart(chart_df, ["RSI_14"], "RSI 14")
+                        rsi_fig.add_hline(y=70, line_dash="dot", line_color="#dc2626")
+                        rsi_fig.add_hline(y=30, line_dash="dot", line_color="#16a34a")
+                        st.plotly_chart(rsi_fig, use_container_width=True)
+                    with chart_cols[1]:
+                        st.plotly_chart(render_line_chart(chart_df, ["MACD", "MACD_Signal"], "MACD und Signal-Linie"), use_container_width=True)
+                    st.plotly_chart(render_volume_chart(chart_df), use_container_width=True)
+                    st.dataframe(df.tail(250), use_container_width=True)
 
-            st.markdown("**Was könnte diese Analyse widerlegen?**")
-            for factor in research_pack.uncertainty_factors[:5]:
-                st.write(f"- {factor}")
-
-            st.markdown("**Bull / Base / Bear-Szenarien**")
-            st.dataframe(pd.DataFrame(research_pack.scenarios), use_container_width=True, hide_index=True)
-            if st.button("Szenarien als Prognose speichern", use_container_width=True):
-                prediction_record = build_prediction_record(
-                    symbol,
-                    asset_identity,
-                    asset_profile,
-                    latest,
-                    market_phase,
-                    risk_reward,
-                    research_pack,
-                )
-                if save_prediction_record(prediction_record):
-                    st.success("Prognose gespeichert. Es wurde keine Order ausgelöst.")
-                else:
-                    st.error("Prognose konnte nicht gespeichert werden.")
-
-            st.markdown("**Nachkaufzonen**")
-            st.dataframe(pd.DataFrame(research_pack.buy_zones), use_container_width=True, hide_index=True)
-
-            st.markdown("**Research-Fazit**")
-            for title, value in research_pack.conclusion.items():
-                st.markdown(f"**{title}**")
-                if isinstance(value, list):
-                    for item in value:
-                        st.write(f"- {item}")
-                else:
-                    st.write(value)
-
-        with st.expander("Analyse-Details anzeigen", expanded=False):
-            st.markdown("**Score-Transparenz**")
-            transparency_rows = [
-                {"Bereich": "Asset-Qualität", "Score": f"{asset_quality.score:.1f}/10", "Was wird bewertet?": "Langfristige Qualität des Assets", "Begründung": asset_quality.summary},
-                {"Bereich": "Kaufsignal", "Score": f"{buy_signal.score:.1f}/10", "Was wird bewertet?": "Ob jetzt ein guter Einstieg sein könnte", "Begründung": buy_signal.summary},
-                {"Bereich": "Zukunftspotenzial", "Score": research_pack.decision.get("Zukunftspotenzial", "Daten nicht verfügbar"), "Was wird bewertet?": "Langfristige Wachstumschance", "Begründung": "Separat von Bewertung und Timing."},
-                {"Bereich": "Bewertung", "Score": research_pack.decision.get("Bewertung", "Daten nicht verfügbar"), "Was wird bewertet?": "Preis im Verhältnis zu Gewinn, Umsatz, Cashflow und Wachstum", "Begründung": "KGV wird nicht isoliert verwendet."},
-                {"Bereich": "Eingepreiste Erwartungen", "Score": research_pack.decision.get("Eingepreiste Erwartungen", "Daten nicht verfügbar"), "Was wird bewertet?": "Wie viel Optimismus bereits im Kurs steckt", "Begründung": "Hoher Wert ist ein Warnsignal."},
-                {"Bereich": "Blasenrisiko", "Score": research_pack.decision.get("Blasenrisiko", "Daten nicht verfügbar"), "Was wird bewertet?": "Überhitzung durch Bewertung, Momentum und Sentiment", "Begründung": "Hoher Wert spricht gegen blindes Kaufen."},
-                {"Bereich": "Expected Value", "Score": research_pack.decision.get("Expected Value", "Daten nicht verfügbar"), "Was wird bewertet?": "Erwartete Rendite versus erwarteter Verlust", "Begründung": "Prüft guten statt perfekten Einstieg."},
-            ]
-            if portfolio_result.enabled:
-                transparency_rows.append(
-                    {"Bereich": "Depot-Effekt", "Score": "n/a" if portfolio_result.score is None else f"{portfolio_result.score:.1f}/10", "Was wird bewertet?": "Nur Portfolio-Auswirkung", "Begründung": portfolio_result.summary}
-                )
-            st.dataframe(
-                pd.DataFrame(transparency_rows),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-            st.markdown("**Gewichtungen nach Asset-Typ**")
-            st.caption("Diese Gewichtungen erklären den Research-/Gesamtkontext. Das finale Kaufsignal bleibt separat und bewertet den aktuellen Einstiegszeitpunkt.")
-            st.dataframe(
-                pd.DataFrame(score_weight_rows(asset_profile)),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-            st.markdown("**Kaufsignal-Gewichtung**")
-            st.write("Das Kaufsignal nutzt den Technik-Score mit 70 %, den CRV-Score mit 20 % und danach begrenzte Zu- oder Abschläge für Marktphase, RSI, MACD und asset-typische Volatilität. Asset-Qualität und Depot-Effekt fließen nicht ein.")
-
-            st.markdown("**Datenqualität lokaler Lernhistorien**")
-            st.write(local_history_quality_status)
-            st.dataframe(
-                pd.DataFrame(local_history_quality_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Lernlogik-Guardrails**")
-            st.write(learning_guardrail_status)
-            st.dataframe(
-                pd.DataFrame(learning_guardrail_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Kalibrierungskontext kurz erklärt**")
-            st.write(calibration_context_status)
-            st.dataframe(
-                pd.DataFrame(calibration_context_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Kalibrierungsstatus**")
-            st.write(calibration_status)
-            st.dataframe(
-                pd.DataFrame(calibration_rows),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Signalanalyse**")
-            st.write(signal_learning_status)
-            st.dataframe(
-                pd.DataFrame(signal_learning_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Prognose-Tracking: Trefferquoten nach Asset und Modul**")
-            st.write(prediction_hit_status)
-            st.dataframe(
-                pd.DataFrame(prediction_hit_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Trefferquoten nach Segmenten**")
-            st.write(segmented_learning_status)
-            st.dataframe(
-                pd.DataFrame(segmented_learning_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Fehlfälle nach möglicher Ursache**")
-            st.write(negative_cause_status)
-            st.dataframe(
-                pd.DataFrame(negative_cause_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Kalibrierungsvorschläge aus Fehlmustern**")
-            st.write(calibration_suggestion_status)
-            st.dataframe(
-                pd.DataFrame(calibration_suggestion_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Backtest-Historie als Lernkontext**")
-            st.write(backtest_learning_status)
-            st.dataframe(
-                pd.DataFrame(backtest_learning_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.markdown("**Backtesting-Basis: historische Signal-Kombinationen**")
-            st.write(backtest_status)
-            st.write(backtest_compact_status)
-            st.dataframe(
-                pd.DataFrame(backtest_compact_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            st.dataframe(
-                pd.DataFrame(backtest_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-            if st.button("Backtest-Ergebnis lokal speichern", use_container_width=True, key=f"save_backtest_{symbol}"):
-                backtest_record = build_backtest_record(
-                    symbol,
-                    asset_identity,
-                    asset_profile,
-                    backtest_status,
-                    backtest_table,
-                    analysis_history_label,
-                )
-                if save_backtest_result(backtest_record):
-                    st.success("Backtest-Ergebnis in `backtest_history.json` gespeichert. Es wurde keine Order ausgelöst.")
-                else:
-                    st.error("Backtest-Ergebnis konnte nicht gespeichert werden.")
-            st.markdown("**Confidence-System: ähnliche Setups**")
-            st.write(similar_setup_status)
-            st.dataframe(
-                pd.DataFrame(similar_setup_table),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-            st.markdown("**Technik-Score erklärt**")
-            for name, points, text in score_result.breakdown:
-                st.markdown(
-                    f"""
-                    <div class="score-row">
-                        <div class="score-label">{name}: {points:g} Punkte</div>
-                        <div class="score-text">{text}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-            info_cols = st.columns(2)
-            with info_cols[0]:
-                st.markdown("**Langfristige Unterstützungen aus Analyse-Historie**")
-                if supports:
-                    st.write(
-                        pd.DataFrame(
-                            {
-                                "Zone": ["Wichtigste Unterstützung", "Zweite Unterstützung", "Dritte Unterstützung"][: len(supports)],
-                                "Kurs": [format_display_money(level, original_currency, fx_rate, currency_mode) for level in supports],
-                                "Abstand": [percent_text((level - close_value) / close_value) for level in supports],
-                            }
-                        )
-                    )
-                else:
-                    st.write("Keine belastbaren langfristigen Unterstützungen in der Analyse-Historie gefunden.")
-
-            with info_cols[1]:
-                st.markdown("**Langfristige Widerstände aus Analyse-Historie**")
-                if resistances:
-                    st.write(
-                        pd.DataFrame(
-                            {
-                                "Zone": ["Wichtigster Widerstand", "Zweiter Widerstand", "Dritter Widerstand"][: len(resistances)],
-                                "Kurs": [format_display_money(level, original_currency, fx_rate, currency_mode) for level in resistances],
-                                "Abstand": [percent_text((level - close_value) / close_value) for level in resistances],
-                            }
-                        )
-                    )
-                else:
-                    st.write("Keine belastbaren langfristigen Widerstände in der Analyse-Historie gefunden.")
-
-            st.markdown("**Kurzfristige Chart-Ebenen**")
-            chart_level_cols = st.columns(2)
-            with chart_level_cols[0]:
-                if chart_supports:
-                    st.write(
-                        pd.DataFrame(
-                            {
-                                "Zone": ["Chart-Unterstützung 1", "Chart-Unterstützung 2", "Chart-Unterstützung 3"][: len(chart_supports)],
-                                "Kurs": [format_display_money(level, original_currency, fx_rate, currency_mode) for level in chart_supports],
-                                "Abstand": [percent_text((level - close_value) / close_value) for level in chart_supports],
-                            }
-                        )
-                    )
-                else:
-                    st.write("Keine kurzfristige Chart-Unterstützung im angezeigten Chart erkannt.")
-            with chart_level_cols[1]:
-                if chart_resistances:
-                    st.write(
-                        pd.DataFrame(
-                            {
-                                "Zone": ["Chart-Widerstand 1", "Chart-Widerstand 2", "Chart-Widerstand 3"][: len(chart_resistances)],
-                                "Kurs": [format_display_money(level, original_currency, fx_rate, currency_mode) for level in chart_resistances],
-                                "Abstand": [percent_text((level - close_value) / close_value) for level in chart_resistances],
-                            }
-                        )
-                    )
-                else:
-                    st.write("Kein kurzfristiger Chart-Widerstand im angezeigten Chart erkannt.")
-
-            st.markdown("**Risiko-Rendite-Bewertung**")
-            st.write(
-                pd.DataFrame(
-                    [
-                        {
-                            "Risiko bis Unterstützung": percent_text(risk_reward.risk_pct),
-                            "Potenzial bis Widerstand": percent_text(risk_reward.reward_pct),
-                            "CRV": "n/a" if risk_reward.ratio is None else f"{risk_reward.ratio:.2f}",
-                            "CRV-Score": f"{risk_reward.score:.1f}/10",
-                        }
+            with fundamental_tab:
+                if asset_profile.asset_type == "Aktie":
+                    profitability_details = [
+                        detail for detail in fundamentals.details
+                        if any(marker in detail.lower() for marker in ["marge", "roe", "roa", "kapitalrendite", "profitabil"])
                     ]
-                )
-            )
+                    balance_details = [
+                        detail for detail in fundamentals.details
+                        if any(marker in detail.lower() for marker in ["cash", "verschuld", "debt", "bilanz", "free cashflow"])
+                    ]
+                    render_module_expander("Umsatz, Wachstum und Qualität", [*fundamental_modules, *future_modules], beginner_mode=beginner_mode)
+                    render_module_expander("Margen und Kapitalrendite", [], details=profitability_details)
+                    render_module_expander("Cashflow, Bilanz und Verschuldung", [], details=balance_details)
+                else:
+                    render_module_expander("Asset-spezifische Fundamentaldaten", [*fundamental_modules, *future_modules], beginner_mode=beginner_mode)
+                    render_module_expander("Zyklus, Struktur und Adoption", commodity_modules, beginner_mode=beginner_mode)
+                render_module_expander("Bewertungsmultiplikatoren und Erwartungen", [*valuation_modules, *expectation_modules], beginner_mode=beginner_mode)
+                render_module_expander("Analysten- und institutionelle Daten", [*institutional_modules, *event_modules], beginner_mode=beginner_mode)
 
-            if portfolio_result.enabled:
-                st.markdown("**Depot-Effekt**")
-                st.write(portfolio_result.summary)
-                for detail in portfolio_result.details:
+            with data_tab:
+                quality_score_text = "n/a" if research_pack.data_quality.score is None else f"{research_pack.data_quality.score:.1f}/10"
+                quality_message = f"Datenqualität {quality_label} ({quality_score_text}): {quality_summary}"
+                if quality_label == "Grün":
+                    st.success(quality_message)
+                elif quality_label == "Gelb":
+                    st.warning(quality_message)
+                else:
+                    st.error(quality_message)
+                st.write("**Wichtigste Hinweise:** " + " | ".join(quality_highlights))
+                st.markdown("**Vorhandene, fehlende und eingeschränkte Daten**")
+                for detail in [*research_pack.data_quality.details, *data_source_warnings, *research_pack.uncertainty_factors[:5]]:
                     st.write(f"- {detail}")
 
-            st.markdown("**Kurze Begründung**")
-            for reason in score_result.reasons:
-                st.write(f"- {reason}")
+            with methodology_tab:
+                st.write("Asset-Qualität, Kaufsignal und Depot-Effekt bleiben getrennte Bewertungen.")
+                st.dataframe(pd.DataFrame(score_weight_rows(asset_profile)), use_container_width=True, hide_index=True)
+                st.markdown("**Confidence-Berechnung**")
+                st.write(research_pack.confidence.summary)
+                for detail in research_pack.confidence.details:
+                    st.write(f"- {detail}")
+                module_rows = [
+                    {
+                        "Modul": module.name,
+                        "Score": "n/a" if module.score is None else f"{module.score:.1f}/10",
+                        "Einordnung": score_band(module.score, is_warning_score_module(module)),
+                        "Kurzfazit": module.summary,
+                    }
+                    for module in all_research_modules
+                ]
+                st.dataframe(pd.DataFrame(module_rows), use_container_width=True, hide_index=True)
+                st.caption(f"Logikversion: {FORECAST_LOGIC_VERSION}")
 
-            st.markdown("**Asset-Qualität**")
-            for detail in fundamentals.details:
-                st.write(f"- {detail}")
+            with forecast_tab:
+                st.markdown("**Frühere Prognosen und Richtungstrefferquote**")
+                st.write(prediction_hit_status)
+                st.dataframe(pd.DataFrame(prediction_hit_table), use_container_width=True, hide_index=True)
+                with st.expander("Ähnliche historische Fälle", expanded=False):
+                    st.write(similar_setup_status)
+                    st.dataframe(pd.DataFrame(similar_setup_table), use_container_width=True, hide_index=True)
+                with st.expander("Historien-, Lern- und Opportunitätskosten-Kontext", expanded=False):
+                    st.write(local_history_quality_status)
+                    st.dataframe(pd.DataFrame(local_history_quality_table), use_container_width=True, hide_index=True)
+                    st.write(negative_cause_status)
+                    st.dataframe(pd.DataFrame(negative_cause_table), use_container_width=True, hide_index=True)
+                    st.write(calibration_status)
+                    st.dataframe(pd.DataFrame(calibration_rows), use_container_width=True, hide_index=True)
+                    st.write(signal_learning_status)
+                    st.dataframe(pd.DataFrame(signal_learning_table), use_container_width=True, hide_index=True)
+                with st.expander("Backtesting", expanded=False):
+                    st.write(backtest_status)
+                    st.dataframe(pd.DataFrame(backtest_compact_table), use_container_width=True, hide_index=True)
+                    if st.button("Backtest-Ergebnis lokal speichern", use_container_width=True, key=f"save_backtest_{symbol}"):
+                        backtest_record = build_backtest_record(
+                            symbol,
+                            asset_identity,
+                            asset_profile,
+                            backtest_status,
+                            backtest_table,
+                            analysis_history_label,
+                        )
+                        if save_backtest_result(backtest_record):
+                            st.success("Backtest-Ergebnis lokal gespeichert. Es wurde keine Order ausgelöst.")
+                        else:
+                            st.error("Backtest-Ergebnis konnte nicht gespeichert werden.")
+                with st.expander("Eigene Entscheidung dokumentieren", expanded=False):
+                    decision_choice = st.selectbox(
+                        "Was machst du mit dieser Analyse?",
+                        [
+                            "Keine Aktion",
+                            "Jetzt kaufen",
+                            "Erste Tranche kaufen",
+                            "Bei Bestätigung kaufen",
+                            "Auf konkrete Kaufzone warten",
+                            "Halten",
+                            "Teilweise reduzieren",
+                            "Verkaufen oder vermeiden",
+                        ],
+                        index=0,
+                        key=f"decision_choice_{symbol}",
+                    )
+                    decision_note = st.text_area("Optionaler Kommentar", value="", key=f"decision_note_{symbol}")
+                    if st.button("Entscheidung speichern", use_container_width=True, key=f"save_decision_{symbol}"):
+                        decision_record = build_decision_record(
+                            symbol,
+                            asset_identity,
+                            asset_profile,
+                            latest,
+                            asset_quality,
+                            buy_signal,
+                            market_phase,
+                            research_pack,
+                            decision_choice,
+                            decision_note,
+                        )
+                        if save_decision_record(decision_record):
+                            st.success("Entscheidung lokal gespeichert. Es wurde keine Order ausgelöst.")
+                        else:
+                            st.error("Entscheidung konnte nicht gespeichert werden.")
 
-            st.markdown("**News-Sentiment**")
-            st.write(news.summary)
-            for detail in news.details:
-                st.write(f"- {detail}")
-
-            st.markdown("**Makro-Modul**")
-            st.write(macro.summary)
-            for detail in macro.details:
-                st.write(f"- {detail}")
-
-            close_value = float(latest["Close"])
-            rsi_status, rsi_text = rsi_explanation(latest_value(latest, "RSI_14"))
-            macd_status, macd_text = macd_explanation(latest_value(latest, "MACD"), latest_value(latest, "MACD_Signal"))
-            trend_status, trend_text = trend_explanation(close_value, latest_value(latest, "SMA_50"), latest_value(latest, "SMA_200"))
-            level_status, level_text = level_explanation(close_value, supports, resistances, original_currency, fx_rate, currency_mode)
-            volatility_status, volatility_text = volatility_explanation(latest_value(latest, "Volatility"))
-
-            st.markdown("**Was bedeutet das für mich als Anleger?**")
-            analysis_cols = st.columns(2)
-            with analysis_cols[0]:
-                render_analysis_card("RSI 14", rsi_status, rsi_text)
-                render_analysis_card("Trend", trend_status, trend_text)
-                render_analysis_card("Unterstützung und Widerstand", level_status, level_text)
-            with analysis_cols[1]:
-                render_analysis_card("MACD", macd_status, macd_text)
-                render_analysis_card("Volatilität", volatility_status, volatility_text)
-                render_analysis_card(
-                    "Konkreter Plan",
-                    action_title,
-                    str(research_pack.conclusion.get("Was wäre mein konkreter Plan?", action_title)),
-                )
-
-        with st.expander("Weitere Charts anzeigen", expanded=False):
-            chart_cols = st.columns(2)
-            with chart_cols[0]:
-                rsi_fig = render_line_chart(chart_df, ["RSI_14"], "RSI 14")
-                rsi_fig.add_hline(y=70, line_dash="dot", line_color="#dc2626")
-                rsi_fig.add_hline(y=30, line_dash="dot", line_color="#16a34a")
-                st.plotly_chart(rsi_fig, use_container_width=True)
-
-            with chart_cols[1]:
-                st.plotly_chart(render_line_chart(chart_df, ["MACD", "MACD_Signal"], "MACD und Signal-Linie"), use_container_width=True)
-
-            st.plotly_chart(render_volume_chart(chart_df), use_container_width=True)
-
-        with st.expander("Rohdaten und Indikatoren anzeigen"):
-            st.dataframe(df.tail(250), use_container_width=True)
-
+        return
 
 if __name__ == "__main__":
     main()

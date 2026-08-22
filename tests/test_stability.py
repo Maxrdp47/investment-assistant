@@ -4,10 +4,20 @@ import json
 from pathlib import Path
 
 import app
+import swing_forward_store
 from streamlit.testing.v1 import AppTest
 
 CALIBRATION_CONTEXT = "Belastbarer Lernkontext (negativ)"
 CALIBRATION_HINT = "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis."
+
+
+def test_local_levels_preserves_window_and_relevance_semantics() -> None:
+    support_series = app.pd.Series([10, 8, 6, 7, 9, 5, 5, 8, 12, 11, 13, 10, float("nan"), 9, 14])
+    resistance_series = app.pd.Series([10, 12, 15, 13, 11, 16, 14, 12, 9, 8])
+
+    assert app.local_levels(support_series, "support", window=2) == [6.0, 5.0, 5.0]
+    assert app.local_levels(resistance_series, "resistance", window=2) == [15.0, 16.0]
+    assert app.local_levels(support_series, "unknown", window=2) == []
 
 
 def reviewed_case(
@@ -480,6 +490,26 @@ def test_scanner_factor_snapshot_keeps_missing_data_explicit() -> None:
     assert snapshot["Institutionelle Faktoren"] == "Daten nicht verfügbar"
 
 
+def test_swing_scanner_wrapper_creates_timezone_aware_scan_status_without_assets(monkeypatch) -> None:
+    monkeypatch.setattr(app, "score_macro", lambda: app.ModuleScore(5.0, "Makro neutral", []))
+    monkeypatch.setattr(app, "load_trade_history", lambda: [])
+
+    result = app.scan_swing_trades(
+        [],
+        {
+            "trading_capital_eur": None,
+            "max_risk_pct": 0.75,
+            "max_total_open_risk_pct": 2.0,
+            "max_total_exposure_pct": 60.0,
+            "allowed_asset_types": ["Aktie", "ETF", "Krypto"],
+        },
+    )
+
+    assert result["checked_assets"] == 0
+    assert result["approved"] == []
+    assert app.pd.Timestamp(result["last_scan"]).tzinfo is not None
+
+
 def test_opportunity_scanner_reuses_loaded_ticker_info(monkeypatch) -> None:
     calls = {"ticker_info": 0}
     index = app.pd.date_range("2025-01-01", periods=260, freq="D")
@@ -580,38 +610,146 @@ def test_portfolio_loader_reports_empty_or_invalid_optional_file(tmp_path: Path,
     assert "kein gültiges JSON" in message
 
 
-def test_streamlit_start_page_and_primary_controls_render_without_exception() -> None:
+def test_streamlit_start_page_and_primary_controls_render_without_exception(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    acknowledgement_path = tmp_path / "swing-risk-acknowledgement.json"
+    acknowledgement_path.write_text(
+        json.dumps({"schema_version": 1, "acknowledged": True}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("INVESTMENT_ASSISTANT_SWING_RISK_ACK_PATH", str(acknowledgement_path))
+    isolated_swing_forward_path = tmp_path / "swing-forward.sqlite3"
+    monkeypatch.setenv("INVESTMENT_ASSISTANT_SWING_FORWARD_DB_PATH", str(isolated_swing_forward_path))
+    monkeypatch.setattr(swing_forward_store, "DEFAULT_SWING_FORWARD_DB_PATH", isolated_swing_forward_path)
     app_test = AppTest.from_file("app.py", default_timeout=30).run()
 
     assert list(app_test.exception) == []
-    assert [title.value for title in app_test.title] == ["Investment-Assistent"]
-    assert [header.value for header in app_test.sidebar.header] == ["Analyse"]
-    expander_labels = {expander.label for expander in app_test.expander}
-    assert {"Forward-Testing", "Opportunity Scanner"} <= expander_labels
+    assert [title.value for title in app_test.title] == ["Investment Assistant"]
+    assert list(app_test.sidebar.header) == []
+    assert [metric.label for metric in app_test.metric] == ["Prognose-Trefferquote"]
     button_labels = {button.label for button in app_test.button}
-    assert {
-        "Analysieren",
-        "Watchlist scannen",
-        "Fällige Trading-Setups auswerten",
-        "Fällige Entscheidungen auswerten",
-        "Fällige Forward-Tests auswerten",
-        "Fällige Prognosen auswerten",
-    } <= button_labels
+    assert button_labels == {
+        "Asset-Analyse öffnen",
+        "Investment Opportunities öffnen",
+        "Swing Trade Finder öffnen",
+    }
 
-    history_buttons = [
-        "Fällige Trading-Setups auswerten",
-        "Fällige Entscheidungen auswerten",
-        "Fällige Forward-Tests auswerten",
-        "Fällige Prognosen auswerten",
+    next(
+        button for button in app_test.button if button.label == "Investment Opportunities öffnen"
+    ).click().run()
+    assert list(app_test.exception) == []
+    assert [title.value for title in app_test.title] == ["Investment Opportunities"]
+    opportunities_text = " ".join(
+        str(item.value)
+        for collection in [app_test.title, app_test.subheader, app_test.markdown, app_test.info, app_test.caption]
+        for item in collection
+    )
+    assert "Aktuell attraktiv" in opportunities_text
+    assert "Zukunftschancen 3+ Jahre" in opportunities_text
+    assert "keine scheinbaren Kandidaten" in opportunities_text
+    next(button for button in app_test.button if button.label == "← Zurück zur Startseite").click().run()
+
+    next(button for button in app_test.button if button.label == "Asset-Analyse öffnen").click().run()
+    assert list(app_test.exception) == []
+    assert [title.value for title in app_test.title] == ["Asset-Analyse"]
+    assert list(app_test.sidebar.header) == []
+    analysis_button_labels = {button.label for button in app_test.button}
+    assert {"← Zurück zur Startseite", "Analysieren"} <= analysis_button_labels
+    assert not any("Forward" in label or "Prognosen auswerten" in label for label in analysis_button_labels)
+    assert "Watchlist scannen" not in analysis_button_labels
+    assert {item.label for item in app_test.text_input} == {
+        "Asset-Name oder Yahoo-Finance-Ticker",
+    }
+    assert {item.label for item in app_test.toggle} == {
+        "Portfolio in Bewertung einbeziehen",
+        "Anfänger-Modus",
+        "Prognosequalität",
+    }
+    assert next(item for item in app_test.selectbox if item.label == "Währungsanzeige").value == "Nur Euro"
+    assert "Asset-Typ manuell korrigieren" in {item.label for item in app_test.selectbox}
+
+    next(item for item in app_test.toggle if item.label == "Prognosequalität").set_value(True).run()
+    assert list(app_test.exception) == []
+    assert "Prognosequalität" in [item.value for item in app_test.subheader]
+    assert "Asset oder Ticker" in {item.label for item in app_test.text_input}
+
+    next(button for button in app_test.button if button.label == "← Zurück zur Startseite").click().run()
+    assert list(app_test.exception) == []
+    assert [title.value for title in app_test.title] == ["Investment Assistant"]
+    assert list(app_test.sidebar.header) == []
+
+    next(button for button in app_test.button if button.label == "Swing Trade Finder öffnen").click().run()
+    assert list(app_test.exception) == []
+    assert [title.value for title in app_test.title] == ["Swing Trade Finder"]
+    assert list(app_test.sidebar.header) == []
+    scanner_button_labels = {button.label for button in app_test.button}
+    assert {"← Zurück zur Startseite", "Markt jetzt scannen"} <= scanner_button_labels
+    assert "Analysieren" not in scanner_button_labels
+    assert list(app_test.text_area) == []
+    scanner_text = " ".join(
+        str(item.value)
+        for collection in [app_test.title, app_test.subheader, app_test.markdown, app_test.info, app_test.caption]
+        for item in collection
+    )
+    assert "Beobachtungsliste" not in scanner_text
+    assert {item.label for item in app_test.number_input} == {"Verfügbares Tradingkapital in Euro"}
+    assert list(app_test.multiselect) == []
+    assert "Beobachten" not in scanner_text
+
+    next(button for button in app_test.button if button.label == "← Zurück zur Startseite").click().run()
+    assert list(app_test.exception) == []
+    assert [title.value for title in app_test.title] == ["Investment Assistant"]
+    assert list(app_test.sidebar.header) == []
+
+    fresh_session = AppTest.from_file("app.py", default_timeout=30).run()
+    assert list(fresh_session.exception) == []
+    assert [title.value for title in fresh_session.title] == ["Investment Assistant"]
+
+
+def test_swing_finder_requires_one_time_local_risk_acknowledgement(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    acknowledgement_path = tmp_path / "missing-risk-acknowledgement.json"
+    monkeypatch.setenv("INVESTMENT_ASSISTANT_SWING_RISK_ACK_PATH", str(acknowledgement_path))
+    app_test = AppTest.from_file("app.py", default_timeout=30).run()
+
+    next(button for button in app_test.button if button.label == "Swing Trade Finder öffnen").click().run()
+
+    assert list(app_test.exception) == []
+    assert "Verstanden und fortfahren" in {button.label for button in app_test.button}
+    assert "Markt jetzt scannen" not in {button.label for button in app_test.button}
+    assert any("vollständigen Verlust" in str(item.value) for item in app_test.warning)
+
+
+def test_analysis_search_prioritizes_recent_successes_without_separate_history(monkeypatch) -> None:
+    history = [
+        {
+            "query": "ServiceNow",
+            "symbol": "NOW",
+            "name": "ServiceNow",
+            "exchange": "NYSE",
+            "currency": "USD",
+        }
     ]
-    for label in history_buttons:
-        rerun = AppTest.from_file("app.py", default_timeout=30).run()
-        next(button for button in rerun.button if button.label == label).click().run()
-        assert list(rerun.exception) == []
+    monkeypatch.setattr(
+        app,
+        "find_ticker_candidates",
+        lambda query: [app.ticker_candidate("NOW"), app.ticker_candidate("NVDA")],
+    )
 
-    empty_analysis = AppTest.from_file("app.py", default_timeout=30).run()
-    next(button for button in empty_analysis.button if button.label == "Analysieren").click().run()
-    assert list(empty_analysis.exception) == []
+    empty_query = app.analysis_search_candidates("", history)
+    typed_query = app.analysis_search_candidates("service", history)
+
+    assert empty_query[0]["symbol"] == "NOW"
+    assert typed_query[0]["symbol"] == "NOW"
+    assert [item["symbol"] for item in typed_query].count("NOW") == 1
+
+
+def test_forecast_direction_uses_existing_buy_signal_without_new_score() -> None:
+    assert app.forecast_direction_from_signal(6.0) == "Steigend"
+    assert app.forecast_direction_from_signal(5.0) == "Seitwärts"
+    assert app.forecast_direction_from_signal(4.0) == "Fallend"
 
 
 def test_calibration_suggestions_handle_empty_history() -> None:

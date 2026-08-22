@@ -1,0 +1,20 @@
+{
+  "version": "swing-walk-forward-schedule-2026.08.17-v1",
+  "task_name": "InvestmentAssistantSwingWalkForward",
+  "weekly_day": "Saturday",
+  "local_run_time": "11:00",
+  "research_start": "2016-01-01",
+  "development_end": "2021-12-31",
+  "validation_end": "2023-12-31",
+  "step_sessions": 5,
+  "future_sessions": 25,
+  "maximum_cases_per_symbol": 12,
+  "batch_size": 100,
+  "analysis_workers": 4,
+  "analysis_executor": "threads",
+  "profiles": ["current"],
+  "wake_to_run": true,
+  "start_when_available": true,
+  "automatic_rule_change": false,
+  "automatic_order_execution": false
+}

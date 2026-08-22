@@ -1,0 +1,47 @@
+{
+  "version": "swing-background-2026.08.11-v2",
+  "universe_path": "config/swing_universe.csv",
+  "database_path": "runtime/swing_forward.sqlite3",
+  "log_path": "runtime/logs/swing_background.log",
+  "task_prefix": "InvestmentAssistantSwingScan",
+  "paper_bot": {
+    "enabled": true,
+    "database_path": "runtime/swing_paper_bot.sqlite3",
+    "virtual_capital_eur": 10000.0,
+    "paper_only": true
+  },
+  "shadow_live": {
+    "enabled": true,
+    "database_path": "runtime/swing_shadow_live.sqlite3",
+    "shadow_only": true,
+    "broker_order_allowed": false
+  },
+  "scopes": {
+    "asia": {
+      "local_run_time": "10:30",
+      "regions": ["Asien", "Australien"],
+      "asset_types": ["Aktie", "ETF"],
+      "evaluate_open_signals": true
+    },
+    "europe": {
+      "local_run_time": "18:15",
+      "regions": ["Europa"],
+      "asset_types": ["Aktie", "ETF"],
+      "evaluate_open_signals": false
+    },
+    "america_global": {
+      "local_run_time": "22:30",
+      "schedule_mode": "after_forecasts",
+      "regions": ["USA", "Nordamerika", "Südamerika", "Global"],
+      "asset_types": ["Aktie", "ETF"],
+      "evaluate_open_signals": false
+    },
+    "crypto": {
+      "local_run_time": "22:30",
+      "schedule_mode": "after_america_global",
+      "regions": [],
+      "asset_types": ["Krypto"],
+      "evaluate_open_signals": false
+    }
+  }
+}

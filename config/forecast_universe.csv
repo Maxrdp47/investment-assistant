@@ -1,0 +1,326 @@
+version,ticker,asset_type,name,region,category
+2026.08.01,AAPL,Aktie,Apple,USA,Technologie
+2026.08.01,MSFT,Aktie,Microsoft,USA,Technologie
+2026.08.01,NVDA,Aktie,NVIDIA,USA,Halbleiter
+2026.08.01,AMZN,Aktie,Amazon,USA,Konsum
+2026.08.01,GOOGL,Aktie,Alphabet,USA,Technologie
+2026.08.01,META,Aktie,Meta Platforms,USA,Technologie
+2026.08.01,AVGO,Aktie,Broadcom,USA,Halbleiter
+2026.08.01,TSLA,Aktie,Tesla,USA,Automobil
+2026.08.01,BRK-B,Aktie,Berkshire Hathaway,USA,Konglomerat
+2026.08.01,JPM,Aktie,JPMorgan Chase,USA,Finanzen
+2026.08.01,V,Aktie,Visa,USA,Finanzen
+2026.08.01,MA,Aktie,Mastercard,USA,Finanzen
+2026.08.01,XOM,Aktie,Exxon Mobil,USA,Energie
+2026.08.01,UNH,Aktie,UnitedHealth,USA,Gesundheit
+2026.08.01,LLY,Aktie,Eli Lilly,USA,Gesundheit
+2026.08.01,COST,Aktie,Costco,USA,Konsum
+2026.08.01,WMT,Aktie,Walmart,USA,Konsum
+2026.08.01,HD,Aktie,Home Depot,USA,Konsum
+2026.08.01,PG,Aktie,Procter and Gamble,USA,Konsum
+2026.08.01,JNJ,Aktie,Johnson and Johnson,USA,Gesundheit
+2026.08.01,ABBV,Aktie,AbbVie,USA,Gesundheit
+2026.08.01,MRK,Aktie,Merck and Co,USA,Gesundheit
+2026.08.01,PEP,Aktie,PepsiCo,USA,Konsum
+2026.08.01,KO,Aktie,Coca Cola,USA,Konsum
+2026.08.01,CRM,Aktie,Salesforce,USA,Software
+2026.08.01,ORCL,Aktie,Oracle,USA,Software
+2026.08.01,NFLX,Aktie,Netflix,USA,Medien
+2026.08.01,AMD,Aktie,Advanced Micro Devices,USA,Halbleiter
+2026.08.01,QCOM,Aktie,Qualcomm,USA,Halbleiter
+2026.08.01,CSCO,Aktie,Cisco Systems,USA,Netzwerk
+2026.08.01,ADBE,Aktie,Adobe,USA,Software
+2026.08.01,NOW,Aktie,ServiceNow,USA,Software
+2026.08.01,PLTR,Aktie,Palantir Technologies,USA,Software
+2026.08.01,IBM,Aktie,IBM,USA,Technologie
+2026.08.01,INTU,Aktie,Intuit,USA,Software
+2026.08.01,AMAT,Aktie,Applied Materials,USA,Halbleiter
+2026.08.01,TXN,Aktie,Texas Instruments,USA,Halbleiter
+2026.08.01,MU,Aktie,Micron Technology,USA,Halbleiter
+2026.08.01,LRCX,Aktie,Lam Research,USA,Halbleiter
+2026.08.01,KLAC,Aktie,KLA,USA,Halbleiter
+2026.08.01,ADI,Aktie,Analog Devices,USA,Halbleiter
+2026.08.01,PANW,Aktie,Palo Alto Networks,USA,Cybersicherheit
+2026.08.01,CRWD,Aktie,CrowdStrike,USA,Cybersicherheit
+2026.08.01,SNOW,Aktie,Snowflake,USA,Software
+2026.08.01,DDOG,Aktie,Datadog,USA,Software
+2026.08.01,NET,Aktie,Cloudflare,USA,Software
+2026.08.01,UBER,Aktie,Uber Technologies,USA,Mobilität
+2026.08.01,ABNB,Aktie,Airbnb,USA,Reisen
+2026.08.01,BKNG,Aktie,Booking Holdings,USA,Reisen
+2026.08.01,DIS,Aktie,Walt Disney,USA,Medien
+2026.08.01,CMCSA,Aktie,Comcast,USA,Medien
+2026.08.01,T,Aktie,AT and T,USA,Telekommunikation
+2026.08.01,TMO,Aktie,Thermo Fisher Scientific,USA,Gesundheit
+2026.08.01,DHR,Aktie,Danaher,USA,Gesundheit
+2026.08.01,ABT,Aktie,Abbott Laboratories,USA,Gesundheit
+2026.08.01,MDT,Aktie,Medtronic,USA,Gesundheit
+2026.08.01,ISRG,Aktie,Intuitive Surgical,USA,Gesundheit
+2026.08.01,GILD,Aktie,Gilead Sciences,USA,Gesundheit
+2026.08.01,AMGN,Aktie,Amgen,USA,Gesundheit
+2026.08.01,VRTX,Aktie,Vertex Pharmaceuticals,USA,Gesundheit
+2026.08.01,PFE,Aktie,Pfizer,USA,Gesundheit
+2026.08.01,BMY,Aktie,Bristol Myers Squibb,USA,Gesundheit
+2026.08.01,CVS,Aktie,CVS Health,USA,Gesundheit
+2026.08.01,CI,Aktie,Cigna,USA,Gesundheit
+2026.08.01,ELV,Aktie,Elevance Health,USA,Gesundheit
+2026.08.01,CAT,Aktie,Caterpillar,USA,Industrie
+2026.08.01,DE,Aktie,Deere and Company,USA,Industrie
+2026.08.01,GE,Aktie,GE Aerospace,USA,Industrie
+2026.08.01,HON,Aktie,Honeywell,USA,Industrie
+2026.08.01,RTX,Aktie,RTX,USA,Luftfahrt
+2026.08.01,LMT,Aktie,Lockheed Martin,USA,Luftfahrt
+2026.08.01,NOC,Aktie,Northrop Grumman,USA,Luftfahrt
+2026.08.01,BA,Aktie,Boeing,USA,Luftfahrt
+2026.08.01,UPS,Aktie,United Parcel Service,USA,Logistik
+2026.08.01,FDX,Aktie,FedEx,USA,Logistik
+2026.08.01,UNP,Aktie,Union Pacific,USA,Infrastruktur
+2026.08.01,CSX,Aktie,CSX,USA,Infrastruktur
+2026.08.01,GM,Aktie,General Motors,USA,Automobil
+2026.08.01,F,Aktie,Ford Motor,USA,Automobil
+2026.08.01,FSLR,Aktie,First Solar,USA,Energie
+2026.08.01,NEE,Aktie,NextEra Energy,USA,Versorger
+2026.08.01,DUK,Aktie,Duke Energy,USA,Versorger
+2026.08.01,SO,Aktie,Southern Company,USA,Versorger
+2026.08.01,COP,Aktie,ConocoPhillips,USA,Energie
+2026.08.01,CVX,Aktie,Chevron,USA,Energie
+2026.08.01,SLB,Aktie,SLB,USA,Energie
+2026.08.01,OXY,Aktie,Occidental Petroleum,USA,Energie
+2026.08.01,LIN,Aktie,Linde,USA,Grundstoffe
+2026.08.01,APD,Aktie,Air Products,USA,Grundstoffe
+2026.08.01,SHW,Aktie,Sherwin Williams,USA,Grundstoffe
+2026.08.01,LOW,Aktie,Lowes,USA,Konsum
+2026.08.01,TJX,Aktie,TJX Companies,USA,Konsum
+2026.08.01,NKE,Aktie,Nike,USA,Konsum
+2026.08.01,SBUX,Aktie,Starbucks,USA,Konsum
+2026.08.01,MCD,Aktie,McDonalds,USA,Konsum
+2026.08.01,CMG,Aktie,Chipotle Mexican Grill,USA,Konsum
+2026.08.01,PM,Aktie,Philip Morris,USA,Konsum
+2026.08.01,MO,Aktie,Altria,USA,Konsum
+2026.08.03,BNY,Aktie,Bank of New York Mellon,USA,Finanzen
+2026.08.01,GS,Aktie,Goldman Sachs,USA,Finanzen
+2026.08.01,MS,Aktie,Morgan Stanley,USA,Finanzen
+2026.08.01,BLK,Aktie,BlackRock,USA,Finanzen
+2026.08.01,SPGI,Aktie,S and P Global,USA,Finanzen
+2026.08.01,CME,Aktie,CME Group,USA,Finanzen
+2026.08.01,SCHW,Aktie,Charles Schwab,USA,Finanzen
+2026.08.01,AXP,Aktie,American Express,USA,Finanzen
+2026.08.01,PYPL,Aktie,PayPal,USA,Finanzen
+2026.08.01,SAP.DE,Aktie,SAP,Europa,Software
+2026.08.01,SIE.DE,Aktie,Siemens,Europa,Industrie
+2026.08.01,ALV.DE,Aktie,Allianz,Europa,Finanzen
+2026.08.01,DTE.DE,Aktie,Deutsche Telekom,Europa,Telekommunikation
+2026.08.01,MBG.DE,Aktie,Mercedes Benz Group,Europa,Automobil
+2026.08.01,BMW.DE,Aktie,BMW,Europa,Automobil
+2026.08.01,VOW3.DE,Aktie,Volkswagen,Europa,Automobil
+2026.08.01,BAS.DE,Aktie,BASF,Europa,Chemie
+2026.08.01,BAYN.DE,Aktie,Bayer,Europa,Gesundheit
+2026.08.01,RWE.DE,Aktie,RWE,Europa,Energie
+2026.08.01,ENR.DE,Aktie,Siemens Energy,Europa,Energie
+2026.08.01,ADS.DE,Aktie,adidas,Europa,Konsum
+2026.08.01,HEN3.DE,Aktie,Henkel,Europa,Konsum
+2026.08.01,IFX.DE,Aktie,Infineon,Europa,Halbleiter
+2026.08.01,BEI.DE,Aktie,Beiersdorf,Europa,Konsum
+2026.08.01,AIR.PA,Aktie,Airbus,Europa,Luftfahrt
+2026.08.01,MC.PA,Aktie,LVMH,Europa,Konsum
+2026.08.01,OR.PA,Aktie,LOreal,Europa,Konsum
+2026.08.01,SAN.PA,Aktie,Sanofi,Europa,Gesundheit
+2026.08.01,SU.PA,Aktie,Schneider Electric,Europa,Industrie
+2026.08.01,TTE.PA,Aktie,TotalEnergies,Europa,Energie
+2026.08.01,BNP.PA,Aktie,BNP Paribas,Europa,Finanzen
+2026.08.01,CS.PA,Aktie,AXA,Europa,Finanzen
+2026.08.01,DG.PA,Aktie,Vinci,Europa,Infrastruktur
+2026.08.01,SAF.PA,Aktie,Safran,Europa,Luftfahrt
+2026.08.01,CAP.PA,Aktie,Capgemini,Europa,IT Services
+2026.08.01,EL.PA,Aktie,EssilorLuxottica,Europa,Gesundheit
+2026.08.01,KER.PA,Aktie,Kering,Europa,Konsum
+2026.08.01,RMS.PA,Aktie,Hermes,Europa,Konsum
+2026.08.01,ASML.AS,Aktie,ASML,Europa,Halbleiter
+2026.08.01,INGA.AS,Aktie,ING Groep,Europa,Finanzen
+2026.08.01,ADYEN.AS,Aktie,Adyen,Europa,Finanzen
+2026.08.01,PHIA.AS,Aktie,Philips,Europa,Gesundheit
+2026.08.01,HEIA.AS,Aktie,Heineken,Europa,Konsum
+2026.08.01,UNA.AS,Aktie,Unilever,Europa,Konsum
+2026.08.01,NOVO-B.CO,Aktie,Novo Nordisk,Europa,Gesundheit
+2026.08.01,MAERSK-B.CO,Aktie,AP Moller Maersk,Europa,Logistik
+2026.08.01,DSV.CO,Aktie,DSV,Europa,Logistik
+2026.08.01,ORSTED.CO,Aktie,Orsted,Europa,Energie
+2026.08.01,NESN.SW,Aktie,Nestle,Europa,Konsum
+2026.08.01,NOVN.SW,Aktie,Novartis,Europa,Gesundheit
+2026.08.03,ROP.SW,Aktie,Roche,Europa,Gesundheit
+2026.08.01,UBSG.SW,Aktie,UBS Group,Europa,Finanzen
+2026.08.01,ZURN.SW,Aktie,Zurich Insurance,Europa,Finanzen
+2026.08.01,SREN.SW,Aktie,Swiss Re,Europa,Finanzen
+2026.08.01,ABBN.SW,Aktie,ABB,Europa,Industrie
+2026.08.01,GIVN.SW,Aktie,Givaudan,Europa,Chemie
+2026.08.01,HSBA.L,Aktie,HSBC,Europa,Finanzen
+2026.08.01,SHEL.L,Aktie,Shell,Europa,Energie
+2026.08.01,AZN.L,Aktie,AstraZeneca,Europa,Gesundheit
+2026.08.01,ULVR.L,Aktie,Unilever London,Europa,Konsum
+2026.08.01,BP.L,Aktie,BP,Europa,Energie
+2026.08.01,GSK.L,Aktie,GSK,Europa,Gesundheit
+2026.08.01,REL.L,Aktie,RELX,Europa,Medien
+2026.08.01,DGE.L,Aktie,Diageo,Europa,Konsum
+2026.08.01,LSEG.L,Aktie,London Stock Exchange Group,Europa,Finanzen
+2026.08.01,BARC.L,Aktie,Barclays,Europa,Finanzen
+2026.08.01,RIO.L,Aktie,Rio Tinto,Europa,Grundstoffe
+2026.08.01,LLOY.L,Aktie,Lloyds Banking Group,Europa,Finanzen
+2026.08.01,RR.L,Aktie,Rolls Royce Holdings,Europa,Industrie
+2026.08.01,PRY.MI,Aktie,Prysmian,Europa,Industrie
+2026.08.01,ENEL.MI,Aktie,Enel,Europa,Versorger
+2026.08.01,ISP.MI,Aktie,Intesa Sanpaolo,Europa,Finanzen
+2026.08.01,UCG.MI,Aktie,UniCredit,Europa,Finanzen
+2026.08.01,STLAM.MI,Aktie,Stellantis,Europa,Automobil
+2026.08.01,IBE.MC,Aktie,Iberdrola,Europa,Versorger
+2026.08.01,SAN.MC,Aktie,Banco Santander,Europa,Finanzen
+2026.08.01,ITX.MC,Aktie,Inditex,Europa,Konsum
+2026.08.01,REP.MC,Aktie,Repsol,Europa,Energie
+2026.08.01,7203.T,Aktie,Toyota Motor,Asien,Automobil
+2026.08.01,6758.T,Aktie,Sony Group,Asien,Technologie
+2026.08.01,9984.T,Aktie,SoftBank Group,Asien,Technologie
+2026.08.01,8306.T,Aktie,Mitsubishi UFJ Financial,Asien,Finanzen
+2026.08.01,6861.T,Aktie,Keyence,Asien,Industrie
+2026.08.01,8035.T,Aktie,Tokyo Electron,Asien,Halbleiter
+2026.08.01,9432.T,Aktie,Nippon Telegraph and Telephone,Asien,Telekommunikation
+2026.08.01,6098.T,Aktie,Recruit Holdings,Asien,IT Services
+2026.08.01,4063.T,Aktie,Shin Etsu Chemical,Asien,Chemie
+2026.08.01,8058.T,Aktie,Mitsubishi Corporation,Asien,Industrie
+2026.08.01,9983.T,Aktie,Fast Retailing,Asien,Konsum
+2026.08.01,6501.T,Aktie,Hitachi,Asien,Industrie
+2026.08.01,7974.T,Aktie,Nintendo,Asien,Medien
+2026.08.01,6954.T,Aktie,Fanuc,Asien,Industrie
+2026.08.01,8001.T,Aktie,Itochu,Asien,Industrie
+2026.08.01,7267.T,Aktie,Honda Motor,Asien,Automobil
+2026.08.01,4519.T,Aktie,Chugai Pharmaceutical,Asien,Gesundheit
+2026.08.01,4502.T,Aktie,Takeda Pharmaceutical,Asien,Gesundheit
+2026.08.01,4503.T,Aktie,Astellas Pharma,Asien,Gesundheit
+2026.08.01,6367.T,Aktie,Daikin Industries,Asien,Industrie
+2026.08.01,005930.KS,Aktie,Samsung Electronics,Asien,Technologie
+2026.08.01,000660.KS,Aktie,SK Hynix,Asien,Halbleiter
+2026.08.01,373220.KS,Aktie,LG Energy Solution,Asien,Energie
+2026.08.01,207940.KS,Aktie,Samsung Biologics,Asien,Gesundheit
+2026.08.01,005380.KS,Aktie,Hyundai Motor,Asien,Automobil
+2026.08.01,000270.KS,Aktie,Kia,Asien,Automobil
+2026.08.01,035420.KS,Aktie,Naver,Asien,Technologie
+2026.08.01,035720.KS,Aktie,Kakao,Asien,Technologie
+2026.08.01,0700.HK,Aktie,Tencent Holdings,Asien,Technologie
+2026.08.01,9988.HK,Aktie,Alibaba Group,Asien,Konsum
+2026.08.01,1810.HK,Aktie,Xiaomi Corporation,Asien,Technologie
+2026.08.01,3690.HK,Aktie,Meituan,Asien,Konsum
+2026.08.01,9618.HK,Aktie,JD.com,Asien,Konsum
+2026.08.01,9999.HK,Aktie,NetEase,Asien,Medien
+2026.08.01,1211.HK,Aktie,BYD,Asien,Automobil
+2026.08.01,2318.HK,Aktie,Ping An Insurance,Asien,Finanzen
+2026.08.01,1299.HK,Aktie,AIA Group,Asien,Finanzen
+2026.08.01,0939.HK,Aktie,China Construction Bank,Asien,Finanzen
+2026.08.01,1398.HK,Aktie,ICBC,Asien,Finanzen
+2026.08.01,0388.HK,Aktie,Hong Kong Exchanges,Asien,Finanzen
+2026.08.01,0883.HK,Aktie,CNOOC,Asien,Energie
+2026.08.01,0941.HK,Aktie,China Mobile,Asien,Telekommunikation
+2026.08.01,1024.HK,Aktie,Kuaishou Technology,Asien,Medien
+2026.08.01,9866.HK,Aktie,NIO,Asien,Automobil
+2026.08.01,9888.HK,Aktie,Baidu,Asien,Technologie
+2026.08.01,2330.TW,Aktie,Taiwan Semiconductor,Asien,Halbleiter
+2026.08.01,2454.TW,Aktie,MediaTek,Asien,Halbleiter
+2026.08.01,2317.TW,Aktie,Hon Hai Precision,Asien,Technologie
+2026.08.01,2308.TW,Aktie,Delta Electronics,Asien,Industrie
+2026.08.01,2382.TW,Aktie,Quanta Computer,Asien,Technologie
+2026.08.01,3711.TW,Aktie,ASE Technology,Asien,Halbleiter
+2026.08.01,RELIANCE.NS,Aktie,Reliance Industries,Asien,Konglomerat
+2026.08.01,TCS.NS,Aktie,Tata Consultancy Services,Asien,IT Services
+2026.08.01,HDFCBANK.NS,Aktie,HDFC Bank,Asien,Finanzen
+2026.08.01,INFY.NS,Aktie,Infosys,Asien,IT Services
+2026.08.01,ICICIBANK.NS,Aktie,ICICI Bank,Asien,Finanzen
+2026.08.01,BHARTIARTL.NS,Aktie,Bharti Airtel,Asien,Telekommunikation
+2026.08.01,LT.NS,Aktie,Larsen and Toubro,Asien,Infrastruktur
+2026.08.01,SUNPHARMA.NS,Aktie,Sun Pharmaceutical,Asien,Gesundheit
+2026.08.01,MARUTI.NS,Aktie,Maruti Suzuki,Asien,Automobil
+2026.08.01,SPY,ETF,SPDR S and P 500 ETF,Global,Welt ETF
+2026.08.01,QQQ,ETF,Invesco QQQ Trust,USA,Technologie ETF
+2026.08.01,VTI,ETF,Vanguard Total Stock Market ETF,USA,Breitmarkt ETF
+2026.08.01,VT,ETF,Vanguard Total World Stock ETF,Global,Welt ETF
+2026.08.01,IWM,ETF,iShares Russell 2000 ETF,USA,Small Cap ETF
+2026.08.01,DIA,ETF,SPDR Dow Jones Industrial Average ETF,USA,Breitmarkt ETF
+2026.08.01,RSP,ETF,Invesco S and P 500 Equal Weight ETF,USA,Breitmarkt ETF
+2026.08.01,VEA,ETF,Vanguard Developed Markets ETF,Global,Regionen ETF
+2026.08.01,VWO,ETF,Vanguard Emerging Markets ETF,Global,Schwellenländer ETF
+2026.08.01,EEM,ETF,iShares MSCI Emerging Markets ETF,Global,Schwellenländer ETF
+2026.08.01,ACWI,ETF,iShares MSCI ACWI ETF,Global,Welt ETF
+2026.08.01,URTH,ETF,iShares MSCI World ETF,Global,Welt ETF
+2026.08.01,IVV,ETF,iShares Core S and P 500 ETF,USA,Breitmarkt ETF
+2026.08.01,SCHD,ETF,Schwab US Dividend Equity ETF,USA,Dividenden ETF
+2026.08.01,VIG,ETF,Vanguard Dividend Appreciation ETF,USA,Dividenden ETF
+2026.08.01,VUG,ETF,Vanguard Growth ETF,USA,Wachstum ETF
+2026.08.01,VTV,ETF,Vanguard Value ETF,USA,Value ETF
+2026.08.01,IJH,ETF,iShares Core S and P Mid Cap ETF,USA,Mid Cap ETF
+2026.08.01,IJR,ETF,iShares Core S and P Small Cap ETF,USA,Small Cap ETF
+2026.08.01,EUNL.DE,ETF,iShares Core MSCI World UCITS ETF,Global,Welt ETF
+2026.08.01,IWDA.AS,ETF,iShares Core MSCI World UCITS ETF,Global,Welt ETF
+2026.08.01,SXR8.DE,ETF,iShares Core S and P 500 UCITS ETF,USA,Breitmarkt ETF
+2026.08.01,CSPX.L,ETF,iShares Core S and P 500 UCITS ETF,USA,Breitmarkt ETF
+2026.08.01,VWCE.DE,ETF,Vanguard FTSE All World UCITS ETF,Global,Welt ETF
+2026.08.01,VUSA.AS,ETF,Vanguard S and P 500 UCITS ETF,USA,Breitmarkt ETF
+2026.08.01,EXSA.DE,ETF,iShares STOXX Europe 600 UCITS ETF,Europa,Regionen ETF
+2026.08.01,IQQH.DE,ETF,iShares Global Clean Energy UCITS ETF,Global,Themen ETF
+2026.08.01,IQQQ.DE,ETF,iShares Global Water UCITS ETF,Global,Themen ETF
+2026.08.01,EWJ,ETF,iShares MSCI Japan ETF,Asien,Länder ETF
+2026.08.01,EWZ,ETF,iShares MSCI Brazil ETF,Südamerika,Länder ETF
+2026.08.01,INDA,ETF,iShares MSCI India ETF,Asien,Länder ETF
+2026.08.01,MCHI,ETF,iShares MSCI China ETF,Asien,Länder ETF
+2026.08.01,EWG,ETF,iShares MSCI Germany ETF,Europa,Länder ETF
+2026.08.01,EWQ,ETF,iShares MSCI France ETF,Europa,Länder ETF
+2026.08.01,EWL,ETF,iShares MSCI Switzerland ETF,Europa,Länder ETF
+2026.08.01,EWC,ETF,iShares MSCI Canada ETF,Nordamerika,Länder ETF
+2026.08.01,EWA,ETF,iShares MSCI Australia ETF,Australien,Länder ETF
+2026.08.01,EWY,ETF,iShares MSCI South Korea ETF,Asien,Länder ETF
+2026.08.01,XLK,ETF,Technology Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,XLF,ETF,Financial Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,XLV,ETF,Health Care Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,XLE,ETF,Energy Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,XLI,ETF,Industrial Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,XLY,ETF,Consumer Discretionary Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,XLP,ETF,Consumer Staples Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,XLU,ETF,Utilities Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,XLB,ETF,Materials Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,XLRE,ETF,Real Estate Select Sector SPDR Fund,USA,Sektor ETF
+2026.08.01,SOXX,ETF,iShares Semiconductor ETF,Global,Halbleiter ETF
+2026.08.01,SMH,ETF,VanEck Semiconductor ETF,Global,Halbleiter ETF
+2026.08.01,IGV,ETF,iShares Expanded Tech Software ETF,USA,Software ETF
+2026.08.01,ICLN,ETF,iShares Global Clean Energy ETF,Global,Themen ETF
+2026.08.01,TAN,ETF,Invesco Solar ETF,Global,Themen ETF
+2026.08.01,BOTZ,ETF,Global X Robotics and AI ETF,Global,Themen ETF
+2026.08.01,ARKK,ETF,ARK Innovation ETF,USA,Themen ETF
+2026.08.01,AGG,ETF,iShares Core US Aggregate Bond ETF,USA,Anleihen ETF
+2026.08.01,TLT,ETF,iShares 20 Plus Year Treasury Bond ETF,USA,Anleihen ETF
+2026.08.01,IAU,ETF,iShares Gold Trust,Global,Rohstoff ETF
+2026.08.01,GLD,ETF,SPDR Gold Shares,Global,Rohstoff ETF
+2026.08.01,BTC-USD,Krypto,Bitcoin,Global,Kryptowährung
+2026.08.01,ETH-USD,Krypto,Ethereum,Global,Kryptowährung
+2026.08.01,USDT-USD,Krypto,Tether,Global,Stablecoin
+2026.08.01,BNB-USD,Krypto,BNB,Global,Kryptowährung
+2026.08.01,SOL-USD,Krypto,Solana,Global,Kryptowährung
+2026.08.01,USDC-USD,Krypto,USD Coin,Global,Stablecoin
+2026.08.01,XRP-USD,Krypto,XRP,Global,Kryptowährung
+2026.08.01,DOGE-USD,Krypto,Dogecoin,Global,Kryptowährung
+2026.08.01,ADA-USD,Krypto,Cardano,Global,Kryptowährung
+2026.08.01,AVAX-USD,Krypto,Avalanche,Global,Kryptowährung
+2026.08.01,SHIB-USD,Krypto,Shiba Inu,Global,Kryptowährung
+2026.08.01,DOT-USD,Krypto,Polkadot,Global,Kryptowährung
+2026.08.01,LINK-USD,Krypto,Chainlink,Global,Kryptowährung
+2026.08.01,TRX-USD,Krypto,TRON,Global,Kryptowährung
+2026.08.01,MATIC-USD,Krypto,Polygon,Global,Kryptowährung
+2026.08.01,LTC-USD,Krypto,Litecoin,Global,Kryptowährung
+2026.08.01,BCH-USD,Krypto,Bitcoin Cash,Global,Kryptowährung
+2026.08.01,ICP-USD,Krypto,Internet Computer,Global,Kryptowährung
+2026.08.01,NEAR-USD,Krypto,NEAR Protocol,Global,Kryptowährung
+2026.08.01,UNI7083-USD,Krypto,Uniswap,Global,Kryptowährung
+2026.08.01,APT21794-USD,Krypto,Aptos,Global,Kryptowährung
+2026.08.01,FIL-USD,Krypto,Filecoin,Global,Kryptowährung
+2026.08.01,ETC-USD,Krypto,Ethereum Classic,Global,Kryptowährung
+2026.08.01,XLM-USD,Krypto,Stellar,Global,Kryptowährung
+2026.08.01,ATOM-USD,Krypto,Cosmos,Global,Kryptowährung
+2026.08.01,HBAR-USD,Krypto,Hedera,Global,Kryptowährung
+2026.08.01,VET-USD,Krypto,VeChain,Global,Kryptowährung
+2026.08.01,ALGO-USD,Krypto,Algorand,Global,Kryptowährung
+2026.08.01,MKR-USD,Krypto,Maker,Global,Kryptowährung
+2026.08.01,AAVE-USD,Krypto,Aave,Global,Kryptowährung

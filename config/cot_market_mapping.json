@@ -1,0 +1,127 @@
+{
+  "version": "cot-market-mapping-2026.08.18-v1",
+  "shadow_only": true,
+  "mapping_principle": "explicit_broad_market_context_only",
+  "guardrails": {
+    "individual_equity_is_issuer_specific": false,
+    "unmatched_market_status": "unmapped",
+    "ambiguous_market_status": "ambiguous",
+    "non_reportables_are_retail": false,
+    "commercials_are_smart_money": false
+  },
+  "asset_context_routes": [
+    {
+      "route_id": "us-equity-broad-context-v1",
+      "asset_types": ["Aktie", "ETF"],
+      "regions": ["USA"],
+      "asset_groups": ["equities_us_broad_market"],
+      "scope": "broad_market_context"
+    },
+    {
+      "route_id": "europe-equity-broad-context-v1",
+      "asset_types": ["Aktie", "ETF"],
+      "regions": ["Europa"],
+      "asset_groups": ["equities_europe"],
+      "scope": "broad_market_context"
+    },
+    {
+      "route_id": "bitcoin-direct-context-v1",
+      "tickers": ["BTC-USD", "BTC-EUR"],
+      "asset_groups": ["crypto_bitcoin"],
+      "scope": "underlying_market_context"
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "tff-us-large-cap-equity-index-v1",
+      "report_types": ["tff_futures_only"],
+      "match_any": ["E-MINI S&P 500", "S&P 500 STOCK INDEX", "DOW JONES INDUSTRIAL"],
+      "asset_group": "equities_us_broad_market",
+      "scope": "broad_market_context"
+    },
+    {
+      "rule_id": "tff-us-growth-equity-index-v1",
+      "report_types": ["tff_futures_only"],
+      "match_any": ["NASDAQ-100", "NASDAQ 100"],
+      "asset_group": "equities_us_growth",
+      "scope": "broad_market_context"
+    },
+    {
+      "rule_id": "tff-us-small-cap-equity-index-v1",
+      "report_types": ["tff_futures_only"],
+      "match_any": ["RUSSELL 2000"],
+      "asset_group": "equities_us_small_cap",
+      "scope": "broad_market_context"
+    },
+    {
+      "rule_id": "tff-europe-equity-index-v1",
+      "report_types": ["tff_futures_only"],
+      "match_any": ["EURO STOXX 50", "EUROPEAN DOW JONES"],
+      "asset_group": "equities_europe",
+      "scope": "broad_market_context"
+    },
+    {
+      "rule_id": "tff-japan-equity-index-v1",
+      "report_types": ["tff_futures_only"],
+      "match_any": ["NIKKEI STOCK AVERAGE", "NIKKEI 225"],
+      "asset_group": "equities_japan",
+      "scope": "broad_market_context"
+    },
+    {
+      "rule_id": "tff-usd-v1",
+      "report_types": ["tff_futures_only"],
+      "match_any": ["U.S. DOLLAR INDEX", "USD INDEX"],
+      "asset_group": "fx_usd",
+      "scope": "macro_currency_context"
+    },
+    {
+      "rule_id": "tff-eur-v1",
+      "report_types": ["tff_futures_only"],
+      "match_any": ["EURO FX"],
+      "asset_group": "fx_eur",
+      "scope": "macro_currency_context"
+    },
+    {
+      "rule_id": "tff-bitcoin-v1",
+      "report_types": ["tff_futures_only"],
+      "match_any": ["BITCOIN"],
+      "asset_group": "crypto_bitcoin",
+      "scope": "underlying_market_context"
+    },
+    {
+      "rule_id": "dcot-gold-v1",
+      "report_types": ["disaggregated_futures_only"],
+      "match_any": ["GOLD"],
+      "asset_group": "commodity_gold",
+      "scope": "underlying_market_context"
+    },
+    {
+      "rule_id": "dcot-copper-v1",
+      "report_types": ["disaggregated_futures_only"],
+      "match_any": ["COPPER"],
+      "asset_group": "commodity_copper",
+      "scope": "underlying_market_context"
+    },
+    {
+      "rule_id": "dcot-crude-oil-v1",
+      "report_types": ["disaggregated_futures_only"],
+      "match_any": ["CRUDE OIL"],
+      "asset_group": "commodity_crude_oil",
+      "scope": "underlying_market_context"
+    },
+    {
+      "rule_id": "dcot-natural-gas-v1",
+      "report_types": ["disaggregated_futures_only"],
+      "match_any": ["NATURAL GAS", "NAT GAS"],
+      "asset_group": "commodity_natural_gas",
+      "scope": "underlying_market_context"
+    },
+    {
+      "rule_id": "dcot-grains-v1",
+      "report_types": ["disaggregated_futures_only"],
+      "match_any": ["CORN", "WHEAT", "SOYBEANS"],
+      "asset_group": "commodity_grains",
+      "scope": "underlying_market_context"
+    }
+  ]
+}

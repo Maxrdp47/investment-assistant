@@ -1,0 +1,19 @@
+{
+  "task_name": "InvestmentAssistantDailyForecasts",
+  "local_run_time": "22:30",
+  "database_path": "runtime/forecasts.sqlite3",
+  "log_path": "runtime/logs/forecast_runner.log",
+  "calibration_path": "runtime/calibration_profile.json",
+  "universe_path": "config/forecast_universe.csv",
+  "reference_universe_path": "config/forecast_universe.csv",
+  "weekly_universe_path": "config/forecast_weekly_universe.csv",
+  "weekly_minimum_assets": 1500,
+  "weekly_schedule_start_date": "2026-08-10",
+  "weekly_report_directory": "runtime/weekly_reports",
+  "batch_size": 25,
+  "request_delay_seconds": 1.0,
+  "batch_pause_seconds": 8.0,
+  "max_retries": 2,
+  "evaluation_limit": 1000,
+  "logic_version": "2026.08.01-v1"
+}

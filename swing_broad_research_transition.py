@@ -11,7 +11,7 @@ from typing import Mapping, Sequence
 
 
 EXPECTED_CAMPAIGN_JOBS = 248
-TRANSITION_VERSION = "swing-broad-research-transition-2026.08.22-v1"
+TRANSITION_VERSION = "swing-broad-research-transition-2026.08.23-v2"
 DEFAULT_TRANSITION_DIR = (
     Path(__file__).resolve().parent / "runtime" / "swing_broad_research_transition"
 )
@@ -98,12 +98,58 @@ def validate_broad_research_transition(
         raise BroadResearchTransitionError(
             "Der breite Lauf darf nur den festen, nicht den wöchentlichen Datensatz verwenden."
         )
-    completion_fingerprints = {
-        str(dict(completed[key] or {}).get("dataset_fingerprint") or "") for key in job_keys
+    fixed_jobs = [
+        dict(job)
+        for job in campaign_jobs
+        if str(dict(job.get("contract") or {}).get("recurrence") or "once") == "once"
+    ]
+    monitoring_jobs = [
+        dict(job)
+        for job in campaign_jobs
+        if str(dict(job.get("contract") or {}).get("recurrence") or "once") == "weekly"
+    ]
+    fixed_job_keys = [str(job.get("job_key") or "") for job in fixed_jobs]
+    fixed_dataset_epochs = {
+        str(dict(completed[key] or {}).get("dataset_epoch") or "")
+        for key in fixed_job_keys
     }
-    if completion_fingerprints != {dataset_fingerprint}:
+    fixed_dataset_fingerprints = {
+        str(dict(completed[key] or {}).get("dataset_fingerprint") or "")
+        for key in fixed_job_keys
+    }
+    if not fixed_job_keys:
         raise BroadResearchTransitionError(
-            "Nicht alle 248 Jobabschlüsse verweisen auf denselben Frozen-Datensatz."
+            "Die Kampagne enthält keine festen Forschungsjobs für den Broad-Übergang."
+        )
+    if fixed_dataset_epochs != {str(manifest.get("dataset_epoch") or "")}:
+        raise BroadResearchTransitionError(
+            "Nicht alle festen Kampagnenjobs verweisen auf dieselbe Frozen-Dataset-Epoche."
+        )
+    if fixed_dataset_fingerprints != {dataset_fingerprint}:
+        raise BroadResearchTransitionError(
+            "Nicht alle festen Kampagnenjobs verweisen auf denselben Frozen-Datensatz."
+        )
+    monitoring_datasets: dict[str, set[str]] = {}
+    for job in monitoring_jobs:
+        key = str(job.get("job_key") or "")
+        epoch = str(job.get("epoch") or "")
+        completion = dict(completed[key] or {})
+        completion_epoch = str(completion.get("dataset_epoch") or "")
+        completion_fingerprint = str(completion.get("dataset_fingerprint") or "")
+        if not epoch or not completion_epoch.endswith(f"|{epoch}"):
+            raise BroadResearchTransitionError(
+                "Ein wöchentlicher Monitoringjob verweist auf eine falsche Dataset-Epoche."
+            )
+        if not completion_fingerprint:
+            raise BroadResearchTransitionError(
+                "Ein wöchentlicher Monitoringjob besitzt keinen Dataset-Fingerprint."
+            )
+        monitoring_datasets.setdefault(completion_epoch, set()).add(
+            completion_fingerprint
+        )
+    if any(len(fingerprints) != 1 for fingerprints in monitoring_datasets.values()):
+        raise BroadResearchTransitionError(
+            "Wöchentliche Monitoringjobs derselben Epoche besitzen unterschiedliche Dataset-Fingerprints."
         )
     if (
         str(walk_forward_audit.get("quick_check") or "") != "ok"
@@ -148,6 +194,16 @@ def validate_broad_research_transition(
             ),
             "invalid_count": int(walk_forward_audit.get("invalid_count") or 0),
             "status": walk_forward_audit.get("status"),
+        },
+        "campaign_dataset_groups": {
+            "fixed_jobs": len(fixed_jobs),
+            "fixed_dataset_epoch": str(manifest.get("dataset_epoch") or ""),
+            "fixed_dataset_fingerprint": dataset_fingerprint,
+            "monitoring_jobs": len(monitoring_jobs),
+            "monitoring_datasets": {
+                epoch: next(iter(fingerprints))
+                for epoch, fingerprints in sorted(monitoring_datasets.items())
+            },
         },
         "existing_campaign_changed": False,
         "existing_campaign_restarted": False,

@@ -69,8 +69,59 @@ def test_transition_rejects_invalid_store_or_mixed_dataset_fingerprint() -> None
 
     mixed = _inputs()
     mixed["campaign_state"]["completed"]["job-247"]["dataset_fingerprint"] = "other"
-    with pytest.raises(BroadResearchTransitionError, match="denselben Frozen-Datensatz"):
+    with pytest.raises(BroadResearchTransitionError, match="festen Kampagnenjobs"):
         validate_broad_research_transition(**mixed)
+
+
+def test_transition_accepts_separate_fixed_and_weekly_dataset_groups() -> None:
+    inputs = _inputs()
+    weekly_fingerprint = "weekly-dataset-fingerprint"
+    for index in range(240, 248):
+        job_key = f"job-{index:03d}"
+        inputs["campaign_jobs"][index] = {
+            "job_key": job_key,
+            "epoch": "2026-W34",
+            "contract": {"recurrence": "weekly"},
+        }
+        inputs["campaign_state"]["completed"][job_key] = {
+            "dataset_epoch": "epoch|2026-W34",
+            "dataset_fingerprint": weekly_fingerprint,
+            "contract": "weekly-monitoring",
+            "shard_index": index - 240,
+        }
+
+    payload = validate_broad_research_transition(**inputs)
+
+    assert payload["campaign_dataset_groups"] == {
+        "fixed_jobs": 240,
+        "fixed_dataset_epoch": "epoch|fixed",
+        "fixed_dataset_fingerprint": "dataset-fingerprint",
+        "monitoring_jobs": 8,
+        "monitoring_datasets": {"epoch|2026-W34": weekly_fingerprint},
+    }
+
+
+def test_transition_rejects_inconsistent_weekly_monitoring_dataset() -> None:
+    inputs = _inputs()
+    for index in range(240, 248):
+        job_key = f"job-{index:03d}"
+        inputs["campaign_jobs"][index] = {
+            "job_key": job_key,
+            "epoch": "2026-W34",
+            "contract": {"recurrence": "weekly"},
+        }
+        inputs["campaign_state"]["completed"][job_key] = {
+            "dataset_epoch": "epoch|2026-W34",
+            "dataset_fingerprint": "weekly-dataset-fingerprint",
+            "contract": "weekly-monitoring",
+            "shard_index": index - 240,
+        }
+    inputs["campaign_state"]["completed"]["job-247"][
+        "dataset_fingerprint"
+    ] = "other-weekly-fingerprint"
+
+    with pytest.raises(BroadResearchTransitionError, match="Monitoringjobs"):
+        validate_broad_research_transition(**inputs)
 
 
 def test_transition_receipt_is_reproducible_append_only_and_verified(tmp_path) -> None:

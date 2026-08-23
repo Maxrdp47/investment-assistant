@@ -826,6 +826,17 @@ def pullback_sample(scopes: Mapping[str, Mapping[str, Any]], identities: Mapping
                         "filter_rule": profile["technical_filter"], "filter_values": values,
                         "filter_passed": passed,
                     })
+    for key in (
+        "trend_condition",
+        "pullback_candidate",
+        "approved_assessment_any_setup",
+        "approved_assessment_selected_breakout",
+        "assessment_rejected_despite_pullback_candidate",
+        "setup_complete_selected_pullback",
+        "pullback_candidate_profile_filter_passed",
+        "profile_filter_passed",
+    ):
+        cutoff_funnel.setdefault(key, 0)
     cutoff_funnel["entry_activated"] = cutoff_funnel["profile_filter_passed"]
     cutoff_funnel["entry_executed"] = 0
     cutoff_funnel["complete_label"] = 0

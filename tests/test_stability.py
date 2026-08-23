@@ -7,6 +7,7 @@ import app
 import swing_forward_store
 from streamlit.testing.v1 import AppTest
 
+APP_PATH = Path(__file__).resolve().parents[1] / "app.py"
 CALIBRATION_CONTEXT = "Belastbarer Lernkontext (negativ)"
 CALIBRATION_HINT = "Schwaches Backtest-Muster: NVDA. Nur manueller Hinweis."
 
@@ -622,7 +623,7 @@ def test_streamlit_start_page_and_primary_controls_render_without_exception(
     isolated_swing_forward_path = tmp_path / "swing-forward.sqlite3"
     monkeypatch.setenv("INVESTMENT_ASSISTANT_SWING_FORWARD_DB_PATH", str(isolated_swing_forward_path))
     monkeypatch.setattr(swing_forward_store, "DEFAULT_SWING_FORWARD_DB_PATH", isolated_swing_forward_path)
-    app_test = AppTest.from_file("app.py", default_timeout=30).run()
+    app_test = AppTest.from_file(APP_PATH, default_timeout=30).run()
 
     assert list(app_test.exception) == []
     assert [title.value for title in app_test.title] == ["Investment Assistant"]
@@ -702,7 +703,7 @@ def test_streamlit_start_page_and_primary_controls_render_without_exception(
     assert [title.value for title in app_test.title] == ["Investment Assistant"]
     assert list(app_test.sidebar.header) == []
 
-    fresh_session = AppTest.from_file("app.py", default_timeout=30).run()
+    fresh_session = AppTest.from_file(APP_PATH, default_timeout=30).run()
     assert list(fresh_session.exception) == []
     assert [title.value for title in fresh_session.title] == ["Investment Assistant"]
 
@@ -712,7 +713,7 @@ def test_swing_finder_requires_one_time_local_risk_acknowledgement(
 ) -> None:
     acknowledgement_path = tmp_path / "missing-risk-acknowledgement.json"
     monkeypatch.setenv("INVESTMENT_ASSISTANT_SWING_RISK_ACK_PATH", str(acknowledgement_path))
-    app_test = AppTest.from_file("app.py", default_timeout=30).run()
+    app_test = AppTest.from_file(APP_PATH, default_timeout=30).run()
 
     next(button for button in app_test.button if button.label == "Swing Trade Finder öffnen").click().run()
 

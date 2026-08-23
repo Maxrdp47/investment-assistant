@@ -1124,7 +1124,7 @@ def _default_news_loader(symbol: str) -> list[dict]:
 def _read_forward_signals_read_only(signal_ids: Sequence[str], forward_path: Path) -> list[dict]:
     if not signal_ids or not Path(forward_path).exists():
         return []
-    uri = Path(forward_path).resolve().as_uri().replace("file:///", "file:") + "?mode=ro"
+    uri = Path(forward_path).resolve().as_uri() + "?mode=ro"
     connection = sqlite3.connect(uri, uri=True)
     connection.row_factory = sqlite3.Row
     try:

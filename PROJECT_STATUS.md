@@ -383,6 +383,16 @@ Unter den 14 abgeschlossenen echten Forward-Paper-Trades besitzen elf einen solc
 
 Der Hintergrundrunner sammelt bei einem künftig neu gespeicherten Signal dessen Sidecar automatisch. Yahoo-Ticker-News werden nur als sekundäre Aggregatorquelle gespeichert und sind für genau dieses Signal nur zulässig, wenn sowohl Veröffentlichung als auch tatsächlicher erster Abruf nicht nach dessen Event-Cutoff liegen. Später erstmals gesehene Artikel bleiben für das frühere Signal ausgeschlossen, können aber für spätere Signale verfügbar sein. Providerfehler erzeugen nur `research_attention`; Forward-Scan, Paper/Shadow, Prognosen, 248er Kampagne und Broad-Gate laufen unabhängig weiter.
 
+#### Future-only Kampagnenhärtung aus der 248/248-Forensik
+
+Stand 2026-08-23: `swing_campaign_forensic_hardening.py` ergänzt ausschließlich Verträge und append-only Speicher für neue Kampagnenversionen. Es wird weder vom unveränderten Legacy-Walk-Forward-Runner noch vom laufenden Broad-Epoch importiert.
+
+- Kampagne v1 bleibt unveränderliche historische Referenz; Frozen-Dataset-Fingerprint `e2310023e5c83fc19ce8316b55514e9694c882e546277487ed75319e560be1ed`, Queue, Cases, Resultate, Strategy-Freezes, historische A/B/C-Ergebnisse und Long-v1 sind unverändert.
+- `long_v1_pullback_only` ist wegen des Setup-ID-/Anzeigenamen-Mismatch methodisch ungültig; null Fälle sind keine negative Pullback-Evidenz. Breakout-/Long-v1 bleiben negative historische Evidenz. RSI-/EMA+RSI-Befunde sind nur neutrale Hypothesenhinweise nach dem Broad-Pass.
+- Künftige Research-, Scanner-, Campaign-, Freeze- und Reportingverträge selektieren nur exakte kanonische Setup-IDs; Anzeigenamen sind reine Darstellung und Substring-Selektion ist gesperrt.
+- Ein outcome-blinder kompakter Candidate-/Reject-Funnel, ein echter Cutoff-basierter `recent_incremental`-Vertrag und eine append-only Retry-/Completion-Provenienz sind vorbereitet. Backfill, initiale Basis, neue Incremental- und echte Forward-Evidenz bleiben getrennt; Retries können Dataset, Sample, Completion oder Resultat nicht still wechseln beziehungsweise doppelt zählen.
+- A/B/C-v2.1, seine Effective-N-/Underpowered-Gates und der vollständige Development-/Validation-/Holdout-/External-/Forward-Pfad wurden nicht neu gebaut oder verändert. Der erste Broad-Pass erhielt weder neue Features, Kandidatendefinitionen, Hypothesen noch einen Neustart.
+
 #### Konkreter echter Swing-Forward-Status
 
 Stand: 2026-08-22. Rein lesend aus append-only Forward-Ereignissen und dem unveränderten Frozen-Datensatz abgeleitet. `n/v` bedeutet nicht verfügbar. Die Sitzungszahlen sind Untergrenzen aus tatsächlich gespeicherten Beobachtungstagen, kein erfundener Börsenkalender. Spätere Kursfenster und alternative Stops sind ausschließlich Counterfactuals/Diagnose, keine echten Forward-Ergebnisse; eine Intrabar-Reihenfolge wird nicht erfunden.

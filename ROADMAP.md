@@ -1528,6 +1528,17 @@ Status 2026-08-23: Als strikt future-only Planungs- und Schutzschicht umgesetzt.
 - Pflicht: ausschließlich Point-in-Time-Daten und korrekte Release-/Expectation-Zeitpunkte, historische Vintages revidierter Makrodaten, Baseline → Einzelfeatures → erst danach Kombinationen, OOS/Walk-Forward und Multiple-Testing-Schutz. Keine vorgegebene JPY-/BoJ-/Währungsrichtung.
 - Nicht als Wissen übernehmen: „Japan-Krise = Yen steigt“, „BoJ-Zinserhöhung = Yen-Long“, „Carry Trade wird sicher aufgelöst“ oder feste Yen-Renditeprognosen von +12–15 Prozent.
 
+##### Future-only Härtung nach der 248/248-Kampagnenforensik
+
+Status 2026-08-23: Als getrennte Vertragsschicht für neue Kampagnen vorbereitet. Die abgeschlossene Kampagne v1 bleibt mit dem Frozen-Dataset-Fingerprint `e2310023e5c83fc19ce8316b55514e9694c882e546277487ed75319e560be1ed` unveränderliche historische Referenz. Queue, Cases, Resultate, Strategy-Freezes, Fingerprints, Long-v1 und historische A/B/C-Ergebnisse werden weder migriert noch nachberechnet. Der laufende erste Broad-Pass bleibt vollständig unverändert.
+
+- `long_v1_pullback_only` gilt wegen der Auswahl des englischen Teilstrings `Pullback` gegen den deutschen Engine-Anzeigenamen methodisch als `invalid_historical_profile_due_to_setup_identity_mismatch`; seine null Fälle sind keine negative Pullback-Evidenz. Breakout-/Long-v1 bleiben gültige negative historische Evidenz. RSI- und EMA+RSI-Befunde bleiben neutrale Hypothesenhinweise ohne Schwellen-, Filter- oder Produktionswirkung.
+- Neue Research-, Scanner-, Campaign-, Freeze- und Reportingversionen müssen Pullback und Breakout über stabile kanonische Setup-IDs selektieren. Anzeigenamen sind ausschließlich Darstellung; unbekannte oder fehlende IDs sowie Text-/Substring-Selektion werden fail-closed abgewiesen.
+- Ein kompakter outcome-blinder append-only Candidate-/Reject-Funnel hält die letzte erreichte Stufe und genau einen expliziten terminalen Grund fest. Universum, Kandidaten, ausgeführte Trades und Nicht-Trades müssen vollständig aufgehen; Ergebniswerte dürfen auch nicht verschachtelt in Funnel-Metadaten einfließen.
+- `recent_incremental` zählt künftig nur zuvor ungesehene Evidenz, die nach dem letzten gültigen Cutoff erstmals berechtigt und im Monitoring sichtbar wurde. Initiale Basis, historischer Backfill und echte Forward-Evidenz bleiben getrennte Arten; Backfill und frühere Fälle dürfen niemals als neu oder Forward erscheinen.
+- Jeder künftige Retry erhält append-only Job-/Attempt-Provenienz einschließlich Shard, Worker/Prozess, Zeit, Fehlerklasse/-grund, Asset, Dataset-/Codevertrag, Resume-Key, Sample-Selektion und Completion-ID. Lückenlose Attempts, stabile Identitäten und genau eine Completion verhindern Datasetwechsel, Samplewechsel und Doppelzählung.
+- `swing-campaign-methodology-2026.08.23-v2.1` und `swing-ground-up-abc-2026.08.23-v2.1` werden nicht neu gebaut oder verändert. Underpowered bleibt nicht entscheidungsfähig; A/B/C ergänzt weiterhin nur den festen Pfad Development → Fixed Challenger → Validation → Holdout → External Unseen → True Forward → Autonomous Paper → Shadow und öffnet niemals allein die Produktion.
+
 ##### External Unseen Asset Universe
 
 Status 2026-08-22: Der outcome-blinde append-only Auswahl-, Freeze- und Ergebnisvertrag ist technisch umgesetzt. External-Ergebnisse sind zusätzlich bis zum manuell bestandenen Holdout-Gate exakt derselben Challenger-Version gesperrt. Ein reales externes Universum ist noch nicht zusammengestellt oder getestet; aktuell bleibt diese Stufe reine Infrastrukturprüfung.

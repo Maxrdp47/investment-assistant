@@ -12,10 +12,17 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 from typing import Mapping, Sequence
 
+from swing_research_market_scope import (
+    DIRECT_ASSET_SCOPES,
+    MARKET_SCOPE_CONTRACT_VERSION,
+    market_scope_contract,
+    normalize_market_scopes,
+)
 
-SWING_ABC_V2_VERSION = "swing-ground-up-abc-2026.08.23-v2"
+
+SWING_ABC_V2_VERSION = "swing-ground-up-abc-2026.08.23-v2.1"
 SWING_EFFECTIVE_N_VERSION = "swing-effective-n-2026.08.23-v1"
-SWING_CAMPAIGN_V2_METHODOLOGY_VERSION = "swing-campaign-methodology-2026.08.23-v2"
+SWING_CAMPAIGN_V2_METHODOLOGY_VERSION = "swing-campaign-methodology-2026.08.23-v2.1"
 ABC_ROUNDS = ("A", "B", "C")
 RESEARCH_STAGES = ("entry", "stop", "exit_management", "full_challenger_oos")
 
@@ -206,6 +213,7 @@ def reserve_abc_v2_pools(
     challenger_version: str,
     challenger_fingerprint: str,
     dataset_fingerprint: str,
+    market_scopes: Sequence[str],
     seed: str,
     minimum_effective_n_per_round: int,
 ) -> dict[str, object]:
@@ -216,6 +224,11 @@ def reserve_abc_v2_pools(
         raise ValueError("A/B/C v2 benötigt einen eingefrorenen Datensatzfingerabdruck.")
     if int(minimum_effective_n_per_round) < 1:
         raise ValueError("Minimum Effective-N muss vor Kampagnenstart positiv festgelegt sein.")
+    tested_market_scopes = normalize_market_scopes(
+        market_scopes, field="campaign.market_scope"
+    )
+    if not set(tested_market_scopes) & DIRECT_ASSET_SCOPES:
+        raise ValueError("Eine reale A/B/C-v2-Kampagne benötigt einen konkreten Asset-Market-Scope.")
 
     projections = [abc_v2_selection_projection(candidate) for candidate in candidates]
     ids = [str(row["candidate_id"]) for row in projections]
@@ -288,6 +301,7 @@ def reserve_abc_v2_pools(
         "challenger_version": challenger_version,
         "challenger_fingerprint": challenger_fingerprint,
         "dataset_fingerprint": dataset_fingerprint,
+        "market_scope": list(tested_market_scopes),
         "seed": str(seed),
         "minimum_effective_n_per_round": int(minimum_effective_n_per_round),
         "selection_input_fields": list(_SELECTION_FIELDS),
@@ -550,6 +564,7 @@ def campaign_v2_methodology_contract() -> dict[str, object]:
         "version": SWING_CAMPAIGN_V2_METHODOLOGY_VERSION,
         "abc_version": SWING_ABC_V2_VERSION,
         "effective_n_version": SWING_EFFECTIVE_N_VERSION,
+        "market_scope_contract_version": MARKET_SCOPE_CONTRACT_VERSION,
         "status": "prepared_not_started",
         "v1_reference": {
             "immutable": True,
@@ -572,6 +587,7 @@ def campaign_v2_methodology_contract() -> dict[str, object]:
             "frozen_cost_and_execution_contract",
             "outcome_blind_candidate_universe",
             "predeclared_minimum_effective_n_per_round",
+            "frozen_test_market_scopes",
         ],
         "abc": {
             "all_pools_reserved_before_first_result": True,
@@ -597,6 +613,8 @@ def campaign_v2_methodology_contract() -> dict[str, object]:
             "round_statuses": ["sufficient", "underpowered", "empty", "invalid"],
             "underpowered_means_no_conclusion": True,
             "raw_n_and_effective_n_required": True,
+            "market_scope_required": True,
+            "cross_market_validation_inherited": False,
         },
         "effective_n": {
             "hard_dependencies": [
@@ -677,6 +695,8 @@ def campaign_v2_methodology_contract() -> dict[str, object]:
             "historical_broad_validation_holdout_external_true_forward_paper_shadow_separate": True,
             "combined_hit_rate": False,
             "rule_change_after_unseen_evidence_opens": False,
+            "validated_plus_matching_market_scope_required": True,
+            "cross_market_transfer_requires_new_experiment": True,
         },
         "survivorship": {
             "current_frozen_universe_fully_point_in_time": False,
@@ -764,6 +784,8 @@ def prepare_v2_hypothesis(
     *,
     family: str,
     question: str,
+    source_market_scopes: Sequence[str],
+    test_market_scopes: Sequence[str],
     stage: str,
     changed_dimensions: Sequence[str],
     frozen_stage_fingerprints: Mapping[str, str],
@@ -778,6 +800,10 @@ def prepare_v2_hypothesis(
         stage,
         frozen_stage_fingerprints=frozen_stage_fingerprints,
         changed_dimensions=changed_dimensions,
+    )
+    scope_contract = market_scope_contract(
+        source_scopes=source_market_scopes,
+        test_scopes=test_market_scopes,
     )
     required_text = {
         "family": family,
@@ -804,6 +830,7 @@ def prepare_v2_hypothesis(
         "family": str(family),
         "family_attempt_ordinal": int(family_attempt_ordinal),
         "question": str(question),
+        "market_scope_contract": scope_contract,
         "stage_contract": stage_contract,
         "predeclared_parameters": dict(predeclared_parameters),
         "dataset_fingerprint": str(dataset_fingerprint),

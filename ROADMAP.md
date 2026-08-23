@@ -1500,6 +1500,34 @@ Der technische Broad-Vollpass wartet ausdrücklich **nicht** auf eine vollständ
 - Für einen bestätigten C-Challenger ist der Ground-up-Handoff technisch umgesetzt: fester Regel-/Code-/Daten-/Kostenfingerprint, vollständiger Rescan des Frozen-Bestands, zuerst Validation, danach nur nach manueller Stufenprüfung Holdout, anschließend External und True Forward. Development darf nicht nachträglich filtern; jede Parameteränderung erzeugt eine neue Version und beginnt den Pfad neu.
 - ML-Datensatzadapter ist um das breite Feature-Schema erweitert. Features und Labels bleiben physisch/logisch getrennt; Random Split, Modelltraining, automatische Featureauswahl, Regeländerung und Produktionsaktivierung sind weiterhin gesperrt.
 
+##### G2.10 – Market Scope, Pullback-Verkäufer-Pushs und deferred FX/Carry
+
+Status 2026-08-23: Als strikt future-only Planungs- und Schutzschicht umgesetzt. Der laufende Broad-Pass und sein eingefrorener Featurevertrag bleiben unverändert. Long-v1, aktive Signale und bestehende historische Evidenz werden weder umgeschrieben noch um neue Regeln ergänzt.
+
+**Verbindlicher Market Scope**
+
+- Jede neue Research-Hypothese, jedes Feature, Experiment und Ergebnis erhält mindestens einen Scope aus `EQUITIES`, `ETF`, `FX`, `FUTURES`, `COMMODITIES`, `CROSS_ASSET` oder `GENERAL_METHOD`; Mehrfachzuordnung ist zulässig. Hypothese, Feature, Experiment und Result behalten ihre eigenen fingerprinteten Scope-Angaben, ohne Information durch Vererbung zu verlieren.
+- Ergebnisse speichern zusätzlich Asset-Universum, Zeitraum, Timeframe, Baseline, Sample Size sowie IS-, OOS- und Walk-Forward-Status. Knowledge-Base-Einträge trennen Aussageursprung (`source_scope`) und tatsächlich getesteten Markt (`test_scope`) und führen validierte wie verworfene Scopes weiter.
+- `VALIDATED` reicht niemals allein. Eine spätere Freigabe benötigt den exakt passenden separat validierten direkten Asset-Scope. `GENERAL_METHOD` und `CROSS_ASSET` besitzen keine direkte Aktivierungswirkung. Legacy-Evidenz ohne Scope bleibt unverändert und fail-closed.
+- Cross-Market-Transfer ist immer ein neues unabhängiges Experiment ohne geerbte Performance oder Validierung. COT aus FX/Futures kann Equities erst nach eigenem Equity-Experiment, Equity-OOS und Equity-Walk-Forward unterstützen. Dasselbe gilt für jede andere Übertragung zwischen Märkten.
+- Bestehende Research-Familien bleiben erhalten. Pullback, Momentum, BOS, Candle-Close/Close-Location, Opening Levels, Volume Profile, objektive Key Levels, Stop-/Exit-Methoden, Fibonacci und Saisonalität sind marktübergreifende Methoden, aber je Assetklasse separat zu validieren. COT, Zinsdifferenzen, Carry-to-Risk, Zentralbank-Surprises und FX-Makro-Bias sind FX-/Futures-first; Equity-Nutzung ist ein eigener Cross-Asset-Test.
+
+**Pullback-/Momentum-Erweiterung für eine spätere Research-Epoch**
+
+- Während des bestehenden objektiven Pullback-Fensters später bearish Pushs als vorab eingefrorene, regelbasierte abgeschlossene-Bar-Ereignisse zählen. Je Push neues relevantes Low, nachhaltigen Strukturbruch, ATR-normalisierte Tiefe, Recovery-Anteil und Sitzungen bis Recovery erfassen; daraus `failed_seller_attempts` bis zur abgeschlossenen Bestätigungskerze ableiten.
+- Die Bestätigungskerze speichert kontinuierlich `close_location = (close-low)/(high-low)`. Bei `high == low`, nicht endlichen oder außerhalb der Kerze liegenden Werten bleibt das Merkmal fehlend.
+- Primär kontinuierliche Merkmale untersuchen. Begrenzte Vergleichshypothesen sind ausschließlich: genau zwei gescheiterte Verkäufer-Versuche, Close exakt am Hoch, Close-Location ≥0,90 und ≥0,80. Keine Grid Search, kein nachträglicher Bestwert und keine weiteren Schwellen, um ein positives Ergebnis zu finden.
+- Zusatznutzen getrennt für Forward Returns, MFE, MAE, Expected R nach Kosten und bestehende Pullback-Signale prüfen. Development zuerst, danach OOS/purged Walk-Forward im exakt passenden Market Scope. Opening Levels, Volume Profile oder andere Confluence erst nach belastbarem Einzelmehrwert jedes Bestandteils kombinieren.
+- Ohne robusten Zusatznutzen die Feature-Hypothese verwerfen und das negative Ergebnis mit Source-/Test-Scope dauerhaft in der Research Knowledge Base halten. Keine Strategie- oder Produktionsaktivierung.
+
+**Deferred FX-/Cross-Asset-Research: Carry und relative Geldpolitik**
+
+- Nur dokumentiert, nicht implementiert und ohne Prioritätsänderung. Aktivierung frühestens nach stabilem SwingTrader, Abschluss der priorisierten aktuellen Forschung, sauberer Point-in-Time-Datenpipeline und neuer strategischer Entscheidung für FX/Cross-Asset.
+- Spätere Features: kurzfristige und erwartete Zinsdifferenz, Veränderung der Zinserwartungen, Zentralbank-Surprise relativ zum damals verfügbaren Konsens, FX implied Volatility, Carry-to-Risk, COT-/spekulative Positionierung samt Veränderung/Extrem sowie bestätigte FX-Interventionen. Weitere Makro-/Risk-Regime-Daten nur bei belegtem Zusatznutzen.
+- Hypothesen: Änderungen erwarteter Zinsdifferenzen statt absolute Leitzinsen; sinkender Carry bei steigender Volatilität als Unwind-Hinweis; mögliche Verstärkung durch Extrempositionierung; Zusatzinformation aus Zentralbank-Surprises; wenige vorab definierte Kombinationen für 5-/10-/20-/60-Tage-Returns.
+- Pflicht: ausschließlich Point-in-Time-Daten und korrekte Release-/Expectation-Zeitpunkte, historische Vintages revidierter Makrodaten, Baseline → Einzelfeatures → erst danach Kombinationen, OOS/Walk-Forward und Multiple-Testing-Schutz. Keine vorgegebene JPY-/BoJ-/Währungsrichtung.
+- Nicht als Wissen übernehmen: „Japan-Krise = Yen steigt“, „BoJ-Zinserhöhung = Yen-Long“, „Carry Trade wird sicher aufgelöst“ oder feste Yen-Renditeprognosen von +12–15 Prozent.
+
 ##### External Unseen Asset Universe
 
 Status 2026-08-22: Der outcome-blinde append-only Auswahl-, Freeze- und Ergebnisvertrag ist technisch umgesetzt. External-Ergebnisse sind zusätzlich bis zum manuell bestandenen Holdout-Gate exakt derselben Challenger-Version gesperrt. Ein reales externes Universum ist noch nicht zusammengestellt oder getestet; aktuell bleibt diese Stufe reine Infrastrukturprüfung.

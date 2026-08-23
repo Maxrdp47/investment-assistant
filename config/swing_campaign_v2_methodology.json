@@ -1,7 +1,8 @@
 {
-  "version": "swing-campaign-methodology-2026.08.23-v2",
-  "abc_version": "swing-ground-up-abc-2026.08.23-v2",
+  "version": "swing-campaign-methodology-2026.08.23-v2.1",
+  "abc_version": "swing-ground-up-abc-2026.08.23-v2.1",
   "effective_n_version": "swing-effective-n-2026.08.23-v1",
+  "market_scope_contract_version": "swing-research-market-scope-2026.08.23-v1",
   "status": "prepared_not_started",
   "scope": "future_campaigns_only",
   "v1_reference_immutable": true,
@@ -12,7 +13,8 @@
     "frozen_dataset_fingerprint",
     "frozen_cost_and_execution_contract",
     "outcome_blind_candidate_universe",
-    "predeclared_minimum_effective_n_per_round"
+    "predeclared_minimum_effective_n_per_round",
+    "frozen_test_market_scopes"
   ],
   "abc": {
     "all_pools_reserved_before_first_result": true,
@@ -40,7 +42,9 @@
       "invalid"
     ],
     "underpowered_means_no_conclusion": true,
-    "raw_n_and_effective_n_required": true
+    "raw_n_and_effective_n_required": true,
+    "market_scope_required": true,
+    "cross_market_validation_inherited": false
   },
   "research_sequence": [
     "entry",
@@ -69,6 +73,8 @@
     "true_forward"
   ],
   "abc_replaces_validation_or_holdout": false,
+  "validated_plus_matching_market_scope_required": true,
+  "cross_market_transfer_requires_new_experiment": true,
   "survivorship_audit_later": true,
   "automatic_strategy_selection": false,
   "automatic_c_classification": false,

@@ -18,6 +18,7 @@ from swing_campaign_v2 import (
     round_evidence_status,
     validate_v2_stage_request,
 )
+from swing_research_market_scope import MARKET_SCOPE_CONTRACT_VERSION
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,7 @@ def _reserve(candidates: list[dict[str, object]]) -> dict[str, object]:
         challenger_version="ground-up-challenger-v2",
         challenger_fingerprint="challenger-fingerprint-v2",
         dataset_fingerprint="future-frozen-dataset-v2",
+        market_scopes=["EQUITIES"],
         seed="pre-result-seed-v2",
         minimum_effective_n_per_round=40,
     )
@@ -62,6 +64,9 @@ def test_methodology_config_is_future_only_and_not_started() -> None:
 
     assert payload["version"] == runtime["version"] == SWING_CAMPAIGN_V2_METHODOLOGY_VERSION
     assert payload["abc_version"] == runtime["abc_version"] == SWING_ABC_V2_VERSION
+    assert payload["market_scope_contract_version"] == runtime[
+        "market_scope_contract_version"
+    ] == MARKET_SCOPE_CONTRACT_VERSION
     assert payload["status"] == runtime["status"] == "prepared_not_started"
     assert payload["scope"] == "future_campaigns_only"
     assert payload["v1_reference_immutable"] is True
@@ -345,6 +350,8 @@ def test_multiple_testing_registration_is_pre_result_append_only_and_non_activat
     registration = prepare_v2_hypothesis(
         family="momentum-rsi",
         question="Trennt ein vorab definierter RSI-Core robuste Ground-up-Entries?",
+        source_market_scopes=["GENERAL_METHOD"],
+        test_market_scopes=["EQUITIES"],
         stage="entry",
         changed_dimensions=["entry"],
         frozen_stage_fingerprints={},
@@ -369,6 +376,8 @@ def test_hypothesis_parameters_cannot_smuggle_another_research_stage() -> None:
         prepare_v2_hypothesis(
             family="stop-calibration",
             question="Hält ein vorab definierter Strukturstop nach Entry-Freeze?",
+            source_market_scopes=["GENERAL_METHOD"],
+            test_market_scopes=["EQUITIES"],
             stage="stop",
             changed_dimensions=["stop"],
             frozen_stage_fingerprints={"entry": "entry-freeze-v2"},

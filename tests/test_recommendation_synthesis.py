@@ -191,9 +191,63 @@ def test_existing_position_and_portfolio_effect_are_separate() -> None:
         has_position=True,
         portfolio=app.PortfolioResult(True, True, 3.5, "Klumpenrisiko", []),
     )
+    entry_blocked_only = recommendation_case(
+        has_position=True,
+        portfolio=app.PortfolioResult(
+            True,
+            True,
+            3.5,
+            "Cash-Reserve spricht gegen einen zusätzlichen Nachkauf.",
+            ["Geplanter Nachkauf würde die Cash-Reserve unterschreiten."],
+        ),
+    )
 
     assert holding["Titel"] == "Halten"
     assert concentrated["Titel"] == "Teilweise reduzieren"
+    assert entry_blocked_only["Titel"] == "Halten"
+
+
+def test_existing_investment_is_not_reduced_only_for_bear_market_and_bad_timing() -> None:
+    decision = recommendation_case(
+        has_position=True,
+        quality=8.0,
+        future=7.5,
+        valuation=6.0,
+        entry=2.5,
+        expected_value=3.0,
+        phase="Bärenmarkt",
+        history_prices=[150.0 - index * 0.2 for index in range(260)],
+    )
+
+    assert decision["Titel"] == "Halten"
+    assert decision["Kurzfristige Angst als Investment-Verkaufsgrund"] is False
+    assert decision["Kursverlust als Investment-Verkaufsgrund"] is False
+    sale_check = decision["Investment-Verkaufsprüfung"]
+    assert sale_check["decision"] == "NO_DOCUMENTED_LONG_TERM_SELL_TRIGGER"
+    assert sale_check["short_term_context"]["market_fear"] is True
+    assert sale_check["price_loss_is_sell_trigger"] is False
+    assert "Kurzfristige Marktangst" in str(decision["Widerlegungsbedingung"])
+
+
+def test_deteriorated_fundamentals_can_trigger_review_but_not_automatic_order() -> None:
+    decision = recommendation_case(
+        has_position=True,
+        quality=7.5,
+        future=6.5,
+        ticker_info={
+            "revenueGrowth": -0.2,
+            "earningsGrowth": -0.3,
+            "freeCashflow": -1_000_000,
+            "operatingCashflow": -2_000_000,
+        },
+    )
+
+    assert decision["Titel"] == "Verkaufen oder vermeiden"
+    sale_check = decision["Investment-Verkaufsprüfung"]
+    assert sale_check["decision"] == "REVIEW_PARTIAL_OR_FULL_EXIT"
+    assert "fundamentals_deteriorated" in sale_check["structural_triggers"]
+    assert sale_check["automatic_sell_order"] is False
+    assert decision["SwingTrader-Exitlogik"]["swing_rules_changed"] is False
 
 
 def test_conditional_recommendation_always_has_two_paths_and_invalidation() -> None:

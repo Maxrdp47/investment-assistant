@@ -16,6 +16,7 @@ from entry_plan import (
     recommendation_horizon,
     recommendation_validity,
 )
+from investment_exit_policy import assess_investment_sale, swing_exit_separation_contract
 from price_attractiveness import price_attractiveness_context
 from technical_analysis import value_or_none
 
@@ -165,6 +166,55 @@ def synthesize_investment_recommendation(
         and portfolio_result.score is not None
         and portfolio_result.score < 4.5
     )
+    portfolio_concentration_problematic = bool(
+        portfolio_result.enabled
+        and portfolio_result.available
+        and (
+            "klumpenrisiko" in str(portfolio_result.summary or "").lower()
+            or any(
+                "übergewichtet" in str(detail or "").lower()
+                for detail in (portfolio_result.details or [])
+            )
+        )
+    )
+    fundamentals_status = (
+        "DETERIORATED"
+        if fundamentals_deteriorated is True
+        else "STABLE"
+        if fundamentals_deteriorated is False
+        else "NOT_ASSESSED"
+    )
+    valuation_status = (
+        "NO_LONGER_ATTRACTIVE"
+        if valuation_extreme
+        else "ATTRACTIVE"
+        if valuation.score is not None and valuation_score >= 5.0
+        else "FAIR_OR_MIXED"
+        if valuation.score is not None
+        else "NOT_ASSESSED"
+    )
+    concentration_status = (
+        "PROBLEMATIC"
+        if portfolio_concentration_problematic
+        else "ACCEPTABLE"
+        if portfolio_result.enabled and portfolio_result.available
+        else "NOT_ASSESSED"
+    )
+    investment_sale_assessment = assess_investment_sale(
+        thesis="NOT_ASSESSED",
+        fundamentals=fundamentals_status,
+        valuation=valuation_status,
+        balance_risk="NOT_ASSESSED",
+        concentration=concentration_status,
+        capital_allocation="NOT_ASSESSED",
+        short_term_market_fear=(
+            entry < 3.8 or market_phase.phase == "Bärenmarkt"
+        ),
+        short_term_price_loss=(
+            price_context.get("drawdown_pct") is not None
+            and float(price_context["drawdown_pct"]) < 0
+        ),
+    )
 
     if quality >= 8.0 and future >= 7.0:
         long_term_assessment = "Sehr attraktiv"
@@ -196,11 +246,9 @@ def synthesize_investment_recommendation(
         valuation_assessment = "Extrem beziehungsweise sehr anspruchsvoll"
 
     if has_position:
-        if severe_avoid:
+        if investment_sale_assessment["decision"] == "REVIEW_PARTIAL_OR_FULL_EXIT":
             title = "Verkaufen oder vermeiden"
-        elif portfolio_blocks_entry or quality_weak or valuation_extreme or (
-            entry < 3.8 and market_phase.phase == "Bärenmarkt"
-        ):
+        elif investment_sale_assessment["decision"] == "REVIEW_REDUCTION_OR_REALLOCATION":
             title = "Teilweise reduzieren"
         else:
             title = "Halten"
@@ -218,6 +266,16 @@ def synthesize_investment_recommendation(
         title = "Auf konkrete Kaufzone warten"
     else:
         title = "Bei Bestätigung kaufen"
+
+    if has_position:
+        invalidation = (
+            "Die langfristige Investmentposition muss neu bewertet werden, wenn die "
+            "Investmentthese widerlegt oder verändert ist, Fundamentaldaten, Bilanz- "
+            "oder Risikoprofil sich verschlechtern, die Bewertung nicht mehr attraktiv "
+            "ist, die Konzentration problematisch wird oder eine klar bessere "
+            "Kapitalallokation vorliegt. Kurzfristige Marktangst, Kursverluste oder ein "
+            "technischer Bruch allein sind kein automatischer Verkaufsgrund."
+        )
 
     if title == "Jetzt kaufen":
         next_action = f"Jetzt 40 % der geplanten Position in der Zone {current_zone_label} aufbauen."
@@ -240,20 +298,31 @@ def synthesize_investment_recommendation(
         strength_action = f"Kommt kein Rücksetzer, 30 % erst nach Tagesschluss über {confirmation_label} und bestätigter Stärke kaufen; vorher nicht hinterherlaufen."
         tranche_plan = "0 % jetzt, 40 % in der bestätigten Kaufzone, 30 % nach Stabilisierung, 30 % nur über den bestätigten Ausbruchsweg."
     elif title == "Halten":
-        next_action = "Bestehende Position halten; kein Handlungsdruck, solange die Widerlegungsmarke intakt bleibt."
+        next_action = (
+            "Bestehende Investmentposition halten und die langfristigen Kriterien "
+            "weiter beobachten; kurzfristige Angst oder Kursverluste lösen allein "
+            "keinen Verkauf aus."
+        )
         pullback_action = f"Eine geplante Aufstockung zu 50 % erst bei gehaltenem Rücksetzer in die Zone {pullback_zone_label} umsetzen."
         strength_action = f"Die übrigen 50 % einer geplanten Aufstockung nur nach bestätigtem Ausbruch über {confirmation_label} ergänzen."
         tranche_plan = "Bestehende Position unverändert halten; eine mögliche Aufstockung 50 % in der bestätigten Rücksetzer-Zone und 50 % nach bestätigtem Ausbruch staffeln."
     elif title == "Teilweise reduzieren":
-        next_action = "Als erste Risikoreduktion 25 % der bestehenden Position kontrolliert abbauen."
-        pullback_action = f"Bei weiterer Schwäche in Richtung {pullback_zone_label} nicht automatisch nachkaufen, sondern die Restposition neu prüfen."
-        strength_action = f"Die übrige Position halten, solange die Widerlegung nicht eintritt; eine bestätigte Rückkehr über {confirmation_label} erlaubt eine neue Bewertung."
-        tranche_plan = "25 % der bestehenden Position zuerst reduzieren; weitere Schritte nur bei Widerlegung oder nach erneuter Gesamtanalyse."
+        next_action = (
+            "Eine Reduktion anhand der dokumentierten Bewertungs-, Konzentrations- oder "
+            "Kapitalallokationsgründe prüfen; nicht allein wegen Marktangst oder Kursverlust handeln."
+        )
+        pullback_action = "Bei weiterer Kursschwäche nicht automatisch reduzieren oder nachkaufen, sondern die langfristigen Auslöser erneut prüfen."
+        strength_action = "Auch eine technische Erholung hebt einen bestätigten langfristigen Reduktionsgrund nicht automatisch auf."
+        tranche_plan = "Umfang einer möglichen Reduktion erst nach Prüfung von These, Bewertung, Risikokonzentration und Kapitalallokation festlegen."
     else:
-        next_action = "Keine neue Position eröffnen; eine bestehende Position zunächst um 50 % reduzieren und die Restposition neu bewerten."
+        next_action = (
+            "Keine neue Position eröffnen; bei einer bestehenden Investmentposition "
+            "einen Teil- oder Vollausstieg erst nach Bestätigung des dokumentierten "
+            "langfristigen Strukturgrunds festlegen."
+        )
         pullback_action = "Ein fallender Kurs allein macht das Asset nicht attraktiv; vor einem Einstieg müssen Qualität und Investmentthese neu überzeugen."
-        strength_action = f"Erst nach neuer fundamentaler Prüfung und bestätigter Rückkehr über {confirmation_label} erneut bewerten."
-        tranche_plan = "0 % Neukauf; bei bestehender Position 50 % erste Risikoreduktion, Rest nur nach vollständiger Neubewertung halten oder abbauen."
+        strength_action = "Eine technische Erholung ersetzt keine neue fundamentale Prüfung und keine erneute Bewertung der Investmentthese."
+        tranche_plan = "0 % Neukauf; bei bestehender Position Ausstiegsumfang erst nach vollständiger langfristiger Neubewertung bestimmen."
 
     alternative_action = f"Rücksetzer: {pullback_action} Weitere Stärke: {strength_action}"
 
@@ -274,6 +343,14 @@ def synthesize_investment_recommendation(
         f"Das kurzfristige Timing ist {timing_sentence} und die Marktphase lautet „{market_phase.phase}“.",
     ]
     risk_candidates: list[str] = []
+    if has_position and investment_sale_assessment["structural_triggers"]:
+        risk_candidates.append(
+            "Ein dokumentierter langfristiger Strukturgrund verlangt eine sachliche Verkaufsprüfung."
+        )
+    if has_position and investment_sale_assessment["allocation_triggers"]:
+        risk_candidates.append(
+            "Bewertung, Konzentration oder Kapitalallokation verlangt eine sachliche Reduktionsprüfung."
+        )
     if valuation_stretched:
         risk_candidates.append("Bewertung oder eingepreiste Erwartungen sind erhöht; ein gutes Asset kann dadurch kurzfristig enttäuschen.")
     if fundamentals_deteriorated:
@@ -322,7 +399,12 @@ def synthesize_investment_recommendation(
         if "bewertung" in lowered_risk or "erwart" in lowered_risk:
             observation = "An nachlassendem Wachstum, schwächeren Margen, gesenkten Prognosen oder einer negativen Kursreaktion auf Quartalszahlen."
         elif "trend" in lowered_risk or "marktphase" in lowered_risk or "chancen-risiko" in lowered_risk:
-            observation = f"An einem bestätigten Bruch der technischen Widerlegungsmarke {invalidation_label} oder weiter schwächerem Momentum."
+            observation = (
+                "Als kurzfristiger Timing- und Risikokontext; bei einer Investmentposition "
+                "ist dies allein keine Verkaufsbedingung."
+                if has_position
+                else f"An einem bestätigten Bruch der technischen Widerlegungsmarke {invalidation_label} oder weiter schwächerem Momentum."
+            )
         elif "daten" in lowered_risk or "signalstabilität" in lowered_risk:
             observation = "An fehlenden, veralteten oder widersprüchlichen Stamm-, Markt- oder Ereignisdaten."
         elif "depot" in lowered_risk or "konzentration" in lowered_risk:
@@ -362,6 +444,7 @@ def synthesize_investment_recommendation(
     return {
         "Titel": title,
         "Empfehlungskategorie": title,
+        "Entscheidungsbereich": "LANGFRISTIGES_INVESTMENT",
         "Langfristige Einschätzung": long_term_assessment,
         "Preisattraktivität": price_assessment,
         "Aktuelles Timing": timing_assessment,
@@ -410,6 +493,10 @@ def synthesize_investment_recommendation(
         "Signalbestätigung": signal_text,
         "Hauptgrund der Ablehnung": central_risks[0] if title in {"Teilweise reduzieren", "Verkaufen oder vermeiden"} else "Kein pauschaler Ablehnungsgrund.",
         "Nicht der Hauptgrund": "Fehlende Daten werden als Unsicherheit behandelt und nicht automatisch negativ gewertet.",
+        "Investment-Verkaufsprüfung": investment_sale_assessment,
+        "Kurzfristige Angst als Investment-Verkaufsgrund": False,
+        "Kursverlust als Investment-Verkaufsgrund": False,
+        "SwingTrader-Exitlogik": dict(swing_exit_separation_contract()),
     }
 
 

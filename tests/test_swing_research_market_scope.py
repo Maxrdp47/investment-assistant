@@ -365,6 +365,7 @@ def test_existing_research_scope_catalog_preserves_all_requested_families() -> N
         "fx_macro_bias",
         "fx_macro_cot_seasonality_bias",
         "macro_surprise",
+        "overnight_intraday_return_decomposition",
     }
     assert catalog["existing_research_removed"] is False
     assert catalog["legacy_results_without_scope"] == "LEGACY_SCOPE_NOT_RECORDED"
@@ -374,6 +375,12 @@ def test_existing_research_scope_catalog_preserves_all_requested_families() -> N
     for assignment in assignments.values():
         normalize_market_scopes(assignment["source_scope"], field="source_scope")
         normalize_market_scopes(assignment["test_scope"], field="test_scope")
+
+    overnight = assignments["overnight_intraday_return_decomposition"]
+    assert overnight["source_scope"] == ["EQUITIES", "ETF"]
+    assert overnight["test_scope"] == ["EQUITIES", "ETF"]
+    assert overnight["role"] == "OBSERVATIONAL_RESEARCH_ONLY"
+    assert overnight["active_trade_rule"] is False
 
 
 def test_v2_hypothesis_and_campaign_require_explicit_market_scope() -> None:

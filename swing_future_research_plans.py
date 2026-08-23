@@ -211,6 +211,12 @@ def existing_research_market_scope_catalog() -> dict[str, object]:
             "test_scope": ["EQUITIES"],
             "each_new_asset_class_requires_new_experiment": True,
         },
+        "overnight_intraday_return_decomposition": {
+            "source_scope": ["EQUITIES", "ETF"],
+            "test_scope": ["EQUITIES", "ETF"],
+            "role": "OBSERVATIONAL_RESEARCH_ONLY",
+            "active_trade_rule": False,
+        },
     }
     catalog = {
         "version": RESEARCH_SCOPE_CATALOG_VERSION,

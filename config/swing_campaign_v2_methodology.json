@@ -1,0 +1,80 @@
+{
+  "version": "swing-campaign-methodology-2026.08.23-v2",
+  "abc_version": "swing-ground-up-abc-2026.08.23-v2",
+  "effective_n_version": "swing-effective-n-2026.08.23-v1",
+  "status": "prepared_not_started",
+  "scope": "future_campaigns_only",
+  "v1_reference_immutable": true,
+  "current_broad_pass_immutable": true,
+  "prerequisites": [
+    "manually_selected_ground_up_challenger",
+    "frozen_challenger_version_and_fingerprint",
+    "frozen_dataset_fingerprint",
+    "frozen_cost_and_execution_contract",
+    "outcome_blind_candidate_universe",
+    "predeclared_minimum_effective_n_per_round"
+  ],
+  "abc": {
+    "all_pools_reserved_before_first_result": true,
+    "roles": {
+      "A": "exploration_development",
+      "B": "independent_locked_confirmation",
+      "C": "second_independent_final_confirmation"
+    },
+    "selection_may_use_outcomes": false,
+    "prior_round_may_supply_remainder_to_later_round": false,
+    "same_trade_cluster_may_confirm_twice": false,
+    "deterministic_resume_from_completed_candidate_ids": true,
+    "ground_up_application_in_every_pool": true,
+    "stratify_without_artificial_quotas": [
+      "time",
+      "asset_type",
+      "region",
+      "market_phase",
+      "volatility_regime"
+    ],
+    "round_statuses": [
+      "sufficient",
+      "underpowered",
+      "empty",
+      "invalid"
+    ],
+    "underpowered_means_no_conclusion": true,
+    "raw_n_and_effective_n_required": true
+  },
+  "research_sequence": [
+    "entry",
+    "manual_entry_freeze",
+    "stop",
+    "manual_stop_freeze",
+    "exit_management",
+    "manual_exit_freeze",
+    "full_challenger_oos"
+  ],
+  "combined_entry_stop_exit_grid_allowed": false,
+  "quality_protection": {
+    "selection_objective": "expected_r_after_costs",
+    "feature_family_independence_required": true,
+    "ablation_required": true,
+    "predeclared_parameter_plateau_required": true,
+    "placebo_and_negative_controls_required": true,
+    "append_only_multiple_testing_ledger_required": true,
+    "automatic_parameter_search": false
+  },
+  "unseen_evidence_sequence": [
+    "validation",
+    "manual_review",
+    "holdout",
+    "external",
+    "true_forward"
+  ],
+  "abc_replaces_validation_or_holdout": false,
+  "survivorship_audit_later": true,
+  "automatic_strategy_selection": false,
+  "automatic_c_classification": false,
+  "automatic_validation_or_holdout_open": false,
+  "automatic_production_activation": false,
+  "short_activation": false,
+  "broker_order_allowed": false,
+  "execution_allowed": false
+}

@@ -155,8 +155,8 @@ def test_campaign_wrapper_runs_broad_handoff_only_after_campaign_success() -> No
     ).read_text(encoding="utf-8")
     campaign_at = wrapper.index("run_swing_walk_forward_campaign.py")
     error_gate_at = wrapper.index("if errorlevel 1")
-    broad_at = wrapper.index("run_swing_broad_research.py")
+    broad_at = wrapper.index("run_swing_broad_research_supervisor.py")
 
     assert campaign_at < error_gate_at < broad_at
-    assert "--automatic-handoff" in wrapper
-    assert "--maximum-assets 16" in wrapper
+    assert "--maximum-assets-per-batch 32" in wrapper
+    assert "--workers 6" in wrapper

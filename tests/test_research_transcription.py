@@ -237,7 +237,8 @@ def test_url_source_enriched_with_original_file_reuses_same_artifact(tmp_path: P
         decision_reason="Spätere URL-Einreichung.",
     )
 
-    assert enriched["status"] == "PROVENANCE_ENRICHED"
+    assert enriched["status"] == "DUPLICATE_SOURCE"
+    assert enriched["provenance_added"] is True
     assert enriched["source_id"] == url_only["source_id"]
     assert reused["id"] == generated["id"]
     assert reused["status"] == "EXISTING"

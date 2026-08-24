@@ -177,7 +177,7 @@ def test_source_identity_normalizes_video_urls_and_is_idempotent(tmp_path: Path)
     first = _source(kb)
 
     duplicate = kb.intake_source(
-        title="Pullback Research",
+        title="Anderer Uploadtitel desselben Videos",
         source_type="youtube",
         summary="Neutraler Research-Input.",
         platform="youtube",
@@ -256,7 +256,8 @@ def test_source_hash_provenance_and_conservative_possible_duplicate(tmp_path: Pa
         provenance="Neues Video",
     )
 
-    assert enriched["status"] == "PROVENANCE_ENRICHED"
+    assert enriched["status"] == "DUPLICATE_SOURCE"
+    assert enriched["provenance_added"] is True
     assert enriched["source_id"] == first["id"]
     assert file_only["source_id"] == first["id"]
     assert possible["status"] == "POSSIBLE_DUPLICATE"

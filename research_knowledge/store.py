@@ -326,15 +326,28 @@ class ResearchKnowledgeBase:
                 )
             if matched_source_ids:
                 source_id = next(iter(matched_source_ids))
-                provenance_added = self._append_source_provenance(
-                    connection,
-                    source_id=source_id,
-                    identity=identity,
-                    provenance=provenance_value,
-                    captured_at=timestamp,
-                )
+                known_identity_keys = {
+                    (str(row["identity_type"]), str(row["identity_value"]))
+                    for row in connection.execute(
+                        """
+                        SELECT identity_type, identity_value FROM source_identity_keys
+                        WHERE source_id = ?
+                        """,
+                        (source_id,),
+                    )
+                }
+                adds_missing_identity = any(key not in known_identity_keys for key in keys)
+                provenance_added = False
+                if adds_missing_identity:
+                    provenance_added = self._append_source_provenance(
+                        connection,
+                        source_id=source_id,
+                        identity=identity,
+                        provenance=provenance_value,
+                        captured_at=timestamp,
+                    )
                 matched_source_id = source_id
-                matched_status = "PROVENANCE_ENRICHED" if provenance_added else "DUPLICATE_SOURCE"
+                matched_status = "DUPLICATE_SOURCE"
                 matched_provenance_added = provenance_added
             if matched_source_id is not None:
                 pass
@@ -430,7 +443,7 @@ class ResearchKnowledgeBase:
                 "source_id": matched_source_id,
                 "provenance_added": matched_provenance_added,
                 "possible_duplicate_source_ids": [],
-                "message": "Source bereits vorhanden; kein neues Workflowobjekt erzeugt.",
+                "message": "Video bereits vorhanden; es wurde keine neue Source und kein neues Workflowobjekt erzeugt.",
             }
         return {
             "status": "NEW_SOURCE",

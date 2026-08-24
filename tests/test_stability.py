@@ -622,6 +622,10 @@ def test_streamlit_start_page_and_primary_controls_render_without_exception(
     monkeypatch.setenv("INVESTMENT_ASSISTANT_SWING_RISK_ACK_PATH", str(acknowledgement_path))
     isolated_swing_forward_path = tmp_path / "swing-forward.sqlite3"
     monkeypatch.setenv("INVESTMENT_ASSISTANT_SWING_FORWARD_DB_PATH", str(isolated_swing_forward_path))
+    monkeypatch.setenv(
+        "INVESTMENT_ASSISTANT_RESEARCH_KB_DB",
+        str(tmp_path / "research-knowledge.sqlite3"),
+    )
     monkeypatch.setattr(swing_forward_store, "DEFAULT_SWING_FORWARD_DB_PATH", isolated_swing_forward_path)
     app_test = AppTest.from_file(APP_PATH, default_timeout=30).run()
 
@@ -634,7 +638,27 @@ def test_streamlit_start_page_and_primary_controls_render_without_exception(
         "Asset-Analyse öffnen",
         "Investment Opportunities öffnen",
         "Swing Trade Finder öffnen",
+        "Knowledge Base öffnen",
     }
+
+    next(button for button in app_test.button if button.label == "Knowledge Base öffnen").click().run()
+    assert list(app_test.exception) == []
+    assert [title.value for title in app_test.title] == ["Research Knowledge Base"]
+    knowledge_text = " ".join(
+        str(item.value)
+        for collection in [app_test.title, app_test.subheader, app_test.markdown, app_test.info, app_test.caption]
+        for item in collection
+    )
+    assert "keine Tradingstrategie" in knowledge_text
+    assert "VALIDATED benötigt" in knowledge_text
+    assert {metric.label for metric in app_test.metric} == {
+        "Hypothesen",
+        "Quellen",
+        "Experimente",
+        "Ergebnisse",
+        "Ledger-Ereignisse",
+    }
+    next(button for button in app_test.button if button.label == "← Zurück zur Startseite").click().run()
 
     next(
         button for button in app_test.button if button.label == "Investment Opportunities öffnen"

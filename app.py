@@ -100,6 +100,7 @@ from portfolio_analysis import (
 )
 from price_attractiveness import fundamental_context_since_high, price_attractiveness_context
 from recommendation_synthesis import professional_decision, synthesize_investment_recommendation
+from research_knowledge.ui import render_research_knowledge_base
 from scenario_analysis import (
     build_scenarios,
     numeric_scenario_levels,
@@ -233,6 +234,12 @@ FORWARD_TEST_PATH = PRIVATE_HISTORY_DIR / "forward_tests.json"
 DECISION_HISTORY_PATH = PRIVATE_HISTORY_DIR / "decision_history.json"
 PREDICTION_HISTORY_PATH = PRIVATE_HISTORY_DIR / "prediction_history.json"
 BACKTEST_HISTORY_PATH = PRIVATE_HISTORY_DIR / "backtest_history.json"
+RESEARCH_KNOWLEDGE_PATH = Path(
+    os.environ.get(
+        "INVESTMENT_ASSISTANT_RESEARCH_KB_DB",
+        PROJECT_ROOT / "runtime" / "research_knowledge.sqlite3",
+    )
+)
 SWING_RISK_ACK_PATH = Path(
     os.environ.get(
         "INVESTMENT_ASSISTANT_SWING_RISK_ACK_PATH",
@@ -9829,7 +9836,14 @@ def main() -> None:
     )
 
     page_state_key = "active_page"
-    valid_pages = {"home", "analysis", "opportunities", "swing_finder", "scanner"}
+    valid_pages = {
+        "home",
+        "analysis",
+        "opportunities",
+        "swing_finder",
+        "scanner",
+        "research_knowledge",
+    }
     if page_state_key not in st.session_state:
         st.session_state[page_state_key] = "home"
     if st.session_state[page_state_key] == "scanner":
@@ -9858,7 +9872,7 @@ def main() -> None:
             if quality_summary["evaluated"] < 20:
                 st.caption("Noch nicht belastbar")
         st.subheader("Was möchtest du untersuchen?")
-        st.write("Drei getrennte Bereiche für drei unterschiedliche Anlagefragen.")
+        st.write("Drei getrennte Anlagebereiche plus eine isolierte Research-Infrastruktur.")
 
         analysis_col, opportunities_col, scanner_col = st.columns(3, gap="large")
         with analysis_col:
@@ -9888,6 +9902,17 @@ def main() -> None:
                     st.session_state[page_state_key] = "swing_finder"
                     st.rerun()
 
+        with st.container(border=True):
+            research_text_col, research_button_col = st.columns([3, 1])
+            with research_text_col:
+                st.subheader("Research Knowledge Base")
+                st.caption("Quellen · Hypothesen · Experimente · Ergebnisse · Evidence Ledger")
+                st.write("Geprüftes Research-Wissen dauerhaft dokumentieren und frühere negative Ergebnisse wiederfinden.")
+            with research_button_col:
+                if st.button("Knowledge Base öffnen", use_container_width=True):
+                    st.session_state[page_state_key] = "research_knowledge"
+                    st.rerun()
+
         st.warning(DISCLAIMER)
         st.caption("Keine Broker-Anbindung. Keine Kauf- oder Verkaufsautomatisierung. Die letzte Entscheidung trifft immer der Nutzer.")
         return
@@ -9895,6 +9920,10 @@ def main() -> None:
     if st.button("← Zurück zur Startseite", key=f"back_to_home_{active_page}"):
         st.session_state[page_state_key] = "home"
         st.rerun()
+
+    if active_page == "research_knowledge":
+        render_research_knowledge_base(RESEARCH_KNOWLEDGE_PATH)
+        return
 
     if active_page == "opportunities":
         st.title("Investment Opportunities")

@@ -284,7 +284,6 @@ def test_cross_market_transfer_is_a_new_unvalidated_hypothesis(tmp_path: Path) -
     )
     fx_test = add_experiment(kb, fx_idea["id"], title="FX-Test")
     add_result(kb, fx_test["id"], title="FX Walk-Forward", conclusion="supports")
-    kb.change_hypothesis_status(fx_idea["id"], "VALIDATED", reason="Eigene FX-Validierung.")
 
     equity_idea = workflow.create_cross_market_hypothesis(
         fx_idea["id"],

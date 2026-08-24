@@ -77,14 +77,19 @@ def test_market_scope_vocabulary_is_exact_and_supports_multiple_scopes() -> None
         "FX",
         "FUTURES",
         "COMMODITIES",
+        "CRYPTO",
         "CROSS_ASSET",
         "GENERAL_METHOD",
     )
-    assert normalize_market_scopes(["fx", "FUTURES", "FX"]) == ("FX", "FUTURES")
+    assert normalize_market_scopes(["crypto", "fx", "FUTURES", "FX"]) == (
+        "FX",
+        "FUTURES",
+        "CRYPTO",
+    )
     with pytest.raises(MarketScopeError, match="mindestens"):
         normalize_market_scopes([])
     with pytest.raises(MarketScopeError, match="unbekannte"):
-        normalize_market_scopes(["CRYPTO"])
+        normalize_market_scopes(["REAL_ESTATE"])
     with pytest.raises(MarketScopeError, match="Liste"):
         normalize_market_scopes("FX")
 
@@ -175,6 +180,26 @@ def test_validated_fx_result_cannot_activate_equities() -> None:
     assert fx_gate["scope_gate_passed"] is True
     assert fx_gate["scope_gate_is_not_strategy_release"] is True
     assert fx_gate["automatic_activation"] is False
+    with pytest.raises(MarketScopeError, match="passend validierten"):
+        assert_market_scope_activation_allowed(result, target_scope="EQUITIES")
+
+
+def test_validated_crypto_result_cannot_activate_another_market_scope() -> None:
+    hypothesis = _hypothesis(source=("CRYPTO",), tested=("CRYPTO",))
+    experiment = _experiment(hypothesis, tested=("CRYPTO",))
+    result = build_scoped_research_result(
+        experiment=experiment,
+        sample_size=360,
+        is_status="PASSED",
+        oos_status="PASSED",
+        walk_forward_status="PASSED",
+        result_status="VALIDATED",
+        validated_scopes=["CRYPTO"],
+    )
+
+    assert assert_market_scope_activation_allowed(
+        result, target_scope="CRYPTO"
+    )["scope_gate_passed"] is True
     with pytest.raises(MarketScopeError, match="passend validierten"):
         assert_market_scope_activation_allowed(result, target_scope="EQUITIES")
 

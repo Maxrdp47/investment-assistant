@@ -13,14 +13,18 @@ from .schema import (
     ALLOWED_HYPOTHESIS_STATUSES,
     ALLOWED_RATINGS,
     ALLOWED_INTEGRATION_DECISIONS,
+    ALLOWED_RESULT_DIRECTIONS,
     ALLOWED_SOURCE_TYPES,
+    ALLOWED_WORK_REQUEST_STATUSES,
+    ALLOWED_WORK_REQUEST_TYPES,
     CURRENT_SCHEMA_VERSION,
     DEFAULT_DATABASE_PATH,
     RATING_GUIDANCE,
     initialize_database,
 )
 from .store import ResearchKnowledgeBase
-from .workflow import ResearchWorkflow
+from .source_identity import inspect_source_identity, normalize_source_url, sha256_file
+from .workflow import ResearchWorkflow, WorkRequestConflict
 
 __all__ = [
     "ALLOWED_AREAS",
@@ -30,11 +34,18 @@ __all__ = [
     "ALLOWED_HYPOTHESIS_STATUSES",
     "ALLOWED_RATINGS",
     "ALLOWED_INTEGRATION_DECISIONS",
+    "ALLOWED_RESULT_DIRECTIONS",
     "ALLOWED_SOURCE_TYPES",
+    "ALLOWED_WORK_REQUEST_STATUSES",
+    "ALLOWED_WORK_REQUEST_TYPES",
     "CURRENT_SCHEMA_VERSION",
     "DEFAULT_DATABASE_PATH",
     "ResearchKnowledgeBase",
     "ResearchWorkflow",
+    "WorkRequestConflict",
     "RATING_GUIDANCE",
     "initialize_database",
+    "inspect_source_identity",
+    "normalize_source_url",
+    "sha256_file",
 ]

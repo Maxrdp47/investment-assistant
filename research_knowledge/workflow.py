@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -11,7 +12,11 @@ from .schema import (
     ALLOWED_INTEGRATION_DECISIONS,
     ALLOWED_INTEGRATION_EVENTS,
     ALLOWED_MARKET_SCOPE_TARGETS,
+    ALLOWED_RESULT_DIRECTIONS,
     ALLOWED_RETEST_BASES,
+    ALLOWED_VALIDATION_GATE_STATUSES,
+    ALLOWED_WORK_REQUEST_STATUSES,
+    ALLOWED_WORK_REQUEST_TYPES,
     DEFAULT_DATABASE_PATH,
     database,
 )
@@ -28,9 +33,19 @@ from .store import (
     _timestamp,
     normalize_claim,
 )
+from swing_research_market_scope import (
+    MARKET_SCOPE_CONTRACT_VERSION,
+    build_scoped_research_experiment,
+    build_scoped_research_hypothesis,
+    build_scoped_research_result,
+)
 
 
 MAX_INTEGRATION_FEATURES = 5
+
+
+class WorkRequestConflict(RuntimeError):
+    """Raised when another worker owns a request or its state changed."""
 
 
 def _flag(value: object, label: str) -> int:
@@ -48,6 +63,18 @@ def _count(value: object, label: str, *, positive: bool = False) -> int:
         minimum = "größer als null" if positive else "nicht negativ"
         raise ValueError(f"{label} muss ganzzahlig und {minimum} sein.")
     return int(number)
+
+
+def _gate_status(value: object, label: str) -> str:
+    return _choice(
+        str(value or "").strip().upper(),
+        ALLOWED_VALIDATION_GATE_STATUSES,
+        label,
+    )
+
+
+def _stable_key(value: object) -> str:
+    return hashlib.sha256(_json(value).encode("utf-8")).hexdigest()
 
 
 class ResearchWorkflow:
@@ -1038,6 +1065,766 @@ class ResearchWorkflow:
             "occurred_at": timestamp,
         }
 
+    def assess_result_for_validation(
+        self,
+        result_id: str,
+        *,
+        research_type: str,
+        result_direction: str,
+        source_scopes: Iterable[str],
+        hypothesis_test_scopes: Iterable[str],
+        experiment_test_scopes: Iterable[str],
+        validated_scopes: Iterable[str] = (),
+        rejected_scopes: Iterable[str] = (),
+        is_status: str,
+        oos_status: str,
+        walk_forward_status: str,
+        external_unseen_status: str,
+        forward_status: str,
+        paper_status: str,
+        sample_size_status: str,
+        uncertainty_status: str,
+        costs_slippage_status: str,
+        data_quality_status: str,
+        leakage_status: str,
+        pit_status: str,
+        critical_blocker: bool,
+        limitations: str,
+        artifact_references: Iterable[Mapping[str, object]] = (),
+        rationale: str,
+        assessed_at: object | None = None,
+    ) -> dict[str, Any]:
+        """Record a versioned gate assessment without changing hypothesis status."""
+
+        result = self.knowledge.get_result(result_id)
+        experiment = self.knowledge.get_experiment(str(result["experiment_id"]))
+        hypothesis = self.knowledge.get_hypothesis(
+            str(experiment["hypothesis_id"]), include_details=False
+        )
+        direction = _choice(
+            str(result_direction or "").strip().upper(),
+            ALLOWED_RESULT_DIRECTIONS,
+            "Ergebnisrichtung",
+        )
+        expected_direction = {
+            "supports": "SUPPORTING",
+            "contradicts": "NEGATIVE",
+            "negative": "NEGATIVE",
+            "mixed": "INCONCLUSIVE",
+            "inconclusive": "INCONCLUSIVE",
+        }[str(result["conclusion"])]
+        if direction != expected_direction:
+            raise ValueError(
+                "Ergebnisrichtung widerspricht der dauerhaft gespeicherten Resultat-Einordnung."
+            )
+        source_scope_values = tuple(source_scopes)
+        hypothesis_scope_values = tuple(hypothesis_test_scopes)
+        experiment_scope_values = tuple(experiment_test_scopes)
+        validated_scope_values = tuple(validated_scopes)
+        rejected_scope_values = tuple(rejected_scopes)
+        with database(self.path) as connection:
+            hypothesis_scope_row = connection.execute(
+                """
+                SELECT * FROM market_scope_assessments
+                WHERE target_type = 'hypothesis' AND target_id = ?
+                ORDER BY assessed_at DESC, rowid DESC LIMIT 1
+                """,
+                (hypothesis["id"],),
+            ).fetchone()
+            experiment_scope_row = connection.execute(
+                """
+                SELECT * FROM market_scope_assessments
+                WHERE target_type = 'experiment' AND target_id = ?
+                ORDER BY assessed_at DESC, rowid DESC LIMIT 1
+                """,
+                (experiment["id"],),
+            ).fetchone()
+        if hypothesis_scope_row is None or experiment_scope_row is None:
+            raise ValueError(
+                "VALIDATED-Evidenz benötigt getrennt dokumentierten Hypothesen- und Experiment-Scope."
+            )
+        if str(hypothesis_scope_row["asset_class"]).strip().upper() not in {
+            str(item).strip().upper() for item in hypothesis_scope_values
+        }:
+            raise ValueError("Hypothesen-Scope widerspricht dem gespeicherten KB-Market-Scope.")
+        if str(experiment_scope_row["asset_class"]).strip().upper() not in {
+            str(item).strip().upper() for item in experiment_scope_values
+        }:
+            raise ValueError("Experiment-Scope widerspricht dem gespeicherten KB-Market-Scope.")
+        hypothesis_scope = build_scoped_research_hypothesis(
+            hypothesis_id=str(hypothesis["id"]),
+            name=str(hypothesis["title"]),
+            origin=f"research_knowledge.market_scope_assessments/{hypothesis_scope_row['id']}",
+            source_scopes=source_scope_values,
+            test_scopes=hypothesis_scope_values,
+        )
+        if not experiment.get("period_start") or not experiment.get("period_end"):
+            raise ValueError("Validierung benötigt einen expliziten Experiment-Zeitraum.")
+        experiment_scope = build_scoped_research_experiment(
+            experiment_id=str(experiment["id"]),
+            hypothesis=hypothesis_scope,
+            test_scopes=experiment_scope_values,
+            asset_universe=str(experiment["data_universe"]),
+            period_start=str(experiment["period_start"]),
+            period_end=str(experiment["period_end"]),
+            timeframe=str(experiment_scope_row["timeframe"]),
+            baseline=str(experiment["baseline"]),
+            split_design=str(experiment["point_in_time_rules"]),
+        )
+        if result.get("sample_size") is None:
+            raise ValueError("Validierungsassessment benötigt eine dokumentierte Sample Size.")
+        result_state = {
+            "SUPPORTING": "VALIDATED",
+            "NEGATIVE": "REJECTED",
+            "INCONCLUSIVE": "INCONCLUSIVE",
+        }[direction]
+        scope_contract = build_scoped_research_result(
+            experiment=experiment_scope,
+            sample_size=int(result["sample_size"]),
+            is_status=str(is_status),
+            oos_status=str(oos_status),
+            walk_forward_status=str(walk_forward_status),
+            result_status=result_state,
+            validated_scopes=validated_scope_values,
+            rejected_scopes=rejected_scope_values,
+        )
+        gate_values = {
+            "oos_status": _gate_status(oos_status, "OOS-Status"),
+            "walk_forward_status": _gate_status(walk_forward_status, "Walk-Forward-Status"),
+            "external_unseen_status": _gate_status(external_unseen_status, "External/Unseen-Status"),
+            "forward_status": _gate_status(forward_status, "Forward-Status"),
+            "paper_status": _gate_status(paper_status, "Paper-Status"),
+            "sample_size_status": _gate_status(sample_size_status, "Sample-Size-Status"),
+            "uncertainty_status": _gate_status(uncertainty_status, "Unsicherheits-Status"),
+            "costs_slippage_status": _gate_status(costs_slippage_status, "Kosten-/Slippage-Status"),
+            "data_quality_status": _gate_status(data_quality_status, "Datenqualitäts-Status"),
+            "leakage_status": _gate_status(leakage_status, "Leakage-Status"),
+            "pit_status": _gate_status(pit_status, "Point-in-Time-Status"),
+        }
+        blocker_flag = _flag(critical_blocker, "Kritische Datensperre")
+        timestamp = _timestamp(assessed_at)
+        assessment_id = _id()
+        artifact_values = [dict(item) for item in artifact_references]
+        with database(self.path) as connection:
+            connection.execute(
+                """
+                INSERT INTO result_validation_assessments (
+                    id, result_id, research_type, gate_contract_version,
+                    result_direction, scope_contract_json, result_scope_fingerprint,
+                    scope_gate_passed, oos_status, walk_forward_status,
+                    external_unseen_status, forward_status, paper_status,
+                    sample_size_status, uncertainty_status, costs_slippage_status,
+                    data_quality_status, leakage_status, pit_status, critical_blocker,
+                    limitations, artifact_references_json, rationale, assessed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    assessment_id,
+                    result_id,
+                    _required(research_type, "Research-Typ"),
+                    MARKET_SCOPE_CONTRACT_VERSION,
+                    direction,
+                    _json(scope_contract),
+                    scope_contract["result_scope_fingerprint"],
+                    *gate_values.values(),
+                    blocker_flag,
+                    _required(limitations, "Resultat-Limitierungen"),
+                    _json(artifact_values),
+                    _required(rationale, "Validierungsbegründung"),
+                    timestamp,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO evidence_ledger (
+                    hypothesis_id, event_type, event_at, summary,
+                    experiment_id, result_id, metadata_json
+                ) VALUES (?, 'result_validation_assessed', ?, ?, ?, ?, ?)
+                """,
+                (
+                    hypothesis["id"],
+                    timestamp,
+                    f"Resultat-Gates {direction} bewertet; keine automatische Status- oder Strategieänderung.",
+                    experiment["id"],
+                    result_id,
+                    _json(
+                        {
+                            "assessment_id": assessment_id,
+                            "gate_contract_version": MARKET_SCOPE_CONTRACT_VERSION,
+                            "gate_statuses": gate_values,
+                            "critical_blocker": bool(blocker_flag),
+                            "automatic_validation": False,
+                            "automatic_integration": False,
+                        }
+                    ),
+                ),
+            )
+        return self.knowledge.get_result(result_id)["validation_assessments"][-1]
+
+    def select_result_for_validation(
+        self,
+        hypothesis_id: str,
+        result_id: str,
+        assessment_id: str,
+        *,
+        selected_by: str,
+        rationale: str,
+        selected_at: object | None = None,
+    ) -> dict[str, Any]:
+        """Explicitly select one already qualified internal result for status review."""
+
+        timestamp = _timestamp(selected_at)
+        selection_id = _id()
+        with database(self.path) as connection:
+            connection.execute(
+                """
+                INSERT INTO hypothesis_validation_evidence (
+                    id, hypothesis_id, result_id, assessment_id,
+                    selected_by, rationale, selected_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    selection_id,
+                    hypothesis_id,
+                    result_id,
+                    assessment_id,
+                    _required(selected_by, "Auswählender Kontext"),
+                    _required(rationale, "Auswahlbegründung"),
+                    timestamp,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO evidence_ledger (
+                    hypothesis_id, event_type, event_at, summary, result_id, metadata_json
+                ) VALUES (?, 'validation_result_selected', ?, ?, ?, ?)
+                """,
+                (
+                    hypothesis_id,
+                    timestamp,
+                    "Qualifiziertes internes Resultat explizit für eine bewusste VALIDATED-Statusentscheidung ausgewählt.",
+                    result_id,
+                    _json(
+                        {
+                            "selection_id": selection_id,
+                            "assessment_id": assessment_id,
+                            "automatic_status_change": False,
+                            "automatic_integration": False,
+                        }
+                    ),
+                ),
+            )
+        return {
+            "id": selection_id,
+            "hypothesis_id": hypothesis_id,
+            "result_id": result_id,
+            "assessment_id": assessment_id,
+            "selected_by": selected_by,
+            "rationale": rationale,
+            "selected_at": timestamp,
+        }
+
+    def create_work_request(
+        self,
+        hypothesis_id: str,
+        *,
+        capability_assessment_id: str,
+        request_type: str,
+        task: str,
+        expected_output: str,
+        required_infrastructure: str,
+        scope: Mapping[str, object],
+        safeguards: Mapping[str, object],
+        experiment_id: str | None = None,
+        source_id: str | None = None,
+        idempotency_key: str | None = None,
+        created_at: object | None = None,
+    ) -> dict[str, Any]:
+        request_type_value = _choice(request_type, ALLOWED_WORK_REQUEST_TYPES, "Work-Request-Typ")
+        with database(self.path) as connection:
+            assessment = connection.execute(
+                """
+                SELECT * FROM application_capability_assessments
+                WHERE id = ? AND hypothesis_id = ?
+                """,
+                (capability_assessment_id, hypothesis_id),
+            ).fetchone()
+            latest = connection.execute(
+                """
+                SELECT id FROM application_capability_assessments
+                WHERE hypothesis_id = ? ORDER BY assessed_at DESC, rowid DESC LIMIT 1
+                """,
+                (hypothesis_id,),
+            ).fetchone()
+        if assessment is None:
+            raise ValueError("Capability Assessment gehört nicht zu dieser Hypothese.")
+        if latest is None or str(latest["id"]) != capability_assessment_id:
+            raise ValueError("Work Request benötigt das aktuelle Capability Assessment.")
+        outcome = str(assessment["outcome"])
+        if outcome in {"NO_ACTION", "DEFERRED", "ALREADY_AVAILABLE"}:
+            raise ValueError(f"{outcome} darf keinen Work Request erzeugen.")
+        expected_outcome = {
+            "RESEARCH_TEST": "TESTABLE_NOW",
+            "CODE_EXTENSION": "CODE_EXTENSION_REQUIRED",
+            "DATA_PIPELINE": "NEW_DATA_REQUIRED",
+            "INTEGRATION_REVIEW": "TESTABLE_NOW",
+        }[request_type_value]
+        if outcome != expected_outcome:
+            raise ValueError(
+                f"{request_type_value} passt nicht zum Capability Outcome {outcome}."
+            )
+        if request_type_value == "RESEARCH_TEST" and experiment_id is None:
+            raise ValueError("RESEARCH_TEST benötigt ein eindeutig referenziertes Experiment.")
+        scope_value = dict(scope)
+        safeguards_value = {
+            **dict(safeguards),
+            "automatic_strategy_change": False,
+            "automatic_integration": False,
+            "broker_or_order_execution": False,
+        }
+        if not scope_value:
+            raise ValueError("Work Request benötigt einen expliziten Scope.")
+        task_value = _required(task, "Fachliche Aufgabe")
+        key = _optional(idempotency_key) or _stable_key(
+            {
+                "hypothesis_id": hypothesis_id,
+                "experiment_id": experiment_id,
+                "source_id": source_id,
+                "request_type": request_type_value,
+                "task": task_value,
+            }
+        )
+        timestamp = _timestamp(created_at)
+        request_id = _id()
+        with database(self.path) as connection:
+            existing = connection.execute(
+                "SELECT id FROM research_work_requests WHERE idempotency_key = ?",
+                (key,),
+            ).fetchone()
+            if existing is not None:
+                replay = self.get_work_request(str(existing["id"]), include_context=False)
+                replay["idempotent_replay"] = True
+                return replay
+            connection.execute(
+                """
+                INSERT INTO research_work_requests (
+                    id, hypothesis_id, experiment_id, source_id,
+                    capability_assessment_id, request_type, current_status,
+                    task, expected_output, required_infrastructure,
+                    scope_json, safeguards_json, idempotency_key,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'READY', ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    request_id,
+                    hypothesis_id,
+                    experiment_id,
+                    source_id,
+                    capability_assessment_id,
+                    request_type_value,
+                    task_value,
+                    _required(expected_output, "Erwarteter Output"),
+                    _required(required_infrastructure, "Benötigte Infrastruktur"),
+                    _json(scope_value),
+                    _json(safeguards_value),
+                    key,
+                    timestamp,
+                    timestamp,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO work_request_status_history (
+                    work_request_id, from_status, to_status, changed_at, actor, reason
+                ) VALUES (?, NULL, 'READY', ?, 'research_workflow', 'Work Request aus aktuellem Capability Assessment erzeugt')
+                """,
+                (request_id, timestamp),
+            )
+            connection.execute(
+                """
+                INSERT INTO evidence_ledger (
+                    hypothesis_id, event_type, event_at, summary, source_id,
+                    experiment_id, metadata_json
+                ) VALUES (?, 'work_request_created', ?, ?, ?, ?, ?)
+                """,
+                (
+                    hypothesis_id,
+                    timestamp,
+                    f"READY Work Request {request_type_value} angelegt: {task_value}",
+                    source_id,
+                    experiment_id,
+                    _json(
+                        {
+                            "work_request_id": request_id,
+                            "capability_assessment_id": capability_assessment_id,
+                            "automatic_execution": False,
+                        }
+                    ),
+                ),
+            )
+        return self.get_work_request(request_id, include_context=False)
+
+    def get_work_request(
+        self,
+        work_request_id: str,
+        *,
+        include_context: bool = True,
+    ) -> dict[str, Any]:
+        with database(self.path) as connection:
+            row = connection.execute(
+                "SELECT * FROM research_work_requests WHERE id = ?", (work_request_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"Unbekannter Work Request: {work_request_id}")
+            result = dict(row)
+            result["scope"] = _json_value(result.pop("scope_json", None))
+            result["safeguards"] = _json_value(result.pop("safeguards_json", None))
+            result["artifact_references"] = _json_value(
+                result.pop("artifact_references_json", None)
+            )
+            result["status_history"] = [
+                dict(item)
+                for item in connection.execute(
+                    "SELECT * FROM work_request_status_history WHERE work_request_id = ? ORDER BY changed_at, id",
+                    (work_request_id,),
+                )
+            ]
+        if include_context:
+            result["hypothesis"] = self.knowledge.get_hypothesis(
+                str(result["hypothesis_id"]), include_details=True
+            )
+            result["experiment"] = (
+                None
+                if result["experiment_id"] is None
+                else self.knowledge.get_experiment(str(result["experiment_id"]))
+            )
+            result["source"] = (
+                None
+                if result["source_id"] is None
+                else self.knowledge.get_source(str(result["source_id"]))
+            )
+        return result
+
+    def list_work_requests(
+        self,
+        *,
+        status: str | None = "READY",
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        if limit < 1 or limit > 1_000:
+            raise ValueError("Limit muss zwischen 1 und 1000 liegen.")
+        parameters: list[object] = []
+        where = ""
+        if status and status != "ALL":
+            where = "WHERE current_status = ?"
+            parameters.append(_choice(status, ALLOWED_WORK_REQUEST_STATUSES, "Work-Status"))
+        parameters.append(limit)
+        with database(self.path) as connection:
+            ids = [
+                str(item["id"])
+                for item in connection.execute(
+                    f"SELECT id FROM research_work_requests {where} ORDER BY created_at, id LIMIT ?",
+                    parameters,
+                )
+            ]
+        return [self.get_work_request(item, include_context=False) for item in ids]
+
+    def claim_work_request(
+        self,
+        work_request_id: str,
+        *,
+        worker_context: str,
+        claim_token: str | None = None,
+        claimed_at: object | None = None,
+    ) -> dict[str, Any]:
+        worker = _required(worker_context, "Ausführender Kontext")
+        timestamp = _timestamp(claimed_at)
+        token = _optional(claim_token) or _id()
+        replay = False
+        with database(self.path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = connection.execute(
+                "SELECT * FROM research_work_requests WHERE id = ?", (work_request_id,)
+            ).fetchone()
+            if current is None:
+                raise KeyError(f"Unbekannter Work Request: {work_request_id}")
+            if str(current["current_status"]) == "IN_PROGRESS":
+                if (
+                    claim_token
+                    and str(current["claim_token"] or "") == claim_token
+                    and str(current["claimed_by"] or "") == worker
+                ):
+                    replay = True
+                else:
+                    raise WorkRequestConflict("Work Request wurde bereits von einer anderen Session übernommen.")
+            elif str(current["current_status"]) != "READY":
+                raise WorkRequestConflict(
+                    f"Work Request ist {current['current_status']} und kann nicht übernommen werden."
+                )
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO work_request_status_change_context (
+                        work_request_id, changed_at, actor, reason
+                    ) VALUES (?, ?, ?, 'Work Request atomar übernommen')
+                    """,
+                    (work_request_id, timestamp, worker),
+                )
+                cursor = connection.execute(
+                    """
+                    UPDATE research_work_requests
+                    SET current_status = 'IN_PROGRESS', claimed_at = ?, claimed_by = ?,
+                        claim_token = ?, worker_context = ?, updated_at = ?
+                    WHERE id = ? AND current_status = 'READY'
+                    """,
+                    (timestamp, worker, token, worker, timestamp, work_request_id),
+                )
+                if cursor.rowcount != 1:
+                    raise WorkRequestConflict("Work Request wurde parallel übernommen.")
+        result = self.get_work_request(work_request_id)
+        result["claim_token"] = token if not replay else claim_token
+        result["idempotent_replay"] = replay
+        return result
+
+    def block_work_request(
+        self,
+        work_request_id: str,
+        *,
+        claim_token: str,
+        blocker_reason: str,
+        worker_context: str,
+        blocked_at: object | None = None,
+    ) -> dict[str, Any]:
+        return self._transition_claimed_work_request(
+            work_request_id,
+            claim_token=claim_token,
+            new_status="BLOCKED",
+            reason=_required(blocker_reason, "Blocker-/Abbruchbegründung"),
+            worker_context=worker_context,
+            changed_at=blocked_at,
+        )
+
+    def retry_blocked_work_request(
+        self,
+        work_request_id: str,
+        *,
+        reason: str,
+        actor: str,
+        retried_at: object | None = None,
+    ) -> dict[str, Any]:
+        timestamp = _timestamp(retried_at)
+        with database(self.path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = connection.execute(
+                "SELECT current_status FROM research_work_requests WHERE id = ?",
+                (work_request_id,),
+            ).fetchone()
+            if current is None:
+                raise KeyError(f"Unbekannter Work Request: {work_request_id}")
+            if str(current["current_status"]) != "BLOCKED":
+                raise WorkRequestConflict("Nur ein BLOCKED Work Request kann erneut READY gesetzt werden.")
+            connection.execute(
+                """
+                INSERT INTO work_request_status_change_context (
+                    work_request_id, changed_at, actor, reason
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (
+                    work_request_id,
+                    timestamp,
+                    _required(actor, "Akteur"),
+                    _required(reason, "Retry-Begründung"),
+                ),
+            )
+            connection.execute(
+                """
+                UPDATE research_work_requests
+                SET current_status = 'READY', claimed_at = NULL, claimed_by = NULL,
+                    claim_token = NULL, worker_context = NULL, blocker_reason = NULL,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (timestamp, work_request_id),
+            )
+        return self.get_work_request(work_request_id, include_context=False)
+
+    def _transition_claimed_work_request(
+        self,
+        work_request_id: str,
+        *,
+        claim_token: str,
+        new_status: str,
+        reason: str,
+        worker_context: str,
+        changed_at: object | None,
+    ) -> dict[str, Any]:
+        status = _choice(new_status, ("BLOCKED", "CANCELLED"), "Work-Status")
+        timestamp = _timestamp(changed_at)
+        worker = _required(worker_context, "Ausführender Kontext")
+        with database(self.path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = connection.execute(
+                "SELECT current_status, claim_token FROM research_work_requests WHERE id = ?",
+                (work_request_id,),
+            ).fetchone()
+            if current is None:
+                raise KeyError(f"Unbekannter Work Request: {work_request_id}")
+            if str(current["current_status"]) != "IN_PROGRESS" or str(current["claim_token"] or "") != claim_token:
+                raise WorkRequestConflict("Claim-Token oder Work-Status stimmt nicht.")
+            connection.execute(
+                """
+                INSERT INTO work_request_status_change_context (
+                    work_request_id, changed_at, actor, reason
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (work_request_id, timestamp, worker, reason),
+            )
+            connection.execute(
+                """
+                UPDATE research_work_requests
+                SET current_status = ?, blocker_reason = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (status, reason if status == "BLOCKED" else None, timestamp, work_request_id),
+            )
+        return self.get_work_request(work_request_id, include_context=False)
+
+    def complete_work_request(
+        self,
+        work_request_id: str,
+        *,
+        claim_token: str,
+        worker_context: str,
+        result: Mapping[str, object],
+        result_reference: str | None = None,
+        artifact_references: Iterable[Mapping[str, object]] = (),
+        completed_at: object | None = None,
+    ) -> dict[str, Any]:
+        """Persist the work result idempotently and complete the same KB request."""
+
+        request = self.get_work_request(work_request_id, include_context=False)
+        if request["current_status"] == "COMPLETED" and request.get("result_id"):
+            request["idempotent_replay"] = True
+            return request
+        if request["current_status"] != "IN_PROGRESS" or request.get("claim_token") != claim_token:
+            raise WorkRequestConflict("Claim-Token oder Work-Status stimmt nicht.")
+        experiment_id = request.get("experiment_id")
+        if experiment_id is None:
+            raise ValueError("Direkter Resultatrückkanal benötigt einen Work Request mit Experiment.")
+        experiment = self.knowledge.get_experiment(str(experiment_id))
+        if experiment["current_status"] != "COMPLETED":
+            self.knowledge.change_experiment_status(
+                str(experiment_id),
+                "COMPLETED",
+                reason=f"Work Request {work_request_id} durch {worker_context} abgeschlossen.",
+                changed_at=completed_at,
+            )
+        allowed_result_fields = {
+            "title",
+            "conclusion",
+            "interpretation",
+            "sample_size",
+            "hit_rate",
+            "expectancy",
+            "profit_factor",
+            "mfe",
+            "mae",
+            "drawdown",
+            "r_multiples",
+            "costs",
+            "slippage",
+            "in_sample",
+            "validation",
+            "out_of_sample",
+            "walk_forward",
+            "forward",
+            "papertrade",
+        }
+        unknown = sorted(set(result) - allowed_result_fields)
+        if unknown:
+            raise ValueError("Unbekannte Resultatfelder: " + ", ".join(unknown))
+        result_values = dict(result)
+        stored_result = self.knowledge.record_result(
+            str(experiment_id),
+            **result_values,
+            idempotency_key=f"work_request:{work_request_id}",
+            recorded_at=completed_at,
+        )
+        artifacts = [dict(item) for item in artifact_references]
+        for artifact in artifacts:
+            required = {"system", "record_type", "record_id"}
+            missing = sorted(required - set(artifact))
+            if missing:
+                raise ValueError("Artefaktreferenz fehlt: " + ", ".join(missing))
+            try:
+                self.knowledge.add_external_reference(
+                    target_type="result",
+                    target_id=str(stored_result["id"]),
+                    system=str(artifact["system"]),
+                    record_type=str(artifact["record_type"]),
+                    record_id=str(artifact["record_id"]),
+                    uri=_optional(artifact.get("uri")),
+                    description=str(artifact.get("description") or ""),
+                    created_at=completed_at,
+                )
+            except sqlite3.IntegrityError:
+                pass
+        timestamp = _timestamp(completed_at)
+        worker = _required(worker_context, "Ausführender Kontext")
+        with database(self.path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = connection.execute(
+                "SELECT current_status, claim_token, result_id FROM research_work_requests WHERE id = ?",
+                (work_request_id,),
+            ).fetchone()
+            if current is None:
+                raise KeyError(f"Unbekannter Work Request: {work_request_id}")
+            if str(current["current_status"]) == "COMPLETED":
+                if str(current["result_id"] or "") != str(stored_result["id"]):
+                    raise WorkRequestConflict("Work Request wurde mit einem anderen Resultat abgeschlossen.")
+            else:
+                if str(current["current_status"]) != "IN_PROGRESS" or str(current["claim_token"] or "") != claim_token:
+                    raise WorkRequestConflict("Claim-Token oder Work-Status stimmt nicht.")
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO work_request_result_links (
+                        id, work_request_id, result_id, linked_at
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (_id(), work_request_id, stored_result["id"], timestamp),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO work_request_status_change_context (
+                        work_request_id, changed_at, actor, reason
+                    ) VALUES (?, ?, ?, 'Arbeitsergebnis direkt in derselben Knowledge Base gespeichert')
+                    """,
+                    (work_request_id, timestamp, worker),
+                )
+                connection.execute(
+                    """
+                    UPDATE research_work_requests
+                    SET current_status = 'COMPLETED', completed_at = ?, worker_context = ?,
+                        result_id = ?, result_reference = ?, artifact_references_json = ?,
+                        blocker_reason = NULL, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        timestamp,
+                        worker,
+                        stored_result["id"],
+                        _optional(result_reference),
+                        _json(artifacts),
+                        timestamp,
+                        work_request_id,
+                    ),
+                )
+        completed = self.get_work_request(work_request_id, include_context=False)
+        completed["result"] = self.knowledge.get_result(str(stored_result["id"]))
+        return completed
+
+    record_work_result = complete_work_request
+
     def _integration_candidate(self, candidate_id: str) -> dict[str, Any]:
         with database(self.path) as connection:
             row = connection.execute(
@@ -1138,6 +1925,27 @@ class ResearchWorkflow:
                     scope_parameters,
                 )
             ]
+            validation_evidence = [
+                dict(item)
+                for item in connection.execute(
+                    """
+                    SELECT v.*, a.gate_contract_version, a.result_direction,
+                           a.result_scope_fingerprint
+                    FROM hypothesis_validation_evidence v
+                    JOIN result_validation_assessments a ON a.id = v.assessment_id
+                    WHERE v.hypothesis_id = ?
+                    ORDER BY v.selected_at, v.id
+                    """,
+                    (hypothesis_id,),
+                )
+            ]
+            work_request_ids = [
+                str(item[0])
+                for item in connection.execute(
+                    "SELECT id FROM research_work_requests WHERE hypothesis_id = ? ORDER BY created_at, id",
+                    (hypothesis_id,),
+                )
+            ]
         return {
             "hypothesis_id": hypothesis_id,
             "current_status": hypothesis["current_status"],
@@ -1148,6 +1956,10 @@ class ResearchWorkflow:
             "application_assessments": capability,
             "market_scopes": scopes,
             "integration_candidates": [self._integration_candidate(item) for item in candidate_ids],
+            "validation_evidence": validation_evidence,
+            "work_requests": [
+                self.get_work_request(item, include_context=False) for item in work_request_ids
+            ],
             "automatic_strategy_integration": False,
         }
 
@@ -1160,4 +1972,8 @@ class ResearchWorkflow:
                 "integration_candidates": int(connection.execute("SELECT COUNT(*) FROM integration_candidates").fetchone()[0]),
                 "integration_decisions": int(connection.execute("SELECT COUNT(*) FROM integration_decisions").fetchone()[0]),
                 "integration_events": int(connection.execute("SELECT COUNT(*) FROM integration_events").fetchone()[0]),
+                "work_requests": int(connection.execute("SELECT COUNT(*) FROM research_work_requests").fetchone()[0]),
+                "work_requests_ready": int(connection.execute("SELECT COUNT(*) FROM research_work_requests WHERE current_status = 'READY'").fetchone()[0]),
+                "validation_assessments": int(connection.execute("SELECT COUNT(*) FROM result_validation_assessments").fetchone()[0]),
+                "validation_selections": int(connection.execute("SELECT COUNT(*) FROM hypothesis_validation_evidence").fetchone()[0]),
             }

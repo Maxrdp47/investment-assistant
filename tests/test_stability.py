@@ -657,6 +657,7 @@ def test_streamlit_start_page_and_primary_controls_render_without_exception(
         "Experimente",
         "Ergebnisse",
         "Ledger-Ereignisse",
+        "Work Requests",
     }
     next(button for button in app_test.button if button.label == "← Zurück zur Startseite").click().run()
 

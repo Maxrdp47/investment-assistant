@@ -26,6 +26,7 @@ from .schema import (
     database,
     initialize_database,
 )
+from .source_identity import inspect_source_identity, normalize_source_title, normalize_source_url
 
 
 _TARGET_TABLES = {
@@ -194,30 +195,371 @@ class ResearchKnowledgeBase:
         reference: str | None = None,
         source_date: object | None = None,
         created_at: object | None = None,
+        platform: str | None = None,
+        creator: str | None = None,
+        profile_url: str | None = None,
+        local_file: Path | None = None,
+        local_filename: str | None = None,
+        file_sha256: str | None = None,
+        file_size: int | None = None,
+        provenance: str = "Research-Intake",
     ) -> dict[str, Any]:
-        source_id = _id()
-        timestamp = _timestamp(created_at)
-        values = (
-            source_id,
-            _required(title, "Quellentitel"),
-            _choice(source_type, ALLOWED_SOURCE_TYPES, "Quellentyp"),
-            _optional(reference),
-            _date_text(source_date, "Quellendatum"),
-            _required(summary, "Neutrale Zusammenfassung"),
-            timestamp,
-        )
-        with database(self.path) as connection:
-            connection.execute(
-                """
-                INSERT INTO research_sources (
-                    id, title, source_type, reference, source_date, neutral_summary, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                values,
+        source_type_value = _choice(source_type, ALLOWED_SOURCE_TYPES, "Quellentyp")
+        direct_url = reference
+        inferred_profile = profile_url
+        if source_type_value in {"youtube", "tiktok"} and reference:
+            normalized = normalize_source_url(reference, platform=platform or source_type_value)
+            identity = inspect_source_identity(
+                title=title,
+                platform=platform or source_type_value,
+                direct_url=reference,
             )
-        return self.get_source(source_id)
+            if normalized and identity["content_id"] is None:
+                direct_url = None
+                inferred_profile = inferred_profile or reference
+        intake = self.intake_source(
+            title=title,
+            source_type=source_type_value,
+            summary=summary,
+            platform=platform or (source_type_value if source_type_value in {"youtube", "tiktok"} else None),
+            creator=creator,
+            direct_url=direct_url,
+            profile_url=inferred_profile,
+            published_date=source_date,
+            local_file=local_file,
+            local_filename=local_filename,
+            file_sha256=file_sha256,
+            file_size=file_size,
+            provenance=provenance,
+            captured_at=created_at,
+            confirm_distinct=True,
+        )
+        source = dict(intake["source"])
+        source["intake_status"] = intake["status"]
+        source["provenance_added"] = intake["provenance_added"]
+        return source
+
+    def intake_source(
+        self,
+        *,
+        title: str,
+        source_type: str,
+        summary: str,
+        platform: str | None = None,
+        creator: str | None = None,
+        direct_url: str | None = None,
+        profile_url: str | None = None,
+        published_date: object | None = None,
+        local_file: Path | None = None,
+        local_filename: str | None = None,
+        file_sha256: str | None = None,
+        file_size: int | None = None,
+        provenance: str,
+        captured_at: object | None = None,
+        confirm_distinct: bool = False,
+        distinct_rationale: str | None = None,
+        resolve_to_source_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Identify a source before insertion and append only genuinely new provenance."""
+
+        title_value = _required(title, "Quellentitel")
+        source_type_value = _choice(source_type, ALLOWED_SOURCE_TYPES, "Quellentyp")
+        summary_value = _required(summary, "Neutrale Zusammenfassung")
+        published = _date_text(published_date, "Veröffentlichungsdatum")
+        timestamp = _timestamp(captured_at)
+        identity = inspect_source_identity(
+            title=title_value,
+            platform=platform,
+            creator=creator,
+            direct_url=direct_url,
+            profile_url=profile_url,
+            published_date=published,
+            local_file=local_file,
+            local_filename=local_filename,
+            file_sha256=file_sha256,
+            file_size=file_size,
+        )
+        provenance_value = _required(provenance, "Provenienz")
+        self._backfill_legacy_source_provenance()
+        keys = list(identity["identity_keys"])
+        matched_source_id: str | None = None
+        matched_status: str | None = None
+        matched_provenance_added = False
+        with database(self.path) as connection:
+            matched_source_ids: set[str] = set()
+            for identity_type, identity_value in keys:
+                row = connection.execute(
+                    """
+                    SELECT source_id FROM source_identity_keys
+                    WHERE identity_type = ? AND identity_value = ?
+                    """,
+                    (identity_type, identity_value),
+                ).fetchone()
+                if row is not None:
+                    matched_source_ids.add(str(row["source_id"]))
+            if len(matched_source_ids) > 1:
+                raise ValueError(
+                    "Die gelieferten Identitätsmerkmale gehören zu verschiedenen vorhandenen Sources. "
+                    "Der Konflikt muss bewusst geprüft werden."
+                )
+            if matched_source_ids:
+                source_id = next(iter(matched_source_ids))
+                provenance_added = self._append_source_provenance(
+                    connection,
+                    source_id=source_id,
+                    identity=identity,
+                    provenance=provenance_value,
+                    captured_at=timestamp,
+                )
+                matched_source_id = source_id
+                matched_status = "PROVENANCE_ENRICHED" if provenance_added else "DUPLICATE_SOURCE"
+                matched_provenance_added = provenance_added
+            if matched_source_id is not None:
+                pass
+            else:
+                possible = self._possible_duplicate_source_ids(
+                    connection,
+                    title=title_value,
+                    creator=creator,
+                    platform=str(identity.get("platform") or "") or None,
+                )
+                if keys and possible:
+                    possible = [
+                        possible_id
+                        for possible_id in possible
+                        if connection.execute(
+                            "SELECT 1 FROM source_identity_keys WHERE source_id = ? LIMIT 1",
+                            (possible_id,),
+                        ).fetchone()
+                        is None
+                    ]
+                if resolve_to_source_id is not None:
+                    resolved_id = _required(resolve_to_source_id, "Bewusst gewählte Source-ID")
+                    if resolved_id not in possible:
+                        raise ValueError(
+                            "Die bewusst gewählte Source-ID gehört nicht zu den konservativ ermittelten Possible Duplicates."
+                        )
+                    provenance_added = self._append_source_provenance(
+                        connection,
+                        source_id=resolved_id,
+                        identity=identity,
+                        provenance=provenance_value,
+                        captured_at=timestamp,
+                    )
+                    matched_source_id = resolved_id
+                    matched_status = "PROVENANCE_ENRICHED" if provenance_added else "DUPLICATE_SOURCE"
+                    matched_provenance_added = provenance_added
+                    possible = []
+                if matched_source_id is not None:
+                    pass
+                elif possible and not confirm_distinct:
+                    return {
+                        "status": "POSSIBLE_DUPLICATE",
+                        "source": None,
+                        "source_id": None,
+                        "provenance_added": False,
+                        "possible_duplicate_source_ids": possible,
+                        "message": "Ähnliche Metadaten reichen nicht für einen automatischen Merge.",
+                    }
+                else:
+                    source_id = _id()
+                    connection.execute(
+                    """
+                    INSERT INTO research_sources (
+                        id, title, source_type, reference, source_date, neutral_summary, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        source_id,
+                        title_value,
+                        source_type_value,
+                        _optional(direct_url) or _optional(profile_url),
+                        published,
+                        summary_value,
+                        timestamp,
+                    ),
+                )
+                    self._append_source_provenance(
+                        connection,
+                        source_id=source_id,
+                        identity=identity,
+                        provenance=provenance_value,
+                        captured_at=timestamp,
+                    )
+                    for possible_id in possible:
+                        connection.execute(
+                        """
+                        INSERT OR IGNORE INTO source_duplicate_assessments (
+                            id, source_id, possible_duplicate_source_id, decision, rationale, assessed_at
+                        ) VALUES (?, ?, ?, 'CONFIRMED_DISTINCT', ?, ?)
+                        """,
+                            (
+                                _id(),
+                                source_id,
+                                possible_id,
+                                _required(distinct_rationale, "Begründung für eigenständige Source"),
+                                timestamp,
+                            ),
+                        )
+        if matched_source_id is not None:
+            return {
+                "status": matched_status,
+                "source": self.get_source(matched_source_id),
+                "source_id": matched_source_id,
+                "provenance_added": matched_provenance_added,
+                "possible_duplicate_source_ids": [],
+                "message": "Source bereits vorhanden; kein neues Workflowobjekt erzeugt.",
+            }
+        return {
+            "status": "NEW_SOURCE",
+            "source": self.get_source(source_id),
+            "source_id": source_id,
+            "provenance_added": True,
+            "possible_duplicate_source_ids": possible,
+            "message": "Neue Source mit deterministischer Provenienz angelegt.",
+        }
+
+    def _backfill_legacy_source_provenance(self) -> None:
+        with database(self.path) as connection:
+            rows = connection.execute(
+                """
+                SELECT s.* FROM research_sources s
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM source_provenance p WHERE p.source_id = s.id
+                )
+                ORDER BY s.created_at, s.id
+                """
+            ).fetchall()
+            for row in rows:
+                source = dict(row)
+                source_type = str(source["source_type"])
+                reference = _optional(source.get("reference"))
+                direct_url = reference
+                profile_url = None
+                platform = source_type if source_type in {"youtube", "tiktok"} else None
+                if platform and reference:
+                    inspected_reference = inspect_source_identity(
+                        title=str(source["title"]),
+                        platform=platform,
+                        direct_url=reference,
+                    )
+                    if inspected_reference["content_id"] is None:
+                        direct_url = None
+                        profile_url = reference
+                identity = inspect_source_identity(
+                    title=str(source["title"]),
+                    platform=platform,
+                    direct_url=direct_url,
+                    profile_url=profile_url,
+                    published_date=source.get("source_date"),
+                )
+                self._append_source_provenance(
+                    connection,
+                    source_id=str(source["id"]),
+                    identity=identity,
+                    provenance="Schema-v4-Backfill aus unveränderter Legacy-Source",
+                    captured_at=str(source["created_at"]),
+                )
+
+    @staticmethod
+    def _append_source_provenance(
+        connection: object,
+        *,
+        source_id: str,
+        identity: Mapping[str, object],
+        provenance: str,
+        captured_at: str,
+    ) -> bool:
+        existing = connection.execute(  # type: ignore[attr-defined]
+            """
+            SELECT id FROM source_provenance
+            WHERE source_id = ? AND provenance_fingerprint = ?
+            """,
+            (source_id, identity["provenance_fingerprint"]),
+        ).fetchone()
+        if existing is not None:
+            return False
+        provenance_id = _id()
+        connection.execute(  # type: ignore[attr-defined]
+            """
+            INSERT INTO source_provenance (
+                id, source_id, platform, creator, provenance_title, direct_url,
+                normalized_url, content_id, profile_url, published_date,
+                local_filename, file_sha256, file_size, captured_at, provenance,
+                source_fingerprint, provenance_fingerprint
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                provenance_id,
+                source_id,
+                _optional(identity.get("platform")),
+                _optional(identity.get("creator")),
+                _optional(identity.get("provenance_title")),
+                _optional(identity.get("direct_url")),
+                _optional(identity.get("normalized_url")),
+                _optional(identity.get("content_id")),
+                _optional(identity.get("profile_url")),
+                _optional(identity.get("published_date")),
+                _optional(identity.get("local_filename")),
+                _optional(identity.get("file_sha256")),
+                identity.get("file_size"),
+                captured_at,
+                provenance,
+                identity["source_fingerprint"],
+                identity["provenance_fingerprint"],
+            ),
+        )
+        for identity_type, identity_value in identity.get("identity_keys", []):  # type: ignore[assignment]
+            existing_key = connection.execute(  # type: ignore[attr-defined]
+                """
+                SELECT source_id FROM source_identity_keys
+                WHERE identity_type = ? AND identity_value = ?
+                """,
+                (identity_type, identity_value),
+            ).fetchone()
+            if existing_key is not None and str(existing_key["source_id"]) != source_id:
+                raise ValueError("Neue Provenienz kollidiert mit der exakten Identität einer anderen Source.")
+            connection.execute(  # type: ignore[attr-defined]
+                """
+                INSERT OR IGNORE INTO source_identity_keys (
+                    id, source_id, provenance_id, identity_type, identity_value, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (_id(), source_id, provenance_id, identity_type, identity_value, captured_at),
+            )
+        return True
+
+    @staticmethod
+    def _possible_duplicate_source_ids(
+        connection: object,
+        *,
+        title: str,
+        creator: str | None,
+        platform: str | None,
+    ) -> list[str]:
+        creator_key = normalize_source_title(creator)
+        title_key = normalize_source_title(title)
+        if not creator_key or not title_key:
+            return []
+        rows = connection.execute(  # type: ignore[attr-defined]
+            """
+            SELECT DISTINCT p.source_id, p.creator, p.provenance_title, p.platform
+            FROM source_provenance p
+            WHERE p.creator IS NOT NULL AND p.provenance_title IS NOT NULL
+            """
+        ).fetchall()
+        return sorted(
+            {
+                str(row["source_id"])
+                for row in rows
+                if normalize_source_title(row["creator"]) == creator_key
+                and normalize_source_title(row["provenance_title"]) == title_key
+                and (not platform or not row["platform"] or str(row["platform"]).casefold() == platform.casefold())
+            }
+        )
 
     def get_source(self, source_id: str) -> dict[str, Any]:
+        self._backfill_legacy_source_provenance()
         with database(self.path) as connection:
             result = _row(
                 connection.execute(
@@ -231,6 +573,31 @@ class ResearchKnowledgeBase:
                 for item in connection.execute(
                     "SELECT * FROM external_references WHERE target_type = 'source' AND target_id = ? ORDER BY created_at, id",
                     (source_id,),
+                )
+            ]
+            result["provenance"] = [
+                dict(item)
+                for item in connection.execute(
+                    "SELECT * FROM source_provenance WHERE source_id = ? ORDER BY captured_at, id",
+                    (source_id,),
+                )
+            ]
+            result["identity_keys"] = [
+                dict(item)
+                for item in connection.execute(
+                    "SELECT identity_type, identity_value, provenance_id, created_at FROM source_identity_keys WHERE source_id = ? ORDER BY identity_type, identity_value",
+                    (source_id,),
+                )
+            ]
+            result["possible_duplicates"] = [
+                dict(item)
+                for item in connection.execute(
+                    """
+                    SELECT * FROM source_duplicate_assessments
+                    WHERE source_id = ? OR possible_duplicate_source_id = ?
+                    ORDER BY assessed_at, id
+                    """,
+                    (source_id, source_id),
                 )
             ]
         return result
@@ -331,6 +698,7 @@ class ResearchKnowledgeBase:
         *,
         reason: str,
         retest_basis: str | None = None,
+        validation_result_id: str | None = None,
         metadata: Mapping[str, object] | None = None,
         changed_at: object | None = None,
     ) -> dict[str, Any]:
@@ -346,6 +714,22 @@ class ResearchKnowledgeBase:
             old_status = str(current["current_status"])
             if old_status == status_value:
                 raise ValueError("Der neue Status entspricht bereits dem aktuellen Status.")
+            if status_value == "VALIDATED":
+                if validation_result_id is None:
+                    raise ValueError(
+                        "VALIDATED benötigt die explizite ID eines qualifiziert ausgewählten Resultats."
+                    )
+                selected = connection.execute(
+                    """
+                    SELECT 1 FROM hypothesis_validation_evidence
+                    WHERE hypothesis_id = ? AND result_id = ?
+                    """,
+                    (hypothesis_id, validation_result_id),
+                ).fetchone()
+                if selected is None:
+                    raise ValueError(
+                        "Das angegebene Resultat wurde nicht als qualifizierte VALIDATED-Evidenz ausgewählt."
+                    )
             basis_value = None
             if old_status == "REJECTED" and status_value != "REJECTED":
                 basis_value = _choice(
@@ -360,6 +744,8 @@ class ResearchKnowledgeBase:
                     "Grund für erneuten Test",
                 )
             context_metadata = dict(metadata or {})
+            if validation_result_id is not None:
+                context_metadata["validation_result_id"] = validation_result_id
             if basis_value:
                 context_metadata["retest_basis"] = basis_value
             connection.execute(
@@ -665,6 +1051,7 @@ class ResearchKnowledgeBase:
         walk_forward: object | None = None,
         forward: object | None = None,
         papertrade: object | None = None,
+        idempotency_key: str | None = None,
         recorded_at: object | None = None,
     ) -> dict[str, Any]:
         result_id = _id()
@@ -684,7 +1071,17 @@ class ResearchKnowledgeBase:
         interpretation_value = _required(interpretation, "Ergebnisinterpretation")
         stages = [in_sample, validation, out_of_sample, walk_forward, forward, papertrade]
         stage_json = [None if value is None else _json(value) for value in stages]
+        identity_key = _optional(idempotency_key)
         with database(self.path) as connection:
+            if identity_key is not None:
+                existing_identity = connection.execute(
+                    "SELECT result_id FROM research_result_identities WHERE idempotency_key = ?",
+                    (identity_key,),
+                ).fetchone()
+                if existing_identity is not None:
+                    existing = self.get_result(str(existing_identity["result_id"]))
+                    existing["idempotent_replay"] = True
+                    return existing
             experiment = connection.execute(
                 "SELECT hypothesis_id FROM experiments WHERE id = ?", (experiment_id,)
             ).fetchone()
@@ -720,6 +1117,14 @@ class ResearchKnowledgeBase:
                     timestamp,
                 ),
             )
+            if identity_key is not None:
+                connection.execute(
+                    """
+                    INSERT INTO research_result_identities (idempotency_key, result_id, created_at)
+                    VALUES (?, ?, ?)
+                    """,
+                    (identity_key, result_id, timestamp),
+                )
             connection.execute(
                 """
                 INSERT INTO evidence_ledger (
@@ -752,6 +1157,24 @@ class ResearchKnowledgeBase:
                 dict(item)
                 for item in connection.execute(
                     "SELECT * FROM external_references WHERE target_type = 'result' AND target_id = ? ORDER BY created_at, id",
+                    (result_id,),
+                )
+            ]
+            result["validation_assessments"] = []
+            for item in connection.execute(
+                "SELECT * FROM result_validation_assessments WHERE result_id = ? ORDER BY assessed_at, id",
+                (result_id,),
+            ):
+                assessment = dict(item)
+                assessment["scope_contract"] = _json_value(assessment.pop("scope_contract_json", None))
+                assessment["artifact_references"] = _json_value(
+                    assessment.pop("artifact_references_json", None)
+                )
+                result["validation_assessments"].append(assessment)
+            result["work_request_links"] = [
+                dict(item)
+                for item in connection.execute(
+                    "SELECT * FROM work_request_result_links WHERE result_id = ? ORDER BY linked_at, id",
                     (result_id,),
                 )
             ]
@@ -1089,6 +1512,21 @@ class ResearchKnowledgeBase:
                     (hypothesis_id,),
                 )
             ]
+            for source in result["sources"]:
+                source["provenance"] = [
+                    dict(item)
+                    for item in connection.execute(
+                        "SELECT * FROM source_provenance WHERE source_id = ? ORDER BY captured_at, id",
+                        (source["id"],),
+                    )
+                ]
+                source["identity_keys"] = [
+                    dict(item)
+                    for item in connection.execute(
+                        "SELECT identity_type, identity_value, created_at FROM source_identity_keys WHERE source_id = ? ORDER BY identity_type, identity_value",
+                        (source["id"],),
+                    )
+                ]
             experiment_ids = [
                 str(item["id"])
                 for item in connection.execute(
@@ -1233,6 +1671,7 @@ class ResearchKnowledgeBase:
                 "experiments": int(connection.execute("SELECT COUNT(*) FROM experiments").fetchone()[0]),
                 "results": int(connection.execute("SELECT COUNT(*) FROM research_results").fetchone()[0]),
                 "ledger_events": int(connection.execute("SELECT COUNT(*) FROM evidence_ledger").fetchone()[0]),
+                "work_requests": int(connection.execute("SELECT COUNT(*) FROM research_work_requests").fetchone()[0]),
             }
         return {
             "status": "ok" if quick_check.lower() == "ok" and version == CURRENT_SCHEMA_VERSION else "attention",

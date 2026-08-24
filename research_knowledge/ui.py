@@ -97,6 +97,11 @@ def _render_sources(detail: dict[str, Any]) -> None:
             {
                 "Titel": source["title"],
                 "Typ": source["source_type"],
+                "Plattform": (source["provenance"][-1].get("platform") if source["provenance"] else None) or "–",
+                "Creator": (source["provenance"][-1].get("creator") if source["provenance"] else None) or "–",
+                "Content-ID": (source["provenance"][-1].get("content_id") if source["provenance"] else None) or "–",
+                "Normalisierte URL": (source["provenance"][-1].get("normalized_url") if source["provenance"] else None) or "–",
+                "Fingerprint": (source["provenance"][-1].get("source_fingerprint") if source["provenance"] else None) or "–",
                 "Datum": source["source_date"] or "–",
                 "Richtung": STANCE_LABELS.get(source["stance"], source["stance"]),
                 "Referenz": source["reference"] or "–",
@@ -184,11 +189,13 @@ def _render_ledger(detail: dict[str, Any]) -> None:
 
 def _render_workflow(workflow: dict[str, Any]) -> None:
     st.subheader("Research-Workflow")
-    status_cols = st.columns(4)
+    status_cols = st.columns(6)
     status_cols[0].metric("Source-Claims", len(workflow["source_claims"]))
     status_cols[1].metric("App-Abgleiche", len(workflow["application_assessments"]))
     status_cols[2].metric("Market Scopes", len(workflow["market_scopes"]))
     status_cols[3].metric("Integration Candidates", len(workflow["integration_candidates"]))
+    status_cols[4].metric("Work Requests", len(workflow["work_requests"]))
+    status_cols[5].metric("Validierungs-Auswahl", len(workflow["validation_evidence"]))
     st.caption(
         "Workflow-Einträge steuern nur Research. Sie aktivieren weder Features noch Filter, "
         "Strategien oder Orders."
@@ -266,6 +273,32 @@ def _render_workflow(workflow: dict[str, Any]) -> None:
             hide_index=True,
         )
 
+    if workflow["work_requests"]:
+        st.markdown("**DB-Chat ↔ Work-Chat Requests**")
+        st.dataframe(
+            [
+                {
+                    "ID": item["id"],
+                    "Typ": item["request_type"],
+                    "Status": item["current_status"],
+                    "Aufgabe": item["task"],
+                    "Ergebnis": item["result_id"],
+                    "Blocker": item["blocker_reason"],
+                }
+                for item in workflow["work_requests"]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    if workflow["validation_evidence"]:
+        st.markdown("**Explizit ausgewählte Validierungsevidenz**")
+        st.dataframe(
+            workflow["validation_evidence"],
+            use_container_width=True,
+            hide_index=True,
+        )
+
     for candidate in workflow["integration_candidates"]:
         with st.expander(
             f"INTEGRATION_CANDIDATE · {', '.join(candidate['feature_combination'])}",
@@ -319,7 +352,9 @@ def render_research_knowledge_base(
     st.caption("Dauerhafte Research-Erinnerung · keine Tradingstrategie · keine automatische Filter- oder Orderwirkung")
     st.info(
         "Ein externer Input kann niemals allein durch seine Quelle validiert werden. "
-        "VALIDATED benötigt ein dokumentiertes eigenes Experimentergebnis."
+        "VALIDATED benötigt ein explizit ausgewähltes unterstützendes Resultat eines "
+        "abgeschlossenen Experiments mit bestandenem Scope-, OOS-, Walk-Forward-, "
+        "PIT-, Leakage- und allen weiteren geltenden Gates."
     )
     try:
         knowledge = ResearchKnowledgeBase(database_path)
@@ -331,16 +366,18 @@ def render_research_knowledge_base(
         st.error(f"Die Research Knowledge Base konnte nicht geöffnet werden: {exc}")
         return
 
-    metrics = st.columns(5)
+    metrics = st.columns(6)
     metrics[0].metric("Hypothesen", health["hypotheses"])
     metrics[1].metric("Quellen", health["sources"])
     metrics[2].metric("Experimente", health["experiments"])
     metrics[3].metric("Ergebnisse", health["results"])
     metrics[4].metric("Ledger-Ereignisse", health["ledger_events"])
+    metrics[5].metric("Work Requests", health["work_requests"])
     st.caption(
         f"Workflow: {workflow_summary['source_claims']} Claims · "
         f"{workflow_summary['capability_assessments']} App-Abgleiche · "
         f"{workflow_summary['integration_candidates']} Integration Candidates · "
+        f"{workflow_summary['work_requests']} Work Requests · "
         f"{workflow_summary['integration_events']} dokumentierte Integrationsereignisse"
     )
 

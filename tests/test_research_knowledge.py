@@ -184,16 +184,17 @@ def test_source_hypothesis_experiment_result_persist_with_full_ledger(tmp_path: 
         "experiments": 2,
         "results": 1,
         "ledger_events": len(detail["ledger"]),
+        "work_requests": 0,
     }
 
 
-def test_validated_is_blocked_until_an_experiment_result_exists(tmp_path: Path) -> None:
+def test_validated_is_blocked_until_a_qualified_result_is_selected(tmp_path: Path) -> None:
     kb = ResearchKnowledgeBase(tmp_path / "validation.sqlite3")
     idea = hypothesis(kb)
     external = source(kb, "Starke externe Metaanalyse")
     kb.link_source(idea["id"], external["id"], stance="supports")
 
-    with pytest.raises(sqlite3.IntegrityError, match="VALIDATED requires an internal experiment result"):
+    with pytest.raises(ValueError, match="explizite ID"):
         kb.change_hypothesis_status(
             idea["id"],
             "VALIDATED",
@@ -202,14 +203,16 @@ def test_validated_is_blocked_until_an_experiment_result_exists(tmp_path: Path) 
 
     assert kb.get_hypothesis(idea["id"])["current_status"] == "RAW"
     own_test = experiment(kb, idea["id"])
-    result(kb, own_test["id"], conclusion="supports")
-    changed = kb.change_hypothesis_status(
-        idea["id"],
-        "VALIDATED",
-        reason="Eigenes PIT-Ergebnis liegt zusätzlich zur externen Evidenz vor.",
-    )
+    supporting = result(kb, own_test["id"], conclusion="supports")
+    with pytest.raises(ValueError, match="nicht als qualifizierte"):
+        kb.change_hypothesis_status(
+            idea["id"],
+            "VALIDATED",
+            validation_result_id=supporting["id"],
+            reason="Ein Resultat allein reicht nicht.",
+        )
 
-    assert changed["current_status"] == "VALIDATED"
+    assert kb.get_hypothesis(idea["id"])["current_status"] == "RAW"
 
 
 def test_rejected_hypotheses_remain_searchable_and_retest_requires_new_basis(tmp_path: Path) -> None:

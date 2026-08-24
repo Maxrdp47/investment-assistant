@@ -14,7 +14,7 @@ DEFAULT_DATABASE_PATH = Path(
         PROJECT_ROOT / "runtime" / "research_knowledge.sqlite3",
     )
 )
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 5
 
 ALLOWED_SOURCE_TYPES = (
     "tiktok",
@@ -93,6 +93,38 @@ ALLOWED_MARKET_SCOPE_TARGETS = (
     "hypothesis",
     "experiment",
     "integration_candidate",
+)
+ALLOWED_WORK_REQUEST_TYPES = (
+    "RESEARCH_TEST",
+    "CODE_EXTENSION",
+    "DATA_PIPELINE",
+    "INTEGRATION_REVIEW",
+)
+ALLOWED_WORK_REQUEST_STATUSES = (
+    "READY",
+    "IN_PROGRESS",
+    "COMPLETED",
+    "BLOCKED",
+    "CANCELLED",
+)
+ALLOWED_RESULT_DIRECTIONS = ("SUPPORTING", "NEGATIVE", "INCONCLUSIVE")
+ALLOWED_VALIDATION_GATE_STATUSES = (
+    "PASSED",
+    "FAILED",
+    "NOT_REQUIRED",
+    "NOT_RUN",
+    "UNDERPOWERED",
+    "INVALID",
+)
+ALLOWED_LEGACY_RECONCILIATION_OUTCOMES = (
+    "ALREADY_MIGRATED",
+    "LINK_SOURCE_TO_EXISTING",
+    "IMPORT_SOURCE_ONLY",
+    "IMPORT_NEW_CLAIMS",
+    "CREATE_NEW_HYPOTHESIS",
+    "UPDATE_EVIDENCE",
+    "SKIP_DUPLICATE",
+    "NO_ACTION",
 )
 
 
@@ -842,6 +874,391 @@ SCHEMA_MIGRATIONS = {
           AND NOT EXISTS (SELECT 1 FROM integration_candidates WHERE id = NEW.target_id)
         BEGIN
             SELECT RAISE(ABORT, 'market scope integration candidate target does not exist');
+        END;
+    """,
+    4: f"""
+        CREATE TABLE source_provenance (
+            id TEXT PRIMARY KEY,
+            source_id TEXT NOT NULL REFERENCES research_sources(id),
+            platform TEXT,
+            creator TEXT,
+            provenance_title TEXT,
+            direct_url TEXT,
+            normalized_url TEXT,
+            content_id TEXT,
+            profile_url TEXT,
+            published_date TEXT,
+            local_filename TEXT,
+            file_sha256 TEXT,
+            file_size INTEGER CHECK(file_size IS NULL OR file_size >= 0),
+            captured_at TEXT NOT NULL,
+            provenance TEXT NOT NULL,
+            source_fingerprint TEXT NOT NULL,
+            provenance_fingerprint TEXT NOT NULL,
+            UNIQUE(source_id, provenance_fingerprint)
+        );
+
+        CREATE TABLE source_identity_keys (
+            id TEXT PRIMARY KEY,
+            source_id TEXT NOT NULL REFERENCES research_sources(id),
+            provenance_id TEXT NOT NULL REFERENCES source_provenance(id),
+            identity_type TEXT NOT NULL CHECK(
+                identity_type IN ('platform_content_id', 'normalized_url', 'file_sha256')
+            ),
+            identity_value TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(identity_type, identity_value)
+        );
+
+        CREATE TABLE source_duplicate_assessments (
+            id TEXT PRIMARY KEY,
+            source_id TEXT NOT NULL REFERENCES research_sources(id),
+            possible_duplicate_source_id TEXT NOT NULL REFERENCES research_sources(id),
+            decision TEXT NOT NULL CHECK(decision IN ('POSSIBLE_DUPLICATE', 'CONFIRMED_DISTINCT')),
+            rationale TEXT NOT NULL,
+            assessed_at TEXT NOT NULL,
+            CHECK(source_id <> possible_duplicate_source_id),
+            UNIQUE(source_id, possible_duplicate_source_id, decision)
+        );
+
+        CREATE TABLE research_result_identities (
+            idempotency_key TEXT PRIMARY KEY,
+            result_id TEXT NOT NULL UNIQUE REFERENCES research_results(id),
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE result_validation_assessments (
+            id TEXT PRIMARY KEY,
+            result_id TEXT NOT NULL REFERENCES research_results(id),
+            research_type TEXT NOT NULL,
+            gate_contract_version TEXT NOT NULL,
+            result_direction TEXT NOT NULL CHECK(result_direction IN ({_quoted(ALLOWED_RESULT_DIRECTIONS)})),
+            scope_contract_json TEXT NOT NULL,
+            result_scope_fingerprint TEXT NOT NULL,
+            scope_gate_passed INTEGER NOT NULL CHECK(scope_gate_passed IN (0, 1)),
+            oos_status TEXT NOT NULL CHECK(oos_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            walk_forward_status TEXT NOT NULL CHECK(walk_forward_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            external_unseen_status TEXT NOT NULL CHECK(external_unseen_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            forward_status TEXT NOT NULL CHECK(forward_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            paper_status TEXT NOT NULL CHECK(paper_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            sample_size_status TEXT NOT NULL CHECK(sample_size_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            uncertainty_status TEXT NOT NULL CHECK(uncertainty_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            costs_slippage_status TEXT NOT NULL CHECK(costs_slippage_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            data_quality_status TEXT NOT NULL CHECK(data_quality_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            leakage_status TEXT NOT NULL CHECK(leakage_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            pit_status TEXT NOT NULL CHECK(pit_status IN ({_quoted(ALLOWED_VALIDATION_GATE_STATUSES)})),
+            critical_blocker INTEGER NOT NULL CHECK(critical_blocker IN (0, 1)),
+            limitations TEXT NOT NULL,
+            artifact_references_json TEXT NOT NULL,
+            rationale TEXT NOT NULL,
+            assessed_at TEXT NOT NULL
+        );
+
+        CREATE TABLE hypothesis_validation_evidence (
+            id TEXT PRIMARY KEY,
+            hypothesis_id TEXT NOT NULL REFERENCES hypotheses(id),
+            result_id TEXT NOT NULL REFERENCES research_results(id),
+            assessment_id TEXT NOT NULL REFERENCES result_validation_assessments(id),
+            selected_by TEXT NOT NULL,
+            rationale TEXT NOT NULL,
+            selected_at TEXT NOT NULL,
+            UNIQUE(hypothesis_id, assessment_id)
+        );
+
+        CREATE TABLE research_work_requests (
+            id TEXT PRIMARY KEY,
+            hypothesis_id TEXT NOT NULL REFERENCES hypotheses(id),
+            experiment_id TEXT REFERENCES experiments(id),
+            source_id TEXT REFERENCES research_sources(id),
+            capability_assessment_id TEXT REFERENCES application_capability_assessments(id),
+            request_type TEXT NOT NULL CHECK(request_type IN ({_quoted(ALLOWED_WORK_REQUEST_TYPES)})),
+            current_status TEXT NOT NULL CHECK(current_status IN ({_quoted(ALLOWED_WORK_REQUEST_STATUSES)})),
+            task TEXT NOT NULL,
+            expected_output TEXT NOT NULL,
+            required_infrastructure TEXT NOT NULL,
+            scope_json TEXT NOT NULL,
+            safeguards_json TEXT NOT NULL,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            claimed_at TEXT,
+            completed_at TEXT,
+            claimed_by TEXT,
+            claim_token TEXT,
+            worker_context TEXT,
+            result_id TEXT REFERENCES research_results(id),
+            result_reference TEXT,
+            artifact_references_json TEXT NOT NULL DEFAULT '[]',
+            blocker_reason TEXT,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE work_request_status_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            work_request_id TEXT NOT NULL REFERENCES research_work_requests(id),
+            from_status TEXT,
+            to_status TEXT NOT NULL CHECK(to_status IN ({_quoted(ALLOWED_WORK_REQUEST_STATUSES)})),
+            changed_at TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            reason TEXT NOT NULL
+        );
+
+        CREATE TABLE work_request_status_change_context (
+            work_request_id TEXT PRIMARY KEY REFERENCES research_work_requests(id),
+            changed_at TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            reason TEXT NOT NULL
+        );
+
+        CREATE TABLE work_request_result_links (
+            id TEXT PRIMARY KEY,
+            work_request_id TEXT NOT NULL UNIQUE REFERENCES research_work_requests(id),
+            result_id TEXT NOT NULL UNIQUE REFERENCES research_results(id),
+            linked_at TEXT NOT NULL
+        );
+
+        CREATE INDEX idx_source_provenance_source ON source_provenance(source_id, captured_at, id);
+        CREATE INDEX idx_source_provenance_metadata ON source_provenance(platform, creator, published_date);
+        CREATE INDEX idx_source_identity_source ON source_identity_keys(source_id, identity_type);
+        CREATE INDEX idx_source_duplicate_source ON source_duplicate_assessments(source_id, assessed_at);
+        CREATE INDEX idx_result_validation_result ON result_validation_assessments(result_id, assessed_at, id);
+        CREATE INDEX idx_validation_evidence_hypothesis ON hypothesis_validation_evidence(hypothesis_id, selected_at, id);
+        CREATE INDEX idx_work_requests_status ON research_work_requests(current_status, created_at, id);
+        CREATE INDEX idx_work_requests_hypothesis ON research_work_requests(hypothesis_id, created_at, id);
+        CREATE INDEX idx_work_status_history_request ON work_request_status_history(work_request_id, changed_at, id);
+
+        CREATE TRIGGER source_provenance_no_update
+        BEFORE UPDATE ON source_provenance BEGIN
+            SELECT RAISE(ABORT, 'source_provenance is append-only');
+        END;
+        CREATE TRIGGER source_provenance_no_delete
+        BEFORE DELETE ON source_provenance BEGIN
+            SELECT RAISE(ABORT, 'source_provenance is append-only');
+        END;
+        CREATE TRIGGER source_identity_keys_no_update
+        BEFORE UPDATE ON source_identity_keys BEGIN
+            SELECT RAISE(ABORT, 'source_identity_keys is append-only');
+        END;
+        CREATE TRIGGER source_identity_keys_no_delete
+        BEFORE DELETE ON source_identity_keys BEGIN
+            SELECT RAISE(ABORT, 'source_identity_keys is append-only');
+        END;
+        CREATE TRIGGER source_duplicate_assessments_no_update
+        BEFORE UPDATE ON source_duplicate_assessments BEGIN
+            SELECT RAISE(ABORT, 'source_duplicate_assessments is append-only');
+        END;
+        CREATE TRIGGER source_duplicate_assessments_no_delete
+        BEFORE DELETE ON source_duplicate_assessments BEGIN
+            SELECT RAISE(ABORT, 'source_duplicate_assessments is append-only');
+        END;
+        CREATE TRIGGER research_result_identities_no_update
+        BEFORE UPDATE ON research_result_identities BEGIN
+            SELECT RAISE(ABORT, 'research_result_identities is append-only');
+        END;
+        CREATE TRIGGER research_result_identities_no_delete
+        BEFORE DELETE ON research_result_identities BEGIN
+            SELECT RAISE(ABORT, 'research_result_identities is append-only');
+        END;
+        CREATE TRIGGER result_validation_assessments_no_update
+        BEFORE UPDATE ON result_validation_assessments BEGIN
+            SELECT RAISE(ABORT, 'result_validation_assessments is append-only');
+        END;
+        CREATE TRIGGER result_validation_assessments_no_delete
+        BEFORE DELETE ON result_validation_assessments BEGIN
+            SELECT RAISE(ABORT, 'result_validation_assessments is append-only');
+        END;
+        CREATE TRIGGER hypothesis_validation_evidence_no_update
+        BEFORE UPDATE ON hypothesis_validation_evidence BEGIN
+            SELECT RAISE(ABORT, 'hypothesis_validation_evidence is append-only');
+        END;
+        CREATE TRIGGER hypothesis_validation_evidence_no_delete
+        BEFORE DELETE ON hypothesis_validation_evidence BEGIN
+            SELECT RAISE(ABORT, 'hypothesis_validation_evidence is append-only');
+        END;
+        CREATE TRIGGER work_request_status_history_no_update
+        BEFORE UPDATE ON work_request_status_history BEGIN
+            SELECT RAISE(ABORT, 'work_request_status_history is append-only');
+        END;
+        CREATE TRIGGER work_request_status_history_no_delete
+        BEFORE DELETE ON work_request_status_history BEGIN
+            SELECT RAISE(ABORT, 'work_request_status_history is append-only');
+        END;
+        CREATE TRIGGER work_request_result_links_no_update
+        BEFORE UPDATE ON work_request_result_links BEGIN
+            SELECT RAISE(ABORT, 'work_request_result_links is append-only');
+        END;
+        CREATE TRIGGER work_request_result_links_no_delete
+        BEFORE DELETE ON work_request_result_links BEGIN
+            SELECT RAISE(ABORT, 'work_request_result_links is append-only');
+        END;
+
+        CREATE TRIGGER research_work_requests_no_delete
+        BEFORE DELETE ON research_work_requests BEGIN
+            SELECT RAISE(ABORT, 'research_work_requests cannot be deleted');
+        END;
+        CREATE TRIGGER research_work_requests_core_immutable
+        BEFORE UPDATE ON research_work_requests
+        WHEN NEW.hypothesis_id IS NOT OLD.hypothesis_id
+          OR NEW.experiment_id IS NOT OLD.experiment_id
+          OR NEW.source_id IS NOT OLD.source_id
+          OR NEW.capability_assessment_id IS NOT OLD.capability_assessment_id
+          OR NEW.request_type IS NOT OLD.request_type
+          OR NEW.task IS NOT OLD.task
+          OR NEW.expected_output IS NOT OLD.expected_output
+          OR NEW.required_infrastructure IS NOT OLD.required_infrastructure
+          OR NEW.scope_json IS NOT OLD.scope_json
+          OR NEW.safeguards_json IS NOT OLD.safeguards_json
+          OR NEW.idempotency_key IS NOT OLD.idempotency_key
+          OR NEW.created_at IS NOT OLD.created_at
+        BEGIN
+            SELECT RAISE(ABORT, 'work request definition is immutable; create a new request');
+        END;
+        CREATE TRIGGER work_request_transition_allowed
+        BEFORE UPDATE OF current_status ON research_work_requests
+        WHEN OLD.current_status <> NEW.current_status
+          AND NOT (
+              (OLD.current_status = 'READY' AND NEW.current_status IN ('IN_PROGRESS', 'CANCELLED')) OR
+              (OLD.current_status = 'IN_PROGRESS' AND NEW.current_status IN ('COMPLETED', 'BLOCKED', 'CANCELLED')) OR
+              (OLD.current_status = 'BLOCKED' AND NEW.current_status IN ('READY', 'CANCELLED'))
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'invalid work request status transition');
+        END;
+        CREATE TRIGGER work_request_completion_requires_result
+        BEFORE UPDATE OF current_status ON research_work_requests
+        WHEN NEW.current_status = 'COMPLETED'
+          AND (
+              NEW.result_id IS NULL OR
+              NOT EXISTS (
+                  SELECT 1 FROM work_request_result_links l
+                  WHERE l.work_request_id = NEW.id AND l.result_id = NEW.result_id
+              )
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'COMPLETED work request requires its directly linked result');
+        END;
+        CREATE TRIGGER work_request_status_audit
+        AFTER UPDATE OF current_status ON research_work_requests
+        WHEN OLD.current_status <> NEW.current_status
+        BEGIN
+            INSERT INTO work_request_status_history (
+                work_request_id, from_status, to_status, changed_at, actor, reason
+            ) VALUES (
+                NEW.id,
+                OLD.current_status,
+                NEW.current_status,
+                COALESCE((SELECT changed_at FROM work_request_status_change_context WHERE work_request_id = NEW.id), NEW.updated_at),
+                COALESCE((SELECT actor FROM work_request_status_change_context WHERE work_request_id = NEW.id), 'unknown'),
+                COALESCE((SELECT reason FROM work_request_status_change_context WHERE work_request_id = NEW.id), 'Direkte Statusänderung ohne Repository-Kontext')
+            );
+            INSERT INTO evidence_ledger (
+                hypothesis_id, event_type, event_at, summary, experiment_id, result_id, metadata_json
+            ) VALUES (
+                NEW.hypothesis_id,
+                'work_request_status_changed',
+                COALESCE((SELECT changed_at FROM work_request_status_change_context WHERE work_request_id = NEW.id), NEW.updated_at),
+                COALESCE((SELECT reason FROM work_request_status_change_context WHERE work_request_id = NEW.id), 'Direkte Statusänderung ohne Repository-Kontext'),
+                NEW.experiment_id,
+                NEW.result_id,
+                json_object('work_request_id', NEW.id, 'from_status', OLD.current_status, 'to_status', NEW.current_status)
+            );
+            DELETE FROM work_request_status_change_context WHERE work_request_id = NEW.id;
+        END;
+
+        CREATE TRIGGER work_request_experiment_matches_hypothesis
+        BEFORE INSERT ON research_work_requests
+        WHEN NEW.experiment_id IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM experiments e
+              WHERE e.id = NEW.experiment_id AND e.hypothesis_id = NEW.hypothesis_id
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'work request experiment must belong to hypothesis');
+        END;
+        CREATE TRIGGER work_request_capability_matches_hypothesis
+        BEFORE INSERT ON research_work_requests
+        WHEN NEW.capability_assessment_id IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM application_capability_assessments a
+              WHERE a.id = NEW.capability_assessment_id AND a.hypothesis_id = NEW.hypothesis_id
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'work request capability assessment must belong to hypothesis');
+        END;
+        CREATE TRIGGER work_request_source_matches_hypothesis
+        BEFORE INSERT ON research_work_requests
+        WHEN NEW.source_id IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM hypothesis_sources hs
+              WHERE hs.hypothesis_id = NEW.hypothesis_id AND hs.source_id = NEW.source_id
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'work request source must be linked to hypothesis');
+        END;
+
+        CREATE TRIGGER validation_selection_requires_qualified_result
+        BEFORE INSERT ON hypothesis_validation_evidence
+        WHEN NOT EXISTS (
+            SELECT 1
+            FROM result_validation_assessments a
+            JOIN research_results r ON r.id = a.result_id
+            JOIN experiments e ON e.id = r.experiment_id
+            WHERE a.id = NEW.assessment_id
+              AND a.result_id = NEW.result_id
+              AND e.hypothesis_id = NEW.hypothesis_id
+              AND e.current_status = 'COMPLETED'
+              AND r.conclusion = 'supports'
+              AND a.result_direction = 'SUPPORTING'
+              AND a.scope_gate_passed = 1
+              AND a.oos_status = 'PASSED'
+              AND a.walk_forward_status = 'PASSED'
+              AND a.external_unseen_status IN ('PASSED', 'NOT_REQUIRED')
+              AND a.forward_status IN ('PASSED', 'NOT_REQUIRED')
+              AND a.paper_status IN ('PASSED', 'NOT_REQUIRED')
+              AND a.sample_size_status = 'PASSED'
+              AND a.uncertainty_status = 'PASSED'
+              AND a.costs_slippage_status IN ('PASSED', 'NOT_REQUIRED')
+              AND a.data_quality_status = 'PASSED'
+              AND a.leakage_status = 'PASSED'
+              AND a.pit_status = 'PASSED'
+              AND a.critical_blocker = 0
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'validation selection requires a completed supporting result with every applicable gate passed');
+        END;
+
+        DROP TRIGGER hypothesis_update_cannot_validate_without_result;
+        CREATE TRIGGER hypothesis_update_cannot_validate_without_result
+        BEFORE UPDATE OF current_status ON hypotheses
+        WHEN NEW.current_status = 'VALIDATED'
+          AND OLD.current_status <> 'VALIDATED'
+          AND NOT EXISTS (
+              SELECT 1 FROM hypothesis_validation_evidence v
+              WHERE v.hypothesis_id = NEW.id
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'VALIDATED requires an explicitly selected supporting result with completed validation gates');
+        END;
+    """,
+    5: f"""
+        CREATE TABLE legacy_research_reconciliations (
+            candidate_key TEXT PRIMARY KEY,
+            candidate_name TEXT NOT NULL,
+            outcome TEXT NOT NULL CHECK(outcome IN ({_quoted(ALLOWED_LEGACY_RECONCILIATION_OUTCOMES)})),
+            source_id TEXT REFERENCES research_sources(id),
+            hypothesis_ids_json TEXT NOT NULL,
+            experiment_ids_json TEXT NOT NULL,
+            work_request_ids_json TEXT NOT NULL,
+            rationale TEXT NOT NULL,
+            reconciled_at TEXT NOT NULL
+        );
+
+        CREATE TRIGGER legacy_research_reconciliations_no_update
+        BEFORE UPDATE ON legacy_research_reconciliations BEGIN
+            SELECT RAISE(ABORT, 'legacy_research_reconciliations is append-only');
+        END;
+        CREATE TRIGGER legacy_research_reconciliations_no_delete
+        BEFORE DELETE ON legacy_research_reconciliations BEGIN
+            SELECT RAISE(ABORT, 'legacy_research_reconciliations is append-only');
         END;
     """,
 }

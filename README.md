@@ -105,6 +105,34 @@ Der vorbereitete manuelle Einstiegspunkt `scripts/collect_long_term_sources.py` 
 
 Ein echter Abruf bleibt gesperrt, solange `INVESTMENT_ASSISTANT_SEC_USER_AGENT` nicht ausschließlich zur Laufzeit mit Projektname und erreichbarer Kontaktadresse gesetzt ist. Die Vorprüfung gibt nur aus, ob eine gültige Kennung vorhanden ist, niemals ihren Wert. Der Cachepfad muss innerhalb des privaten `runtime/`-Verzeichnisses liegen. Der Live-Weg ist nicht geplant oder automatisch aktiviert; er sammelt nur SEC-Teilquellen, erzeugt keine Long-Term-Empfehlung und kann das Gesamtgate allein nicht öffnen.
 
+## Research Knowledge Base
+
+Die App enthält einen bewusst von Trading-, Scanner- und Scoringlogik getrennten Bereich **Research Knowledge Base**. Die private, migrationsfähige SQLite-Datei unter `runtime/research_knowledge.sqlite3` ist die gemeinsame Single Source of Truth für DB-Chat und Work-Chat; `INVESTMENT_ASSISTANT_RESEARCH_KB_DB` kann einen anderen lokalen Pfad setzen. Runtime-Daten und lokale Sicherungen werden nicht versioniert.
+
+Das Modul `research_knowledge/` trennt Quellen, Hypothesen, Experimente und Ergebnisse. Mehrere Quellen können eine Hypothese unterstützen, ihr widersprechen oder nur Kontext liefern; mehrere Experimente und Ergebnisse bleiben getrennt verknüpft. Statusänderungen, externe Prüfungen, Research-Referenzen und Ergebnisse landen chronologisch in einem append-only Evidence Ledger. Auch frühere `REJECTED`-Entscheidungen bleiben über die Statushistorie suchbar. Ein erneuter Test einer verworfenen Hypothese benötigt dokumentierte neue Evidenz, neue Daten oder eine materiell andere Hypothese.
+
+Eine Source speichert append-only Provenienz mit Plattform, Creator, Titel, direkter und normalisierter URL, Content-ID, Profil-URL, Veröffentlichungsdatum, lokalem Dateinamen, Datei-SHA-256/-Größe und deterministischem Fingerprint, soweit diese Angaben tatsächlich verfügbar sind. Exakte Identität folgt der Reihenfolge Plattform+Content-ID, normalisierte URL und Datei-Hash. Trackingparameter und alternative YouTube-/TikTok-URLformen erzeugen keine zweite Source. Ähnliche Titel allein liefern nur `POSSIBLE_DUPLICATE`; ein bewusster Merge oder eine Bestätigung als eigenständige Source ist erforderlich. Ein exakter Retry ergänzt höchstens neue Provenienz und erzeugt keine doppelten Claims, Hypothesen, Experimente oder Work Requests.
+
+Eine Hypothese kann weder aufgrund einer externen Quelle noch aufgrund irgendeines beliebigen internen Resultats `VALIDATED` werden. Erforderlich ist ein explizit ausgewähltes unterstützendes Resultat eines abgeschlossenen Experiments. Der versionierte Market-Scope-Vertrag aus `swing_research_market_scope.py` prüft Source-, Hypothesen-, Test- und validierten Scope ohne Cross-Market-Vererbung. OOS, Walk-Forward, Sample Size, Unsicherheit, Datenqualität, Point-in-Time-/Leakage-Status sowie je Researchvertrag External/Unseen, Forward, Paper und Kosten/Slippage müssen bestanden oder ausdrücklich nicht erforderlich sein. Das Gate ändert keine Strategie und erzeugt keine automatische Integration.
+
+`ResearchWorkflow` ergänzt darauf einen append-only Intake-Prozess, ohne das Kernmodell zu duplizieren: Ein aus einer Quelle extrahierter Claim erhält zuerst einen Ähnlichkeits-Snapshot gegen vorhandene Hypothesen einschließlich früherer Quellen, Experimente, Ergebnisse und `REJECTED`-Begründungen. Ein gleicher Claim wird dem bestehenden Eintrag zugeordnet; eine neue Hypothese ist nur ohne passenden Eintrag oder als begründete materielle Variante zulässig. Evidenzstärke und Confidence besitzen eine eigene Historie. Verworfene Ideen werden durch eine neue Quelle nicht automatisch wieder geöffnet.
+
+Der anschließende App-Abgleich verwendet ausschließlich `ALREADY_AVAILABLE`, `TESTABLE_NOW`, `CODE_EXTENSION_REQUIRED`, `NEW_DATA_REQUIRED`, `DEFERRED` oder `NO_ACTION`. Nur die drei tatsächlich actionable Outcomes erzeugen bei passendem Researchbedarf einen idempotenten `READY` Work Request; `NO_ACTION`, `DEFERRED`, bloßes `ALREADY_AVAILABLE` und ein unveränderter Duplicate-Upload dürfen keinen Request erzeugen. Quellen-, Experiment- und möglicher Integrationsscope werden getrennt gespeichert. Eine Übertragung zwischen FX, Aktien, Crypto oder anderen Märkten erzeugt eine neue Hypothese mit eigener Validierung.
+
+`research_work_requests` bildet den persistenten DB-Chat↔Work-Chat-Handoff in derselben KB. Ein Work-Chat listet `READY`, übernimmt einen Request atomar als `IN_PROGRESS`, lädt Hypothese, Source, Evidence, Scope, Risiken, Experiment und frühere Results, und schreibt danach Experimentstatus, Resultat und Artefakt-/Run-/DB-Referenzen direkt zurück. Statushistorie und Ledger bleiben append-only; Claim-Token verhindern eine unbemerkte Doppelübernahme, Idempotency-Keys verhindern doppelte Requests und Resultate. Der frühere manuelle `KB-RESULT`-Copy/Paste-Rückkanal ist nicht erforderlich.
+
+Der kleine CLI-Einstiegspunkt verwendet dieselben APIs und keine rohe SQLite-Manipulation:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\research_work_handoff.py list --status READY
+.\.venv\Scripts\python.exe scripts\research_work_handoff.py show <WORK_REQUEST_ID>
+.\.venv\Scripts\python.exe scripts\research_work_handoff.py claim <WORK_REQUEST_ID> --worker <KONTEXT>
+```
+
+Ein unterstützendes Resultat kann höchstens einen unveränderbaren `INTEGRATION_CANDIDATE` erzeugen. Dafür werden inkrementeller Mehrwert gegenüber der unveränderten Baseline, OOS-/Walk-Forward- und Forward-/Paper-Evidenz, Sample Size, Kosten, Feature-Redundanz, Komplexität, Overfiltering, Tradezahl, Market Scope und die einfachste ähnlich wirksame Variante einzeln festgehalten. Pro Candidate sind höchstens fünf fachlich begründete Features zulässig. Eine Freigabe auf Datenbankebene ist nur möglich, wenn alle Gates bestanden sind; die tatsächliche externe Integration benötigt danach noch ein separates bewusstes Entscheidungs- und Integrationsereignis. Die Knowledge Base selbst ändert dabei weiterhin keinen Produktivcode.
+
+Die Oberfläche bleibt eine einfache Lese- und Suchansicht für Quellenidentität, Wissensabgleich, App-Testbarkeit, Market Scopes, Work Requests, Experimente, Ergebnisse, Validierungsauswahl, Integration Candidates und Ledger. Befüllung erfolgt über die getesteten APIs `ResearchKnowledgeBase` und `ResearchWorkflow`; Vector-Datenbanken, Embeddings, eigener LLM-/Whisper-Service, Broker und Orderausführung sind nicht Teil dieser Ausbaustufe.
+
 ## Automatische Prognosen und Datenbank-Wartung
 
 Der lokale Hintergrundprozess speichert unveränderbare Prognosen und spätere Auswertungen in `runtime/forecasts.sqlite3`. Diese private Datei wird nicht versioniert. Die Windows-Aufgabe startet täglich um 22:30 Uhr und prüft zuerst alle fälligen Ergebnisse. Neue Prognosen werden ab 2026-08-10 nur für die jeweils fällige Wochenkohorte erzeugt; es gibt keine Broker-Verbindung und keine Orderausführung.

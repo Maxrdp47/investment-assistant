@@ -168,12 +168,14 @@ def test_new_source_claim_reuses_rejected_knowledge_instead_of_duplicating(tmp_p
     assert len(kb.search_hypotheses()) == 1
     assert workflow.workflow_for_hypothesis(idea["id"])["automatic_strategy_integration"] is False
 
-    with pytest.raises(ValueError, match="bereits"):
-        workflow.capture_source_claim(
-            new_source["id"],
-            claim=idea["claim"],
-            original_market_scope="Liquide US-Aktien, Tagesdaten",
-        )
+    duplicate = workflow.capture_source_claim(
+        new_source["id"],
+        claim=idea["claim"],
+        original_market_scope="Liquide US-Aktien, Tagesdaten",
+    )
+    assert duplicate["id"] == captured["id"]
+    assert duplicate["duplicate_claim"] is True
+    assert len(workflow.list_source_claims()) == 1
     with pytest.raises(ValueError, match="Derselbe Claim existiert bereits"):
         workflow.create_hypothesis_from_claim(
             captured["id"],

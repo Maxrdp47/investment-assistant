@@ -7,13 +7,17 @@ from typing import Any, Iterable, Mapping
 
 from .schema import (
     ALLOWED_CAPABILITY_OUTCOMES,
+    ALLOWED_CLAIM_VERIFICATION_STATES,
     ALLOWED_CLAIM_RESOLUTIONS,
     ALLOWED_EVIDENCE_STRENGTHS,
     ALLOWED_INTEGRATION_DECISIONS,
     ALLOWED_INTEGRATION_EVENTS,
+    ALLOWED_KNOWLEDGE_CLAIM_RELATIONS,
+    ALLOWED_KNOWLEDGE_DOMAINS,
     ALLOWED_MARKET_SCOPE_TARGETS,
     ALLOWED_RESULT_DIRECTIONS,
     ALLOWED_RETEST_BASES,
+    ALLOWED_TRADING_RELEVANCES,
     ALLOWED_VALIDATION_GATE_STATUSES,
     ALLOWED_WORK_REQUEST_STATUSES,
     ALLOWED_WORK_REQUEST_TYPES,
@@ -24,6 +28,7 @@ from .store import (
     ResearchKnowledgeBase,
     _choice,
     _claim_fingerprint,
+    _date_text,
     _id,
     _json,
     _json_value,
@@ -77,6 +82,60 @@ def _stable_key(value: object) -> str:
     return hashlib.sha256(_json(value).encode("utf-8")).hexdigest()
 
 
+def _claim_is_trading_eligible(classification: Mapping[str, object] | None) -> bool:
+    if classification is None:
+        return False
+    relevance = str(classification.get("trading_relevance") or "")
+    return relevance == "TRADING_RELEVANT" or (
+        relevance == "POTENTIALLY_TRADING_RELEVANT"
+        and bool(classification.get("trading_path_approved"))
+    )
+
+
+def _domain_classification_values(
+    *,
+    primary_domain: str,
+    secondary_domains: Iterable[str],
+    subcategory: str | None,
+    trading_relevance: str,
+    trading_path_approved: bool,
+    rationale: str,
+) -> dict[str, object]:
+    primary = _choice(primary_domain, ALLOWED_KNOWLEDGE_DOMAINS, "Primäre Wissensdomäne")
+    secondary = sorted(
+        {
+            _choice(item, ALLOWED_KNOWLEDGE_DOMAINS, "Sekundäre Wissensdomäne")
+            for item in secondary_domains
+            if str(item).strip()
+        }
+    )
+    if primary in secondary:
+        secondary.remove(primary)
+    relevance = _choice(
+        trading_relevance,
+        ALLOWED_TRADING_RELEVANCES,
+        "Trading-Relevanz",
+    )
+    if not isinstance(trading_path_approved, bool):
+        raise ValueError("Trading-Pfad-Freigabe muss ausdrücklich wahr oder falsch sein.")
+    if relevance == "TRADING_RELEVANT":
+        approved = True
+    elif relevance == "NOT_TRADING_RELEVANT":
+        approved = False
+    else:
+        approved = trading_path_approved
+    values: dict[str, object] = {
+        "primary_domain": primary,
+        "secondary_domains": secondary,
+        "subcategory": _optional(subcategory),
+        "trading_relevance": relevance,
+        "trading_path_approved": approved,
+        "rationale": _required(rationale, "Begründung der Domain-Einordnung"),
+    }
+    values["classification_fingerprint"] = _stable_key(values)
+    return values
+
+
 class ResearchWorkflow:
     """Intake-to-integration-review workflow over the existing knowledge model.
 
@@ -98,6 +157,37 @@ class ResearchWorkflow:
         similarity_threshold: float = 0.2,
         created_at: object | None = None,
     ) -> dict[str, Any]:
+        return self.capture_knowledge_claim(
+            source_id,
+            claim=claim,
+            primary_domain="TRADING_INVESTMENT",
+            secondary_domains=(),
+            subcategory=None,
+            trading_relevance="TRADING_RELEVANT",
+            trading_path_approved=True,
+            classification_rationale="Trading-/Investment-Claim aus dem bestehenden Research-Intake.",
+            original_market_scope=original_market_scope,
+            extraction_notes=extraction_notes,
+            similarity_threshold=similarity_threshold,
+            created_at=created_at,
+        )
+
+    def capture_knowledge_claim(
+        self,
+        source_id: str,
+        *,
+        claim: str,
+        primary_domain: str,
+        secondary_domains: Iterable[str] = (),
+        subcategory: str | None = None,
+        trading_relevance: str,
+        trading_path_approved: bool = False,
+        classification_rationale: str,
+        original_market_scope: str | None = None,
+        extraction_notes: str = "",
+        similarity_threshold: float = 0.2,
+        created_at: object | None = None,
+    ) -> dict[str, Any]:
         if similarity_threshold < 0 or similarity_threshold > 1:
             raise ValueError("Ähnlichkeitsschwelle muss zwischen 0 und 1 liegen.")
         source = self.knowledge.get_source(source_id)
@@ -105,41 +195,195 @@ class ResearchWorkflow:
         normalized = normalize_claim(claim_text)
         fingerprint = _claim_fingerprint(normalized)
         timestamp = _timestamp(created_at)
-        matches = self.knowledge.find_similar_hypotheses(
-            title=str(source["title"]),
-            claim=claim_text,
-            minimum_score=similarity_threshold,
-            limit=25,
+        classification = _domain_classification_values(
+            primary_domain=primary_domain,
+            secondary_domains=secondary_domains,
+            subcategory=subcategory,
+            trading_relevance=trading_relevance,
+            trading_path_approved=trading_path_approved,
+            rationale=classification_rationale,
+        )
+        eligible = _claim_is_trading_eligible(classification)
+        market_scope = (
+            _required(original_market_scope, "Ursprünglicher Market Scope")
+            if eligible
+            else (_optional(original_market_scope) or "NOT_APPLICABLE")
+        )
+        matches = (
+            self.knowledge.find_similar_hypotheses(
+                title=str(source["title"]),
+                claim=claim_text,
+                minimum_score=similarity_threshold,
+                limit=25,
+            )
+            if eligible
+            else []
         )
         with database(self.path) as connection:
             existing = connection.execute(
                 "SELECT id FROM source_claims WHERE source_id = ? AND claim_fingerprint = ?",
                 (source_id, fingerprint),
             ).fetchone()
-            if existing is not None:
-                raise ValueError("Dieser Claim wurde aus derselben Quelle bereits erfasst.")
-            claim_id = _id()
-            connection.execute(
+            duplicate_claim = existing is not None
+            if existing is None:
+                claim_id = _id()
+                connection.execute(
+                    """
+                    INSERT INTO source_claims (
+                        id, source_id, claim_text, normalized_claim, claim_fingerprint,
+                        original_market_scope, extraction_notes, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        claim_id,
+                        source_id,
+                        claim_text,
+                        normalized,
+                        fingerprint,
+                        market_scope,
+                        str(extraction_notes or "").strip(),
+                        timestamp,
+                    ),
+                )
+            else:
+                claim_id = str(existing["id"])
+            connection.executemany(
                 """
-                INSERT INTO source_claims (
-                    id, source_id, claim_text, normalized_claim, claim_fingerprint,
-                    original_market_scope, extraction_notes, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO source_claim_matches (
+                    id, claim_id, hypothesis_id, similarity_score, exact_claim_match,
+                    hypothesis_status, was_rejected, source_count, experiment_count,
+                    result_count, rejection_reason, matched_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        _id(),
+                        claim_id,
+                        item["id"],
+                        item["similarity_score"],
+                        int(bool(item["exact_claim_match"])),
+                        item["current_status"],
+                        int(bool(item["was_rejected"])),
+                        item["source_count"],
+                        item["experiment_count"],
+                        item["result_count"],
+                        item["rejection_reason"],
+                        timestamp,
+                    )
+                    for item in matches
+                ],
+            )
+            classification_id = _id()
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO claim_domain_assessments (
+                    id, claim_id, primary_domain, secondary_domains_json, subcategory,
+                    trading_relevance, trading_path_approved, rationale,
+                    classification_fingerprint, classified_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    classification_id,
                     claim_id,
-                    source_id,
-                    claim_text,
-                    normalized,
-                    fingerprint,
-                    _required(original_market_scope, "Ursprünglicher Market Scope"),
-                    str(extraction_notes or "").strip(),
+                    classification["primary_domain"],
+                    _json(classification["secondary_domains"]),
+                    classification["subcategory"],
+                    classification["trading_relevance"],
+                    int(bool(classification["trading_path_approved"])),
+                    classification["rationale"],
+                    classification["classification_fingerprint"],
+                    timestamp,
+                ),
+            )
+            classification_added = cursor.rowcount == 1
+            connection.execute(
+                """
+                INSERT INTO claim_verification_assessments (
+                    id, claim_id, verification_state, evidence_strength, confidence,
+                    limitations, jurisdiction, valid_from, valid_until, valid_as_of,
+                    update_required, rationale, assessment_fingerprint, assessed_at
+                )
+                SELECT ?, ?, 'UNVERIFIED', 'weak', NULL, ?, NULL, NULL, NULL, NULL,
+                       0, ?, ?, ?
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM claim_verification_assessments WHERE claim_id = ?
+                )
+                """,
+                (
+                    _id(),
+                    claim_id,
+                    "Noch nicht fachlich verifiziert.",
+                    "Initialer Verifikationsstatus beim Claim-Intake.",
+                    f"initial-unverified:{claim_id}",
+                    timestamp,
+                    claim_id,
+                ),
+            )
+        result = self.get_source_claim(claim_id)
+        result["duplicate_claim"] = duplicate_claim
+        result["classification_added"] = classification_added
+        return result
+
+    def classify_claim(
+        self,
+        claim_id: str,
+        *,
+        primary_domain: str,
+        secondary_domains: Iterable[str] = (),
+        subcategory: str | None = None,
+        trading_relevance: str,
+        trading_path_approved: bool = False,
+        rationale: str,
+        similarity_threshold: float = 0.2,
+        classified_at: object | None = None,
+    ) -> dict[str, Any]:
+        if similarity_threshold < 0 or similarity_threshold > 1:
+            raise ValueError("Ähnlichkeitsschwelle muss zwischen 0 und 1 liegen.")
+        claim = self.get_source_claim(claim_id)
+        values = _domain_classification_values(
+            primary_domain=primary_domain,
+            secondary_domains=secondary_domains,
+            subcategory=subcategory,
+            trading_relevance=trading_relevance,
+            trading_path_approved=trading_path_approved,
+            rationale=rationale,
+        )
+        timestamp = _timestamp(classified_at)
+        matches = (
+            self.knowledge.find_similar_hypotheses(
+                title=str(claim["source_title"]),
+                claim=str(claim["claim_text"]),
+                minimum_score=similarity_threshold,
+                limit=25,
+            )
+            if _claim_is_trading_eligible(values)
+            else []
+        )
+        with database(self.path) as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO claim_domain_assessments (
+                    id, claim_id, primary_domain, secondary_domains_json, subcategory,
+                    trading_relevance, trading_path_approved, rationale,
+                    classification_fingerprint, classified_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    _id(),
+                    claim_id,
+                    values["primary_domain"],
+                    _json(values["secondary_domains"]),
+                    values["subcategory"],
+                    values["trading_relevance"],
+                    int(bool(values["trading_path_approved"])),
+                    values["rationale"],
+                    values["classification_fingerprint"],
                     timestamp,
                 ),
             )
             connection.executemany(
                 """
-                INSERT INTO source_claim_matches (
+                INSERT OR IGNORE INTO source_claim_matches (
                     id, claim_id, hypothesis_id, similarity_score, exact_claim_match,
                     hypothesis_status, was_rejected, source_count, experiment_count,
                     result_count, rejection_reason, matched_at
@@ -164,6 +408,187 @@ class ResearchWorkflow:
                 ],
             )
         return self.get_source_claim(claim_id)
+
+    def record_claim_verification(
+        self,
+        claim_id: str,
+        *,
+        verification_state: str,
+        evidence_strength: str,
+        confidence: object | None,
+        rationale: str,
+        limitations: str,
+        verifying_sources: Iterable[Mapping[str, object]] = (),
+        counter_evidence: Iterable[Mapping[str, object]] = (),
+        jurisdiction: str | None = None,
+        valid_from: object | None = None,
+        valid_until: object | None = None,
+        valid_as_of: object | None = None,
+        update_required: bool = False,
+        assessed_at: object | None = None,
+    ) -> dict[str, Any]:
+        self.get_source_claim(claim_id)
+        state = _choice(
+            verification_state,
+            ALLOWED_CLAIM_VERIFICATION_STATES,
+            "Verifikationsstatus",
+        )
+        strength = _choice(evidence_strength, ALLOWED_EVIDENCE_STRENGTHS, "Evidenzstärke")
+        confidence_value = _number(confidence, "Verification-Confidence", minimum=0)
+        if confidence_value is not None and confidence_value > 100:
+            raise ValueError("Verification-Confidence darf höchstens 100 betragen.")
+        if not isinstance(update_required, bool):
+            raise ValueError("Aktualisierungspflicht muss ausdrücklich wahr oder falsch sein.")
+        from_date = _date_text(valid_from, "Gültig ab")
+        until_date = _date_text(valid_until, "Gültig bis")
+        as_of_date = _date_text(valid_as_of, "Datenstand")
+        if from_date and until_date and from_date > until_date:
+            raise ValueError("Gültig-bis darf nicht vor Gültig-ab liegen.")
+
+        references: list[dict[str, object]] = []
+        for reference_type, items in (
+            ("VERIFYING", verifying_sources),
+            ("COUNTER_EVIDENCE", counter_evidence),
+        ):
+            for raw in items:
+                item = {
+                    "reference_type": reference_type,
+                    "title": _required(raw.get("title"), "Titel der Verifikationsquelle"),
+                    "url": _optional(raw.get("url")),
+                    "publisher": _optional(raw.get("publisher")),
+                    "published_date": _date_text(
+                        raw.get("published_date"),
+                        "Veröffentlichungsdatum der Verifikationsquelle",
+                    ),
+                    "notes": str(raw.get("notes") or "").strip(),
+                }
+                item["reference_fingerprint"] = _stable_key(item)
+                references.append(item)
+        references.sort(key=lambda item: str(item["reference_fingerprint"]))
+        payload: dict[str, object] = {
+            "verification_state": state,
+            "evidence_strength": strength,
+            "confidence": confidence_value,
+            "limitations": str(limitations or "").strip(),
+            "jurisdiction": _optional(jurisdiction),
+            "valid_from": from_date,
+            "valid_until": until_date,
+            "valid_as_of": as_of_date,
+            "update_required": update_required,
+            "rationale": _required(rationale, "Verifikationsbegründung"),
+            "references": references,
+        }
+        assessment_fingerprint = _stable_key(payload)
+        timestamp = _timestamp(assessed_at)
+        assessment_id = _id()
+        with database(self.path) as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO claim_verification_assessments (
+                    id, claim_id, verification_state, evidence_strength, confidence,
+                    limitations, jurisdiction, valid_from, valid_until, valid_as_of,
+                    update_required, rationale, assessment_fingerprint, assessed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    assessment_id,
+                    claim_id,
+                    state,
+                    strength,
+                    confidence_value,
+                    payload["limitations"],
+                    payload["jurisdiction"],
+                    from_date,
+                    until_date,
+                    as_of_date,
+                    int(update_required),
+                    payload["rationale"],
+                    assessment_fingerprint,
+                    timestamp,
+                ),
+            )
+            row = connection.execute(
+                """
+                SELECT id FROM claim_verification_assessments
+                WHERE claim_id = ? AND assessment_fingerprint = ?
+                """,
+                (claim_id, assessment_fingerprint),
+            ).fetchone()
+            if row is None:  # pragma: no cover - protected by transaction
+                raise RuntimeError("Claim-Verifikation konnte nicht gespeichert werden.")
+            stored_assessment_id = str(row["id"])
+            connection.executemany(
+                """
+                INSERT OR IGNORE INTO claim_verification_references (
+                    id, assessment_id, reference_type, title, url, publisher,
+                    published_date, notes, reference_fingerprint
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        _id(),
+                        stored_assessment_id,
+                        item["reference_type"],
+                        item["title"],
+                        item["url"],
+                        item["publisher"],
+                        item["published_date"],
+                        item["notes"],
+                        item["reference_fingerprint"],
+                    )
+                    for item in references
+                ],
+            )
+        detail = self.get_source_claim(claim_id)
+        return next(
+            item
+            for item in detail["verification_assessments"]
+            if item["id"] == stored_assessment_id
+        )
+
+    def relate_claims(
+        self,
+        claim_id: str,
+        related_claim_id: str,
+        *,
+        relation_type: str,
+        rationale: str,
+        created_at: object | None = None,
+    ) -> dict[str, Any]:
+        self.get_source_claim(claim_id)
+        self.get_source_claim(related_claim_id)
+        relation = _choice(
+            relation_type,
+            ALLOWED_KNOWLEDGE_CLAIM_RELATIONS,
+            "Claim-Beziehung",
+        )
+        timestamp = _timestamp(created_at)
+        with database(self.path) as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO knowledge_claim_relations (
+                    id, claim_id, related_claim_id, relation_type, rationale, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    _id(),
+                    claim_id,
+                    related_claim_id,
+                    relation,
+                    _required(rationale, "Begründung der Claim-Beziehung"),
+                    timestamp,
+                ),
+            )
+            row = connection.execute(
+                """
+                SELECT * FROM knowledge_claim_relations
+                WHERE claim_id = ? AND related_claim_id = ? AND relation_type = ?
+                """,
+                (claim_id, related_claim_id, relation),
+            ).fetchone()
+        if row is None:  # pragma: no cover - protected by transaction
+            raise RuntimeError("Claim-Beziehung konnte nicht gespeichert werden.")
+        return dict(row)
 
     def get_source_claim(self, claim_id: str) -> dict[str, Any]:
         with database(self.path) as connection:
@@ -205,6 +630,76 @@ class ResearchWorkflow:
                     (claim_id,),
                 )
             ]
+            result["domain_assessments"] = []
+            for raw in connection.execute(
+                """
+                SELECT * FROM claim_domain_assessments
+                WHERE claim_id = ? ORDER BY classified_at, rowid
+                """,
+                (claim_id,),
+            ):
+                assessment = dict(raw)
+                assessment["secondary_domains"] = _json_value(
+                    assessment.pop("secondary_domains_json", None)
+                ) or []
+                result["domain_assessments"].append(assessment)
+            result["latest_classification"] = (
+                result["domain_assessments"][-1]
+                if result["domain_assessments"]
+                else None
+            )
+            result["verification_assessments"] = []
+            for raw in connection.execute(
+                """
+                SELECT * FROM claim_verification_assessments
+                WHERE claim_id = ? ORDER BY assessed_at, rowid
+                """,
+                (claim_id,),
+            ):
+                assessment = dict(raw)
+                references = [
+                    dict(item)
+                    for item in connection.execute(
+                        """
+                        SELECT * FROM claim_verification_references
+                        WHERE assessment_id = ? ORDER BY reference_type, id
+                        """,
+                        (assessment["id"],),
+                    )
+                ]
+                assessment["verifying_sources"] = [
+                    item for item in references if item["reference_type"] == "VERIFYING"
+                ]
+                assessment["counter_evidence"] = [
+                    item
+                    for item in references
+                    if item["reference_type"] == "COUNTER_EVIDENCE"
+                ]
+                result["verification_assessments"].append(assessment)
+            result["latest_verification"] = (
+                result["verification_assessments"][-1]
+                if result["verification_assessments"]
+                else None
+            )
+            result["knowledge_relations"] = [
+                dict(item)
+                for item in connection.execute(
+                    """
+                    SELECT r.*,
+                           CASE WHEN r.claim_id = ? THEN 'outgoing' ELSE 'incoming' END AS direction,
+                           other.claim_text AS related_claim_text
+                    FROM knowledge_claim_relations r
+                    JOIN source_claims other
+                      ON other.id = CASE
+                          WHEN r.claim_id = ? THEN r.related_claim_id
+                          ELSE r.claim_id
+                      END
+                    WHERE r.claim_id = ? OR r.related_claim_id = ?
+                    ORDER BY r.created_at, r.id
+                    """,
+                    (claim_id, claim_id, claim_id, claim_id),
+                )
+            ]
         return result
 
     def list_source_claims(self, *, limit: int = 200) -> list[dict[str, Any]]:
@@ -233,7 +728,28 @@ class ResearchWorkflow:
                      WHERE scm.claim_id = sc.id
                      ORDER BY scm.similarity_score DESC, scm.rowid LIMIT 1) AS top_similarity,
                     (SELECT MAX(scm.was_rejected) FROM source_claim_matches scm
-                     WHERE scm.claim_id = sc.id) AS matched_rejected_knowledge
+                     WHERE scm.claim_id = sc.id) AS matched_rejected_knowledge,
+                    (SELECT cda.primary_domain FROM claim_domain_assessments cda
+                     WHERE cda.claim_id = sc.id
+                     ORDER BY cda.classified_at DESC, cda.rowid DESC LIMIT 1) AS primary_domain,
+                    (SELECT cda.secondary_domains_json FROM claim_domain_assessments cda
+                     WHERE cda.claim_id = sc.id
+                     ORDER BY cda.classified_at DESC, cda.rowid DESC LIMIT 1) AS secondary_domains_json,
+                    (SELECT cda.subcategory FROM claim_domain_assessments cda
+                     WHERE cda.claim_id = sc.id
+                     ORDER BY cda.classified_at DESC, cda.rowid DESC LIMIT 1) AS subcategory,
+                    (SELECT cda.trading_relevance FROM claim_domain_assessments cda
+                     WHERE cda.claim_id = sc.id
+                     ORDER BY cda.classified_at DESC, cda.rowid DESC LIMIT 1) AS trading_relevance,
+                    (SELECT cda.trading_path_approved FROM claim_domain_assessments cda
+                     WHERE cda.claim_id = sc.id
+                     ORDER BY cda.classified_at DESC, cda.rowid DESC LIMIT 1) AS trading_path_approved,
+                    (SELECT cva.verification_state FROM claim_verification_assessments cva
+                     WHERE cva.claim_id = sc.id
+                     ORDER BY cva.assessed_at DESC, cva.rowid DESC LIMIT 1) AS verification_state,
+                    (SELECT cva.confidence FROM claim_verification_assessments cva
+                     WHERE cva.claim_id = sc.id
+                     ORDER BY cva.assessed_at DESC, cva.rowid DESC LIMIT 1) AS verification_confidence
                 FROM source_claims sc
                 JOIN research_sources s ON s.id = sc.source_id
                 ORDER BY sc.created_at DESC, sc.id
@@ -241,7 +757,12 @@ class ResearchWorkflow:
                 """,
                 (limit,),
             ).fetchall()
-        return [dict(item) for item in rows]
+        result = [dict(item) for item in rows]
+        for item in result:
+            item["secondary_domains"] = _json_value(
+                item.pop("secondary_domains_json", None)
+            ) or []
+        return result
 
     def resolve_claim_with_existing_hypothesis(
         self,
@@ -257,6 +778,10 @@ class ResearchWorkflow:
         resolved_at: object | None = None,
     ) -> dict[str, Any]:
         claim = self.get_source_claim(claim_id)
+        if not _claim_is_trading_eligible(claim.get("latest_classification")):
+            raise ValueError(
+                "Nicht-Trading-Claim darf keiner Trading-Hypothese zugeordnet werden."
+            )
         hypothesis = self.knowledge.get_hypothesis(hypothesis_id, include_details=False)
         timestamp = _timestamp(resolved_at)
         basis = (
@@ -432,6 +957,10 @@ class ResearchWorkflow:
         created_at: object | None = None,
     ) -> dict[str, Any]:
         claim = self.get_source_claim(claim_id)
+        if not _claim_is_trading_eligible(claim.get("latest_classification")):
+            raise ValueError(
+                "Nicht-Trading-Claim darf keine Trading-Hypothese erzeugen."
+            )
         asset_class_value = _required(asset_class, "Assetklasse")
         market_region_value = _required(market_region, "Market-Scope-Region")
         market_universe_value = _required(market_universe, "Market-Scope-Universum")
@@ -1967,6 +2496,8 @@ class ResearchWorkflow:
         with database(self.path) as connection:
             return {
                 "source_claims": int(connection.execute("SELECT COUNT(*) FROM source_claims").fetchone()[0]),
+                "domain_assessments": int(connection.execute("SELECT COUNT(*) FROM claim_domain_assessments").fetchone()[0]),
+                "claim_verification_assessments": int(connection.execute("SELECT COUNT(*) FROM claim_verification_assessments").fetchone()[0]),
                 "claim_resolutions": int(connection.execute("SELECT COUNT(*) FROM source_claim_resolutions").fetchone()[0]),
                 "capability_assessments": int(connection.execute("SELECT COUNT(*) FROM application_capability_assessments").fetchone()[0]),
                 "integration_candidates": int(connection.execute("SELECT COUNT(*) FROM integration_candidates").fetchone()[0]),

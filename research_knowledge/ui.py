@@ -402,6 +402,16 @@ def render_research_knowledge_base(
                     {
                         "Quelle": item["source_title"],
                         "Claim": item["claim_text"],
+                        "Primäre Domain": item["primary_domain"] or "–",
+                        "Sekundäre Domains": ", ".join(item["secondary_domains"]) or "–",
+                        "Unterkategorie": item["subcategory"] or "–",
+                        "Trading-Relevanz": item["trading_relevance"] or "–",
+                        "Verifikation": item["verification_state"] or "UNVERIFIED",
+                        "Verification-Confidence": (
+                            item["verification_confidence"]
+                            if item["verification_confidence"] is not None
+                            else "–"
+                        ),
                         "Ursprünglicher Scope": item["original_market_scope"],
                         "Ähnliche Einträge": item["match_count"],
                         "Höchste Ähnlichkeit": (

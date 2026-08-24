@@ -14,7 +14,7 @@ DEFAULT_DATABASE_PATH = Path(
         PROJECT_ROOT / "runtime" / "research_knowledge.sqlite3",
     )
 )
-CURRENT_SCHEMA_VERSION = 6
+CURRENT_SCHEMA_VERSION = 7
 
 ALLOWED_SOURCE_TYPES = (
     "tiktok",
@@ -132,6 +132,37 @@ ALLOWED_TRANSCRIPTION_STATUSES = (
     "GENERATED",
     "FAILED",
     "INSUFFICIENT_AUDIO",
+)
+ALLOWED_KNOWLEDGE_DOMAINS = (
+    "TRADING_INVESTMENT",
+    "IMMOBILIEN",
+    "STEUERN",
+    "UNTERNEHMERTUM",
+    "PERSONAL_FINANCE",
+    "AI_TECH",
+    "OTHER",
+    "CROSS_DOMAIN",
+)
+ALLOWED_TRADING_RELEVANCES = (
+    "TRADING_RELEVANT",
+    "POTENTIALLY_TRADING_RELEVANT",
+    "NOT_TRADING_RELEVANT",
+)
+ALLOWED_CLAIM_VERIFICATION_STATES = (
+    "UNVERIFIED",
+    "SUPPORTED",
+    "PARTIALLY_SUPPORTED",
+    "CONFLICTING_EVIDENCE",
+    "INSUFFICIENT_EVIDENCE",
+    "REFUTED",
+    "OUTDATED",
+)
+ALLOWED_KNOWLEDGE_CLAIM_RELATIONS = (
+    "SUPPORTS",
+    "CONTRADICTS",
+    "EXTENDS",
+    "SAME_TOPIC",
+    "SUPERSEDES",
 )
 
 
@@ -1323,6 +1354,173 @@ SCHEMA_MIGRATIONS = {
         CREATE TRIGGER source_transcription_records_no_delete
         BEFORE DELETE ON source_transcription_records BEGIN
             SELECT RAISE(ABORT, 'source_transcription_records is append-only');
+        END;
+    """,
+    7: f"""
+        CREATE TABLE claim_domain_assessments (
+            id TEXT PRIMARY KEY,
+            claim_id TEXT NOT NULL REFERENCES source_claims(id),
+            primary_domain TEXT NOT NULL CHECK(primary_domain IN ({_quoted(ALLOWED_KNOWLEDGE_DOMAINS)})),
+            secondary_domains_json TEXT NOT NULL CHECK(json_valid(secondary_domains_json)),
+            subcategory TEXT,
+            trading_relevance TEXT NOT NULL CHECK(trading_relevance IN ({_quoted(ALLOWED_TRADING_RELEVANCES)})),
+            trading_path_approved INTEGER NOT NULL CHECK(trading_path_approved IN (0, 1)),
+            rationale TEXT NOT NULL,
+            classification_fingerprint TEXT NOT NULL,
+            classified_at TEXT NOT NULL,
+            UNIQUE(claim_id, classification_fingerprint),
+            CHECK(
+                (trading_relevance = 'TRADING_RELEVANT' AND trading_path_approved = 1)
+                OR trading_relevance = 'POTENTIALLY_TRADING_RELEVANT'
+                OR (trading_relevance = 'NOT_TRADING_RELEVANT' AND trading_path_approved = 0)
+            )
+        );
+
+        CREATE TABLE claim_verification_assessments (
+            id TEXT PRIMARY KEY,
+            claim_id TEXT NOT NULL REFERENCES source_claims(id),
+            verification_state TEXT NOT NULL CHECK(verification_state IN ({_quoted(ALLOWED_CLAIM_VERIFICATION_STATES)})),
+            evidence_strength TEXT NOT NULL CHECK(evidence_strength IN ({_quoted(ALLOWED_EVIDENCE_STRENGTHS)})),
+            confidence REAL CHECK(confidence IS NULL OR (confidence >= 0 AND confidence <= 100)),
+            limitations TEXT NOT NULL,
+            jurisdiction TEXT,
+            valid_from TEXT,
+            valid_until TEXT,
+            valid_as_of TEXT,
+            update_required INTEGER NOT NULL CHECK(update_required IN (0, 1)),
+            rationale TEXT NOT NULL,
+            assessment_fingerprint TEXT NOT NULL,
+            assessed_at TEXT NOT NULL,
+            UNIQUE(claim_id, assessment_fingerprint)
+        );
+
+        CREATE TABLE claim_verification_references (
+            id TEXT PRIMARY KEY,
+            assessment_id TEXT NOT NULL REFERENCES claim_verification_assessments(id),
+            reference_type TEXT NOT NULL CHECK(reference_type IN ('VERIFYING', 'COUNTER_EVIDENCE')),
+            title TEXT NOT NULL,
+            url TEXT,
+            publisher TEXT,
+            published_date TEXT,
+            notes TEXT NOT NULL,
+            reference_fingerprint TEXT NOT NULL,
+            UNIQUE(assessment_id, reference_fingerprint)
+        );
+
+        CREATE TABLE knowledge_claim_relations (
+            id TEXT PRIMARY KEY,
+            claim_id TEXT NOT NULL REFERENCES source_claims(id),
+            related_claim_id TEXT NOT NULL REFERENCES source_claims(id),
+            relation_type TEXT NOT NULL CHECK(relation_type IN ({_quoted(ALLOWED_KNOWLEDGE_CLAIM_RELATIONS)})),
+            rationale TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            CHECK(claim_id <> related_claim_id),
+            UNIQUE(claim_id, related_claim_id, relation_type)
+        );
+
+        CREATE INDEX idx_claim_domains_claim ON claim_domain_assessments(claim_id, classified_at, id);
+        CREATE INDEX idx_claim_domains_primary ON claim_domain_assessments(primary_domain, classified_at, id);
+        CREATE INDEX idx_claim_verifications_claim ON claim_verification_assessments(claim_id, assessed_at, id);
+        CREATE INDEX idx_claim_verification_references_assessment ON claim_verification_references(assessment_id, reference_type, id);
+        CREATE INDEX idx_knowledge_claim_relations_claim ON knowledge_claim_relations(claim_id, created_at, id);
+
+        INSERT INTO claim_domain_assessments (
+            id, claim_id, primary_domain, secondary_domains_json, subcategory,
+            trading_relevance, trading_path_approved, rationale,
+            classification_fingerprint, classified_at
+        )
+        SELECT
+            lower(hex(randomblob(16))),
+            id,
+            'TRADING_INVESTMENT',
+            '[]',
+            NULL,
+            'TRADING_RELEVANT',
+            1,
+            'Schema-v7-Backfill: bestehender Source-Claim stammt aus dem Trading-Research-Intake.',
+            'legacy-trading:' || id,
+            created_at
+        FROM source_claims;
+
+        INSERT INTO claim_verification_assessments (
+            id, claim_id, verification_state, evidence_strength, confidence,
+            limitations, jurisdiction, valid_from, valid_until, valid_as_of,
+            update_required, rationale, assessment_fingerprint, assessed_at
+        )
+        SELECT
+            lower(hex(randomblob(16))),
+            id,
+            'UNVERIFIED',
+            'weak',
+            NULL,
+            'Noch nicht im allgemeinen Knowledge-Layer verifiziert.',
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            0,
+            'Schema-v7-Backfill: initialer Verifikationsstatus für bestehenden Source-Claim.',
+            'legacy-unverified:' || id,
+            created_at
+        FROM source_claims;
+
+        CREATE TRIGGER claim_domain_assessments_no_update
+        BEFORE UPDATE ON claim_domain_assessments BEGIN
+            SELECT RAISE(ABORT, 'claim_domain_assessments is append-only');
+        END;
+        CREATE TRIGGER claim_domain_assessments_no_delete
+        BEFORE DELETE ON claim_domain_assessments BEGIN
+            SELECT RAISE(ABORT, 'claim_domain_assessments is append-only');
+        END;
+        CREATE TRIGGER claim_verification_assessments_no_update
+        BEFORE UPDATE ON claim_verification_assessments BEGIN
+            SELECT RAISE(ABORT, 'claim_verification_assessments is append-only');
+        END;
+        CREATE TRIGGER claim_verification_assessments_no_delete
+        BEFORE DELETE ON claim_verification_assessments BEGIN
+            SELECT RAISE(ABORT, 'claim_verification_assessments is append-only');
+        END;
+        CREATE TRIGGER claim_verification_references_no_update
+        BEFORE UPDATE ON claim_verification_references BEGIN
+            SELECT RAISE(ABORT, 'claim_verification_references is append-only');
+        END;
+        CREATE TRIGGER claim_verification_references_no_delete
+        BEFORE DELETE ON claim_verification_references BEGIN
+            SELECT RAISE(ABORT, 'claim_verification_references is append-only');
+        END;
+        CREATE TRIGGER knowledge_claim_relations_no_update
+        BEFORE UPDATE ON knowledge_claim_relations BEGIN
+            SELECT RAISE(ABORT, 'knowledge_claim_relations is append-only');
+        END;
+        CREATE TRIGGER knowledge_claim_relations_no_delete
+        BEFORE DELETE ON knowledge_claim_relations BEGIN
+            SELECT RAISE(ABORT, 'knowledge_claim_relations is append-only');
+        END;
+
+        CREATE TRIGGER claim_resolution_requires_trading_eligibility
+        BEFORE INSERT ON source_claim_resolutions
+        WHEN NEW.hypothesis_id IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM claim_domain_assessments a
+              WHERE a.claim_id = NEW.claim_id
+                AND a.id = (
+                    SELECT latest.id
+                    FROM claim_domain_assessments latest
+                    WHERE latest.claim_id = NEW.claim_id
+                    ORDER BY latest.classified_at DESC, latest.rowid DESC
+                    LIMIT 1
+                )
+                AND (
+                    a.trading_relevance = 'TRADING_RELEVANT'
+                    OR (
+                        a.trading_relevance = 'POTENTIALLY_TRADING_RELEVANT'
+                        AND a.trading_path_approved = 1
+                    )
+                )
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'non-trading claim cannot enter trading hypothesis workflow');
         END;
     """,
 }

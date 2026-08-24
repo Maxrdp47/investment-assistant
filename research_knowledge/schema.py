@@ -14,7 +14,7 @@ DEFAULT_DATABASE_PATH = Path(
         PROJECT_ROOT / "runtime" / "research_knowledge.sqlite3",
     )
 )
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 ALLOWED_SOURCE_TYPES = (
     "tiktok",
@@ -125,6 +125,13 @@ ALLOWED_LEGACY_RECONCILIATION_OUTCOMES = (
     "UPDATE_EVIDENCE",
     "SKIP_DUPLICATE",
     "NO_ACTION",
+)
+ALLOWED_TRANSCRIPTION_STATUSES = (
+    "NOT_REQUIRED",
+    "EXISTING",
+    "GENERATED",
+    "FAILED",
+    "INSUFFICIENT_AUDIO",
 )
 
 
@@ -1259,6 +1266,63 @@ SCHEMA_MIGRATIONS = {
         CREATE TRIGGER legacy_research_reconciliations_no_delete
         BEFORE DELETE ON legacy_research_reconciliations BEGIN
             SELECT RAISE(ABORT, 'legacy_research_reconciliations is append-only');
+        END;
+    """,
+    6: f"""
+        CREATE TABLE source_transcription_records (
+            id TEXT PRIMARY KEY,
+            source_id TEXT NOT NULL REFERENCES research_sources(id),
+            source_fingerprint TEXT NOT NULL,
+            content_id TEXT,
+            file_sha256 TEXT,
+            status TEXT NOT NULL CHECK(status IN ({_quoted(ALLOWED_TRANSCRIPTION_STATUSES)})),
+            transcript_path TEXT,
+            transcript_sha256 TEXT,
+            language TEXT,
+            engine TEXT,
+            engine_version TEXT,
+            model TEXT,
+            segments_json TEXT NOT NULL DEFAULT '[]',
+            quality_note TEXT NOT NULL,
+            machine_generated INTEGER NOT NULL CHECK(machine_generated IN (0, 1)),
+            idempotency_key TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            CHECK(
+                (status IN ('EXISTING', 'GENERATED')
+                 AND transcript_path IS NOT NULL
+                 AND transcript_sha256 IS NOT NULL)
+                OR
+                (status IN ('NOT_REQUIRED', 'FAILED', 'INSUFFICIENT_AUDIO')
+                 AND transcript_path IS NULL
+                 AND transcript_sha256 IS NULL)
+            ),
+            CHECK(status <> 'GENERATED' OR machine_generated = 1),
+            CHECK(status <> 'GENERATED' OR (engine IS NOT NULL AND model IS NOT NULL))
+        );
+
+        CREATE INDEX idx_source_transcriptions_source
+            ON source_transcription_records(source_id, created_at, id);
+        CREATE INDEX idx_source_transcriptions_file
+            ON source_transcription_records(file_sha256, created_at, id);
+
+        CREATE TRIGGER source_transcription_source_fingerprint_exists
+        BEFORE INSERT ON source_transcription_records
+        WHEN NOT EXISTS (
+            SELECT 1 FROM source_provenance p
+            WHERE p.source_id = NEW.source_id
+              AND p.source_fingerprint = NEW.source_fingerprint
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'transcript fingerprint must belong to source provenance');
+        END;
+
+        CREATE TRIGGER source_transcription_records_no_update
+        BEFORE UPDATE ON source_transcription_records BEGIN
+            SELECT RAISE(ABORT, 'source_transcription_records is append-only');
+        END;
+        CREATE TRIGGER source_transcription_records_no_delete
+        BEFORE DELETE ON source_transcription_records BEGIN
+            SELECT RAISE(ABORT, 'source_transcription_records is append-only');
         END;
     """,
 }

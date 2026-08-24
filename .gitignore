@@ -16,6 +16,8 @@ backtest_history.json
 
 # Automatic forecast runtime data
 runtime/
+# Private transcripts derived from user media (covered by runtime/, explicit by design)
+runtime/research-media/transcripts/
 
 # Secrets and local environment
 .streamlit/secrets.toml

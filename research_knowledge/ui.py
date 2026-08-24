@@ -92,6 +92,15 @@ def _render_sources(detail: dict[str, Any]) -> None:
     if not detail["sources"]:
         st.info("Noch keine Quelle mit dieser Hypothese verknüpft.")
         return
+    def transcription_label(source: dict[str, Any]) -> str:
+        records = source.get("transcriptions") or []
+        if not records:
+            return "–"
+        latest = records[-1]
+        if latest["status"] in {"EXISTING", "GENERATED"} and not latest.get("artifact_available"):
+            return f"{latest['status']} (Artefakt fehlt)"
+        return str(latest["status"])
+
     st.dataframe(
         [
             {
@@ -102,6 +111,7 @@ def _render_sources(detail: dict[str, Any]) -> None:
                 "Content-ID": (source["provenance"][-1].get("content_id") if source["provenance"] else None) or "–",
                 "Normalisierte URL": (source["provenance"][-1].get("normalized_url") if source["provenance"] else None) or "–",
                 "Fingerprint": (source["provenance"][-1].get("source_fingerprint") if source["provenance"] else None) or "–",
+                "Transcript": transcription_label(source),
                 "Datum": source["source_date"] or "–",
                 "Richtung": STANCE_LABELS.get(source["stance"], source["stance"]),
                 "Referenz": source["reference"] or "–",

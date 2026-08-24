@@ -1,0 +1,2 @@
+# Optional local speech-to-text fallback. Not required for normal app/test use.
+faster-whisper>=1.0,<2

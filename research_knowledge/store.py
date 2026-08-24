@@ -26,7 +26,7 @@ from .schema import (
     database,
     initialize_database,
 )
-from .source_identity import inspect_source_identity, normalize_source_title, normalize_source_url
+from .source_identity import inspect_source_identity, normalize_source_title, normalize_source_url, sha256_file
 
 
 _TARGET_TABLES = {
@@ -177,6 +177,28 @@ def _tokens(value: object) -> set[str]:
 
 def _row(row: object) -> dict[str, Any] | None:
     return None if row is None else dict(row)  # type: ignore[arg-type]
+
+
+def _source_transcriptions(connection: object, source_id: str) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    rows = connection.execute(  # type: ignore[attr-defined]
+        """
+        SELECT * FROM source_transcription_records
+        WHERE source_id = ? ORDER BY created_at, id
+        """,
+        (source_id,),
+    ).fetchall()
+    for raw in rows:
+        record = dict(raw)
+        record["segments"] = _json_value(record.pop("segments_json", None)) or []
+        artifact_path = str(record.get("transcript_path") or "").strip()
+        artifact = Path(artifact_path) if artifact_path else None
+        available = bool(artifact and artifact.is_file())
+        if available and record.get("transcript_sha256"):
+            available = sha256_file(artifact) == record["transcript_sha256"]
+        record["artifact_available"] = available
+        records.append(record)
+    return records
 
 
 class ResearchKnowledgeBase:
@@ -470,6 +492,34 @@ class ResearchKnowledgeBase:
         provenance: str,
         captured_at: str,
     ) -> bool:
+        # A later share/upload can contain only a subset of an already stored
+        # provenance row (for example URL-only after URL + original file).  It
+        # confirms the same source but contributes no new provenance and must
+        # not manufacture a new event merely because its title/filename differs.
+        comparable_fields = (
+            "platform",
+            "creator",
+            "normalized_url",
+            "content_id",
+            "profile_url",
+            "published_date",
+            "file_sha256",
+            "file_size",
+        )
+        prior_rows = connection.execute(  # type: ignore[attr-defined]
+            "SELECT * FROM source_provenance WHERE source_id = ?",
+            (source_id,),
+        ).fetchall()
+        supplied = {
+            field: identity.get(field)
+            for field in comparable_fields
+            if identity.get(field) not in (None, "")
+        }
+        if supplied and any(
+            all(row[field] == value for field, value in supplied.items())
+            for row in prior_rows
+        ):
+            return False
         existing = connection.execute(  # type: ignore[attr-defined]
             """
             SELECT id FROM source_provenance
@@ -600,6 +650,7 @@ class ResearchKnowledgeBase:
                     (source_id, source_id),
                 )
             ]
+            result["transcriptions"] = _source_transcriptions(connection, source_id)
         return result
 
     def create_hypothesis(
@@ -1527,6 +1578,7 @@ class ResearchKnowledgeBase:
                         (source["id"],),
                     )
                 ]
+                source["transcriptions"] = _source_transcriptions(connection, str(source["id"]))
             experiment_ids = [
                 str(item["id"])
                 for item in connection.execute(

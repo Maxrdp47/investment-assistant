@@ -1,0 +1,34 @@
+{
+  "buyer_confirmation": {
+    "recommendation": "B",
+    "reason": "Stärkster gültiger Pullback-Development-Hinweis: +0,2121 R gegenüber Control, PF 1,168, 7/9 positive Jahre und positiver regimegematchter Vergleich. Kein C, weil adverse Entry-, erhöhte Kosten- und Gap-Stresstests negativ werden und der dependency-adjustierte Restnutzen nur +0,0315 R beträgt."
+  },
+  "three_or_more_bearish_candles": {
+    "recommendation": "B",
+    "reason": "Interessantes gegenteiliges Development-Muster, aber post_hoc_direction_reversal=true. Der ausgewählte Erwartungswert beträgt nur +0,0224 R bei PF 1,037, 5/9 positiven Jahren und negativen vorab definierten Stresstests. Eine Fortsetzung wäre eine neue development-derived Hypothese."
+  },
+  "fibonacci_0618_0786": {
+    "recommendation": "B",
+    "reason": "Die Pullback-only-Zone zeigt +0,0446 R, PF 1,072, +0,0667 R gegen den Mittelwert gleich breiter Nachbarzonen und +0,0232 R depth-adjustierten Residualvorteil. Der Effekt ist jedoch klein, nur 5/9 Jahre positiv und bereits unter erhöhter Slippage negativ."
+  },
+  "ema20_above_ema50": {
+    "recommendation": "A",
+    "reason": "Ausgewählte Kandidaten sind negativ und alle drei vorab definierten EMA-Nachbarschaften bleiben negativ; keine neue Threshold-Suche."
+  },
+  "rsi_40_70": {
+    "recommendation": "A",
+    "reason": "Ausgewählte Kandidaten sind negativ und alle drei vorab definierten RSI-Nachbarschaften bleiben negativ; kein besserer RSI-Bereich wird gesucht."
+  },
+  "bos_close_break": {
+    "recommendation": "A",
+    "reason": "Im fachlich passenden Breakout-Scope beträgt der Erwartungswert -0,0186 R gegenüber +0,0486 R Control; alle drei vorab definierten BOS-ATR-Nachbarschaften bleiben negativ."
+  },
+  "opening_level_contact": {
+    "recommendation": "INVALID",
+    "reason": "631.809 Treatment-Fälle stehen nur 2 Controls gegenüber. Die OR-Regel enthält den aktuellen Daily Open, der konstruktionsbedingt fast immer innerhalb der Tageskerze liegt; keine diskriminierende Vergleichshypothese."
+  },
+  "cot_available": {
+    "recommendation": "NOT_TESTABLE",
+    "reason": "0 point-in-time verfügbare Development-Fälle; fehlende COT-Abdeckung ist keine negative oder positive Performanceevidenz."
+  }
+}

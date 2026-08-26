@@ -190,8 +190,12 @@ def _run_stage(args: argparse.Namespace, assets: list[dict]) -> dict[str, object
         }
     completed = completed_stage_symbols(CHALLENGER_VERSION, args.stage, args.database)
     pending = [asset for asset in assets if str(asset["ticker"]).upper() not in completed]
-    if args.maximum_assets is not None:
-        pending = pending[: max(0, int(args.maximum_assets))]
+    batch_limit = (
+        int(args.maximum_assets)
+        if args.maximum_assets is not None
+        else int(config.get("batch_size") or 100)
+    )
+    pending = pending[: max(0, batch_limit)]
     workers = max(1, min(int(args.workers), 8))
     processed = 0
     try:

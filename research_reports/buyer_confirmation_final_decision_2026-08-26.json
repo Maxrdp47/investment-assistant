@@ -1,0 +1,5 @@
+{
+  "decision": "C_RECOMMENDATION",
+  "decided_at": "2026-08-26T00:00:00+02:00",
+  "reason": "Alle vorab festgelegten Development-Mindestbedingungen sind erfüllt. Buyer Confirmation bleibt in der Baseline positiv, besteht das strengere outcome-blinde Symbol-/Dependency-Cluster-Matching, behält einen kleinen positiven Restnutzen nach bekannten Dependency-Kontrollen und bleibt in der einzigen vorab festgelegten realistischeren Next-Open-Ausführung mit zusätzlichen 5 bps Slippage je Seite positiv. Der weitere Stopabstand arbeitet gegen eine mechanische R-Aufblähung. Die Empfehlung gilt ausschließlich für einen später einzufrierenden einfachen Challenger; die acht Broad-Hypothesen, überlappenden Fälle, unvollständige Survivorship-Abdeckung und weiterhin ungesehenen Validation-/Holdout-Splits verhindern jede Strategie-, Produktions- oder Live-Aussage."
+}

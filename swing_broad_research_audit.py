@@ -778,7 +778,10 @@ def _matched_placebo(rows: Sequence[Mapping[str, object]], hypothesis_id: str) -
     selected_r = _number(selected_result.get("candidate_expectancy_r"))
     control_r = _number(control_result.get("candidate_expectancy_r"))
     return {
-        "selection": "stable_identity_hash_within_asset_market_volatility_year_strata",
+        "selection": (
+            "stable_identity_hash_within_asset_type_market_phase_"
+            "volatility_regime_year_strata"
+        ),
         "selection_uses_outcomes": False,
         "point_in_time_features_only": True,
         "matched_treatment_n": len(selected_rows),

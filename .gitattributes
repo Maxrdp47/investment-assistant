@@ -11,3 +11,6 @@ scripts/run_swing_broad_research.py text eol=lf
 tests/test_swing_broad_research.py text eol=lf
 tests/test_swing_broad_research_transition.py text eol=lf
 tests/test_swing_research_quality.py text eol=lf
+swing_buyer_confirmation_validation.py text eol=lf
+scripts/run_buyer_confirmation_validation.py text eol=lf
+tests/test_swing_buyer_confirmation_validation.py text eol=lf

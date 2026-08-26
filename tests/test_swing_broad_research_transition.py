@@ -1,15 +1,25 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import sqlite3
 
 import pytest
 
+from swing_broad_research import BROAD_RESEARCH_FEATURE_VERSION
 from swing_broad_research_transition import (
     BroadResearchTransitionError,
     broad_transition_identity,
     load_broad_transition_receipt,
     record_broad_transition_receipt,
     validate_broad_research_transition,
+)
+from scripts.run_swing_broad_research import (
+    CHECKPOINT_INTERVAL_ASSETS,
+    _checkpoint_crossed,
+    _completion_ledger_checkpoint_audit,
+    _incremental_block_audit,
+    _next_checkpoint,
 )
 
 
@@ -160,3 +170,161 @@ def test_campaign_wrapper_runs_broad_handoff_only_after_campaign_success() -> No
     assert campaign_at < error_gate_at < broad_at
     assert "--maximum-assets-per-batch 32" in wrapper
     assert "--workers 6" in wrapper
+
+
+def test_broad_ledger_audit_runs_at_checkpoints_and_final_completion() -> None:
+    assert CHECKPOINT_INTERVAL_ASSETS == 256
+    assert _checkpoint_crossed(224, 256, 2520) is True
+    assert _checkpoint_crossed(768, 800, 2520) is False
+    assert _checkpoint_crossed(992, 1024, 2520) is True
+    assert _checkpoint_crossed(2496, 2520, 2520) is True
+    assert _next_checkpoint(800, 2520) == 1024
+    assert _next_checkpoint(2496, 2520) == 2520
+
+
+def test_incremental_broad_block_audit_keeps_per_write_quality_gates() -> None:
+    audit = _incremental_block_audit(
+        [
+            {
+                "already_complete": False,
+                "candidates": 11,
+                "labels": 11,
+                "counterfactuals": 11,
+            },
+            {
+                "already_complete": False,
+                "candidates": 7,
+                "labels": 7,
+                "counterfactuals": 7,
+            },
+        ],
+        completed_before=800,
+        completed_after=802,
+        expected_assets=2520,
+    )
+
+    assert audit["status"] == "ok"
+    assert audit["new_asset_completions"] == 2
+    assert audit["stored_candidates"] == 18
+    assert audit["stored_labels"] == 18
+    assert audit["stored_counterfactuals"] == 18
+    assert audit["append_only_transactions_verified_on_write"] is True
+    assert audit["fingerprints_verified_on_write"] is True
+
+
+def test_incremental_broad_block_audit_fails_closed_on_count_mismatch() -> None:
+    with pytest.raises(RuntimeError, match="Blockprüfung fehlgeschlagen"):
+        _incremental_block_audit(
+            [
+                {
+                    "already_complete": False,
+                    "candidates": 10,
+                    "labels": 9,
+                    "counterfactuals": 10,
+                }
+            ],
+            completed_before=800,
+            completed_after=801,
+            expected_assets=2520,
+        )
+
+
+def _record_completion_receipt(
+    database,
+    *,
+    symbol: str = "AAA",
+    candidates: int = 11,
+    labels: int = 11,
+    tamper_fingerprint: bool = False,
+) -> None:
+    dataset_fingerprint = "dataset-fingerprint"
+    receipt = {
+        "symbol": symbol,
+        "dataset_fingerprint": dataset_fingerprint,
+        "feature_version": BROAD_RESEARCH_FEATURE_VERSION,
+        "status": "ok",
+        "candidate_ids": [f"candidate-{index}" for index in range(candidates)],
+        "candidates": candidates,
+        "labels": labels,
+        "append_only": True,
+    }
+    receipt_json = json.dumps(
+        receipt,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    fingerprint = hashlib.sha256(receipt_json.encode("utf-8")).hexdigest()
+    if tamper_fingerprint:
+        fingerprint = "0" * 64
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS broad_research_asset_completions (
+            completion_id TEXT PRIMARY KEY,
+            symbol TEXT NOT NULL,
+            dataset_fingerprint TEXT NOT NULL,
+            feature_version TEXT NOT NULL,
+            candidates INTEGER NOT NULL,
+            labels INTEGER NOT NULL,
+            completion_json TEXT NOT NULL,
+            completion_fingerprint TEXT NOT NULL
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO broad_research_asset_completions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                f"completion-{symbol}",
+                symbol,
+                dataset_fingerprint,
+                BROAD_RESEARCH_FEATURE_VERSION,
+                candidates,
+                labels,
+                receipt_json,
+                fingerprint,
+            ),
+        )
+
+
+def test_completion_ledger_checkpoint_audit_verifies_signed_receipts(tmp_path) -> None:
+    database = tmp_path / "broad.sqlite3"
+    _record_completion_receipt(database)
+
+    audit = _completion_ledger_checkpoint_audit(
+        database,
+        dataset_fingerprint="dataset-fingerprint",
+        expected_assets=2520,
+    )
+
+    assert audit["status"] == "ok"
+    assert audit["verified_completion_receipts"] == 1
+    assert audit["candidate_count"] == 11
+    assert audit["label_count"] == 11
+    assert audit["research_row_scan_performed"] is False
+    assert audit["final_full_audit_mandatory"] is True
+
+
+@pytest.mark.parametrize(
+    ("candidates", "labels", "tamper_fingerprint"),
+    [(11, 10, False), (11, 11, True)],
+)
+def test_completion_ledger_checkpoint_audit_fails_closed(
+    tmp_path,
+    candidates: int,
+    labels: int,
+    tamper_fingerprint: bool,
+) -> None:
+    database = tmp_path / "broad.sqlite3"
+    _record_completion_receipt(
+        database,
+        candidates=candidates,
+        labels=labels,
+        tamper_fingerprint=tamper_fingerprint,
+    )
+
+    with pytest.raises(RuntimeError, match="Abschlussbelegprüfung fehlgeschlagen"):
+        _completion_ledger_checkpoint_audit(
+            database,
+            dataset_fingerprint="dataset-fingerprint",
+            expected_assets=2520,
+        )

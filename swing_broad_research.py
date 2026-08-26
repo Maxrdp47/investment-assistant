@@ -38,6 +38,7 @@ from swing_broad_context import (
 )
 from swing_research_dataset import normalized_research_history
 from swing_research_identity import derive_swing_research_identity
+from swing_research_quality import parameter_plateau_report
 from swing_walk_forward import _prepare_historical_indicators, _technical_scores
 from technical_analysis import value_or_none
 from trading_assistant import (
@@ -55,7 +56,7 @@ BROAD_RESEARCH_CANDIDATE_VERSION = "swing-broad-candidates-2026.08.22-v1"
 BROAD_RESEARCH_FEATURE_VERSION = "swing-broad-pit-features-frozen-first-pass-2026.08.22-v3"
 BROAD_RESEARCH_LABEL_VERSION = "swing-broad-direction-neutral-labels-2026.08.22-v2"
 BROAD_RESEARCH_COUNTERFACTUAL_VERSION = "swing-stop-exit-counterfactuals-2026.08.22-v1"
-BROAD_RESEARCH_PATTERN_VERSION = "swing-development-patterns-2026.08.22-v1"
+BROAD_RESEARCH_PATTERN_VERSION = "swing-development-patterns-2026.08.23-v2"
 BROAD_RESEARCH_COT_LINK_VERSION = "swing-broad-cot-link-2026.08.22-v1"
 BROAD_RESEARCH_SPLIT_VERSION = "swing-broad-chronological-splits-2026.08.22-v1"
 DEFAULT_BROAD_RESEARCH_DB_PATH = Path(__file__).resolve().parent / "runtime" / "swing_broad_research.sqlite3"
@@ -88,6 +89,7 @@ def broad_research_code_fingerprint() -> str:
         "swing_walk_forward.py",
         "swing_research_dataset.py",
         "swing_research_identity.py",
+        "swing_research_quality.py",
         "cot_positioning.py",
         "technical_analysis.py",
         "trading_assistant.py",
@@ -2317,6 +2319,7 @@ def broad_research_store_audit(path: Path = DEFAULT_BROAD_RESEARCH_DB_PATH) -> d
                 "broad_research_baseline_links",
                 "broad_research_asset_completions",
                 "broad_research_manifests",
+                "broad_research_breadth_manifests",
                 "broad_research_hypotheses",
                 "broad_research_challengers",
                 "broad_research_challenger_trades",
@@ -2667,10 +2670,11 @@ def development_pattern_report(path: Path = DEFAULT_BROAD_RESEARCH_DB_PATH) -> d
             and int(stability.get("evaluated_years") or 0) >= 4
             and (_number(stability.get("positive_expectancy_year_share_pct")) or 0) >= 60
         ):
-            classification = "C"
+            classification = "B"
             reason = (
-                "Vorab definierte Development-Mindestwerte erreicht; nur für einen manuellen "
-                "Freeze als neue Challenger-Version interessant."
+                "Vorab definierte Development-Mindestwerte erreicht. Vor einer C-Einstufung "
+                "fehlen noch die vollständige Placebo-, Ablations-, Plateau-, Cluster-, "
+                "Zeit-/Regime- und Execution-Qualitätsprüfung."
             )
         elif selected_metrics["cases"] >= 200 and (
             selected_metrics["average_r"] is None or float(selected_metrics["average_r"]) <= 0
@@ -2685,6 +2689,29 @@ def development_pattern_report(path: Path = DEFAULT_BROAD_RESEARCH_DB_PATH) -> d
                 "control": control_metrics,
                 "classification": classification,
                 "eligible_for_manual_fixed_challenger": classification == "C",
+                "preliminary_c_metrics_reached": (
+                    selected_metrics["effective_independent_cases"] >= 500
+                    and selected_average is not None
+                    and control_average is not None
+                    and selected_pf is not None
+                    and selected_average > 0
+                    and selected_average - control_average >= 0.10
+                    and selected_pf >= 1.15
+                    and int(stability.get("evaluated_years") or 0) >= 4
+                    and (_number(stability.get("positive_expectancy_year_share_pct")) or 0) >= 60
+                ),
+                "quality_review_complete": False,
+                "required_quality_dimensions": [
+                    "placebo",
+                    "parameter_plateau",
+                    "feature_ablation",
+                    "cluster_robustness",
+                    "time_and_regime_stability",
+                    "entry_efficiency",
+                    "execution_stress",
+                    "complexity",
+                    "survivorship_bias_audit",
+                ],
                 "classification_c_is_production_approval": False,
                 "reason": reason,
                 "parameter_robustness": "Keine Schwelle optimiert; Robustheit muss als feste Challenger-Version separat geprüft werden.",
@@ -2726,12 +2753,32 @@ def development_pattern_report(path: Path = DEFAULT_BROAD_RESEARCH_DB_PATH) -> d
                 "holdout_opened": False,
             }
         )
+    parameter_plateaus = {}
+    for family in sorted({str(row["family"]) for row in neighborhood_rows}):
+        variants = []
+        for row in neighborhood_rows:
+            if row["family"] != family:
+                continue
+            metrics = dict(row["metrics"])
+            variants.append(
+                {
+                    "variant_id": row["variant_id"],
+                    "parameter_value": row["fixed_parameter_value"],
+                    "expectancy_r": metrics.get("expectancy_r"),
+                    "profit_factor": metrics.get("profit_factor"),
+                    "maximum_drawdown_r": metrics.get("maximum_drawdown_r"),
+                    "raw_cases": metrics.get("cases"),
+                    "effective_independent_cases": metrics.get("effective_independent_cases"),
+                }
+            )
+        parameter_plateaus[family] = parameter_plateau_report(variants)
     report = {
         "pattern_version": BROAD_RESEARCH_PATTERN_VERSION,
         "cases": case_count,
         "development_candidate_baseline": baseline_metrics,
         "hypotheses": report_rows,
         "parameter_neighborhoods": neighborhood_rows,
+        "parameter_plateaus": parameter_plateaus,
         "multiple_testing_count": len(hypotheses),
         "grid_search": False,
         "validation_opened": False,
@@ -2812,6 +2859,7 @@ def register_fixed_research_challenger(
         or selected_hypothesis is None
         or selected_hypothesis.get("classification") != "C"
         or selected_hypothesis.get("eligible_for_manual_fixed_challenger") is not True
+        or selected_hypothesis.get("quality_review_complete") is not True
         or development_report.get("validation_opened") is not False
         or development_report.get("holdout_opened") is not False
     ):
@@ -2970,6 +3018,7 @@ def _verify_manual_c_evidence(
     if (
         stored_hypothesis.get("classification") != "C"
         or stored_hypothesis.get("eligible_for_manual_fixed_challenger") is not True
+        or stored_hypothesis.get("quality_review_complete") is not True
         or stored_hypothesis.get("validation_opened") is not False
         or stored_hypothesis.get("holdout_opened") is not False
     ):

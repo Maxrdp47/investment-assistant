@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sqlite3
 import sys
@@ -21,7 +22,6 @@ from swing_broad_research import (  # noqa: E402
     DEFAULT_BROAD_RESEARCH_DB_PATH,
     broad_research_code_fingerprint,
     broad_research_feature_contract_fingerprint,
-    broad_research_feature_coverage,
     broad_research_store_audit,
     build_asset_broad_research,
     completed_broad_research_symbols,
@@ -49,6 +49,7 @@ from swing_research_dataset import (  # noqa: E402
     load_research_dataset_manifest,
     normalized_research_history,
 )
+from swing_research_quality import record_development_quality_ledger  # noqa: E402
 from swing_run_lock import SwingRunAlreadyActiveError, SwingRunLock  # noqa: E402
 from swing_universe import DEFAULT_SWING_UNIVERSE_PATH, load_swing_universe  # noqa: E402
 from swing_walk_forward import (  # noqa: E402
@@ -83,6 +84,8 @@ _WORKER_COT_REPORTS: list[dict] = []
 _WORKER_COT_MAPPING: dict = {}
 _WORKER_BENCHMARK_HISTORIES: dict[str, pd.DataFrame] = {}
 _WORKER_BREADTH_CONTEXT: dict[str, dict] = {}
+
+CHECKPOINT_INTERVAL_ASSETS = 256
 
 
 def _load_cot_reports(path: Path) -> list[dict]:
@@ -157,14 +160,15 @@ def _worker(asset: dict) -> dict:
 
 
 def _build_frozen_breadth(manifest_path: Path, assets: list[dict]) -> dict[str, dict]:
-    prepared = []
-    for asset in assets:
-        history, _ = _history_for_symbol(manifest_path, str(asset["ticker"]).upper())
-        if history.empty:
-            continue
-        frame = _prepare_historical_indicators(normalized_research_history(history))
-        prepared.append((asset, frame))
-    return build_historical_breadth_context(prepared)
+    def prepared_assets():
+        for asset in assets:
+            history, _ = _history_for_symbol(manifest_path, str(asset["ticker"]).upper())
+            if history.empty:
+                continue
+            frame = _prepare_historical_indicators(normalized_research_history(history))
+            yield asset, frame
+
+    return build_historical_breadth_context(prepared_assets())
 
 
 def _campaign_status(now: datetime) -> tuple[dict, dict, dict, list[dict]]:
@@ -177,6 +181,191 @@ def _campaign_status(now: datetime) -> tuple[dict, dict, dict, list[dict]]:
     active_week = str(state.get("active_week_epoch") or campaign_week_epoch(now))
     jobs = campaign_jobs(config, tickers, now=now, weekly_epoch=active_week)
     return campaign_status(jobs, state), config, state, jobs
+
+
+def _checkpoint_crossed(
+    completed_before: int,
+    completed_after: int,
+    expected_assets: int,
+    *,
+    interval: int = CHECKPOINT_INTERVAL_ASSETS,
+) -> bool:
+    if completed_after >= expected_assets:
+        return True
+    if interval <= 0 or completed_after <= completed_before:
+        return False
+    return completed_before // interval < completed_after // interval
+
+
+def _incremental_block_audit(
+    stored_summaries: list[dict[str, object]],
+    *,
+    completed_before: int,
+    completed_after: int,
+    expected_assets: int,
+) -> dict[str, object]:
+    changed = [row for row in stored_summaries if row.get("already_complete") is not True]
+    count_mismatches = [
+        index
+        for index, row in enumerate(changed)
+        if not (
+            int(row.get("candidates") or 0)
+            == int(row.get("labels") or 0)
+            == int(row.get("counterfactuals") or 0)
+        )
+    ]
+    completion_delta = completed_after - completed_before
+    status = (
+        "ok"
+        if completion_delta == len(changed) and not count_mismatches
+        else "invalid"
+    )
+    result = {
+        "mode": "transactional_incremental_block",
+        "status": status,
+        "processed_assets": len(stored_summaries),
+        "new_asset_completions": completion_delta,
+        "asset_completions": completed_after,
+        "expected_assets": expected_assets,
+        "stored_candidates": sum(int(row.get("candidates") or 0) for row in changed),
+        "stored_labels": sum(int(row.get("labels") or 0) for row in changed),
+        "stored_counterfactuals": sum(
+            int(row.get("counterfactuals") or 0) for row in changed
+        ),
+        "candidate_label_counterfactual_counts_match": not count_mismatches,
+        "append_only_transactions_verified_on_write": True,
+        "fingerprints_verified_on_write": True,
+    }
+    if status != "ok":
+        raise RuntimeError(
+            "Inkrementelle Broad-Blockprüfung fehlgeschlagen: "
+            f"completion_delta={completion_delta}, writes={len(changed)}, "
+            f"count_mismatches={count_mismatches}."
+        )
+    return result
+
+
+def _next_checkpoint(completed_assets: int, expected_assets: int) -> int:
+    if completed_assets >= expected_assets:
+        return expected_assets
+    next_checkpoint = (
+        completed_assets // CHECKPOINT_INTERVAL_ASSETS + 1
+    ) * CHECKPOINT_INTERVAL_ASSETS
+    return min(next_checkpoint, expected_assets)
+
+
+def _completion_ledger_checkpoint_audit(
+    path: Path,
+    *,
+    dataset_fingerprint: str,
+    expected_assets: int,
+) -> dict[str, object]:
+    """Verify the small signed completion ledger without scanning research rows."""
+
+    database_path = Path(path).resolve()
+    connection = sqlite3.connect(
+        f"file:{database_path.as_posix()}?mode=ro",
+        uri=True,
+        timeout=60,
+    )
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            """SELECT completion_id, symbol, candidates, labels,
+            completion_json, completion_fingerprint
+            FROM broad_research_asset_completions
+            WHERE dataset_fingerprint = ? AND feature_version = ?
+            ORDER BY symbol""",
+            (dataset_fingerprint, BROAD_RESEARCH_FEATURE_VERSION),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    invalid_receipts: list[str] = []
+    total_candidates = 0
+    total_labels = 0
+    receipt_fingerprints: list[str] = []
+    seen_symbols: set[str] = set()
+    for row in rows:
+        receipt_id = str(row["completion_id"])
+        symbol = str(row["symbol"])
+        candidate_count = int(row["candidates"])
+        label_count = int(row["labels"])
+        try:
+            receipt = json.loads(str(row["completion_json"]))
+            canonical = json.dumps(
+                receipt,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+            receipt_fingerprint = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        except (TypeError, ValueError, json.JSONDecodeError):
+            invalid_receipts.append(receipt_id)
+            continue
+        stored_fingerprint = str(row["completion_fingerprint"])
+        valid = (
+            symbol not in seen_symbols
+            and receipt_fingerprint == stored_fingerprint
+            and str(receipt.get("symbol") or "") == symbol
+            and str(receipt.get("dataset_fingerprint") or "") == dataset_fingerprint
+            and str(receipt.get("feature_version") or "") == BROAD_RESEARCH_FEATURE_VERSION
+            and int(receipt.get("candidates") or 0) == candidate_count
+            and int(receipt.get("labels") or 0) == label_count
+            and candidate_count == label_count
+            and receipt.get("append_only") is True
+        )
+        if not valid:
+            invalid_receipts.append(receipt_id)
+            continue
+        seen_symbols.add(symbol)
+        total_candidates += candidate_count
+        total_labels += label_count
+        receipt_fingerprints.append(stored_fingerprint)
+
+    status = (
+        "ok"
+        if not invalid_receipts and len(rows) <= int(expected_assets)
+        else "invalid"
+    )
+    ledger_payload = {
+        "dataset_fingerprint": dataset_fingerprint,
+        "feature_version": BROAD_RESEARCH_FEATURE_VERSION,
+        "asset_completions": len(rows),
+        "expected_assets": int(expected_assets),
+        "candidate_count": total_candidates,
+        "label_count": total_labels,
+        "completion_fingerprints": receipt_fingerprints,
+    }
+    result = {
+        "mode": "signed_completion_ledger",
+        "status": status,
+        "asset_completions": len(rows),
+        "expected_assets": int(expected_assets),
+        "candidate_count": total_candidates,
+        "label_count": total_labels,
+        "candidate_label_counts_match": total_candidates == total_labels,
+        "verified_completion_receipts": len(receipt_fingerprints),
+        "invalid_completion_receipts": invalid_receipts,
+        "ledger_fingerprint": hashlib.sha256(
+            json.dumps(
+                ledger_payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest(),
+        "research_row_scan_performed": False,
+        "final_full_audit_mandatory": True,
+    }
+    if status != "ok":
+        raise RuntimeError(
+            "Broad-Abschlussbelegprüfung fehlgeschlagen: "
+            f"assets={len(rows)}/{expected_assets}, invalid={invalid_receipts[:10]}."
+        )
+    return result
 
 
 def main() -> int:
@@ -196,8 +385,8 @@ def main() -> int:
 
     now = datetime.now().astimezone()
     campaign, campaign_config, campaign_state, campaign_job_rows = _campaign_status(now)
-    audit = broad_research_store_audit(args.database)
     if args.status_only:
+        audit = broad_research_store_audit(args.database)
         print(
             json.dumps(
                 {
@@ -262,6 +451,7 @@ def main() -> int:
         pending = pending[: max(0, int(args.maximum_assets))]
     workers = max(1, min(int(args.workers), 8))
     transition_receipt: dict[str, object] | None = None
+    stored_summaries: list[dict[str, object]] = []
     try:
         with SwingRunLock(DEFAULT_RESEARCH_LOCK_PATH):
             # Recheck every mutable gate after taking the same global research
@@ -354,6 +544,7 @@ def main() -> int:
                         dataset_fingerprint=dataset_fingerprint,
                         path=args.database,
                     )
+                    stored_summaries.append(dict(stored))
                     processed += 1
                     print(
                         json.dumps(
@@ -375,15 +566,35 @@ def main() -> int:
         dataset_fingerprint=dataset_fingerprint,
         path=args.database,
     )
+    incremental_audit = _incremental_block_audit(
+        stored_summaries,
+        completed_before=len(completed),
+        completed_after=len(completed_after),
+        expected_assets=expected_assets,
+    )
+    checkpoint_due = _checkpoint_crossed(
+        len(completed),
+        len(completed_after),
+        expected_assets,
+    )
     output: dict[str, object] = {
         "processed_this_run": len(pending),
         "asset_completions": len(completed_after),
         "expected_assets": expected_assets,
-        "audit": broad_research_store_audit(args.database),
-        "feature_coverage": broad_research_feature_coverage(
-            args.database,
-            dataset_fingerprint=dataset_fingerprint,
-        ),
+        "incremental_audit": incremental_audit,
+        "checkpoint_audit": {
+            "status": "deferred_to_checkpoint",
+            "checkpoint_interval_assets": CHECKPOINT_INTERVAL_ASSETS,
+            "next_checkpoint_assets": _next_checkpoint(
+                len(completed_after), expected_assets
+            ),
+            "mode": "signed_completion_ledger",
+            "research_row_scan_performed": False,
+        },
+        "full_audit": {
+            "status": "deferred_to_final_completion",
+            "final_full_audit_mandatory": True,
+        },
         "code_fingerprint": code_fingerprint,
         "feature_contract_fingerprint": feature_contract_fingerprint,
         "transition_receipt": {
@@ -394,6 +605,12 @@ def main() -> int:
         "existing_campaign_changed": False,
         "automatic_production_activation": False,
     }
+    if checkpoint_due:
+        output["checkpoint_audit"] = _completion_ledger_checkpoint_audit(
+            args.database,
+            dataset_fingerprint=dataset_fingerprint,
+            expected_assets=expected_assets,
+        )
     if len(completed_after) == expected_assets:
         output["baseline_links"] = link_existing_long_v1_cases(
             DEFAULT_SWING_WALK_FORWARD_DB_PATH,
@@ -405,6 +622,19 @@ def main() -> int:
             path=args.database,
         )
         output["development_patterns"] = development_pattern_report(args.database)
+        output["research_quality_ledger"] = record_development_quality_ledger(
+            output["development_patterns"],
+            dataset_fingerprint=dataset_fingerprint,
+            feature_fingerprint=feature_contract_fingerprint,
+            code_fingerprint=code_fingerprint,
+            recorded_at=datetime.now().astimezone().isoformat(),
+        )
+        output["feature_coverage"] = output["manifest"]["feature_coverage"]
+        output["full_audit"] = {
+            "status": "complete",
+            "final_full_audit_mandatory": True,
+            "audit": broad_research_store_audit(args.database),
+        }
     print(json.dumps(output, ensure_ascii=False, indent=2))
     return 0
 

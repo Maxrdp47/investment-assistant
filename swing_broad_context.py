@@ -433,7 +433,7 @@ def build_historical_breadth_context(
 ) -> dict[str, dict[str, object]]:
     """Aggregate the frozen project universe; it is not a survivorship-free index."""
     accumulators: dict[tuple[str, str, str], dict[str, list[float]]] = defaultdict(
-        lambda: defaultdict(list)
+        lambda: defaultdict(lambda: [0.0, 0.0])
     )
     for asset, frame in prepared_assets:
         if frame.empty:
@@ -468,7 +468,8 @@ def build_historical_breadth_context(
                 target = accumulators[(day, kind, value)]
                 for name, metric in metrics.items():
                     if math.isfinite(metric):
-                        target[name].append(metric)
+                        target[name][0] += metric
+                        target[name][1] += 1.0
     rows_by_group: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
     for (day, kind, value), metrics in accumulators.items():
         payload = {
@@ -478,10 +479,11 @@ def build_historical_breadth_context(
             "group_value": value,
             "metrics": {
                 name: {
-                    "share_pct": float(np.mean(values) * 100),
-                    "assets": len(values),
+                    "share_pct": float(values[0] / values[1] * 100),
+                    "assets": int(values[1]),
                 }
                 for name, values in sorted(metrics.items())
+                if values[1] > 0
             },
             "survivorship_free": False,
             "universe_policy": "frozen_current_project_universe_with_historical_coverage_only",

@@ -1,0 +1,13 @@
+swing_broad_research.py text eol=lf
+swing_broad_context.py text eol=lf
+swing_walk_forward.py text eol=lf
+swing_research_dataset.py text eol=lf
+swing_research_identity.py text eol=lf
+swing_research_quality.py text eol=lf
+cot_positioning.py text eol=lf
+technical_analysis.py text eol=lf
+trading_assistant.py text eol=lf
+scripts/run_swing_broad_research.py text eol=lf
+tests/test_swing_broad_research.py text eol=lf
+tests/test_swing_broad_research_transition.py text eol=lf
+tests/test_swing_research_quality.py text eol=lf

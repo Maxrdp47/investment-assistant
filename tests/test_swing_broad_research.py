@@ -365,6 +365,9 @@ def test_asset_candidate_stream_is_outcome_blind_and_store_is_resume_safe(tmp_pa
     assert len(report["parameter_neighborhoods"]) == 9
     assert "expectancy_r" in report["development_candidate_baseline"]
     assert "trade_count_loss_vs_development_baseline" in report["hypotheses"][0]
+    assert all(row["quality_review_complete"] is False for row in report["hypotheses"])
+    assert all(row["eligible_for_manual_fixed_challenger"] is False for row in report["hypotheses"])
+    assert set(report["parameter_plateaus"]) == {"bos_excess_atr", "ema20_to_ema50", "rsi_lower_bound"}
     assert report["validation_opened"] is False
     assert report["holdout_opened"] is False
     with sqlite3.connect(path) as connection:
@@ -425,7 +428,7 @@ def test_split_contract_matches_existing_campaign_boundaries() -> None:
 def test_fixed_challenger_is_append_only_and_never_activated(tmp_path) -> None:
     path = tmp_path / "challenger.sqlite3"
     development_report = {
-        "pattern_version": "swing-development-patterns-2026.08.22-v1",
+        "pattern_version": BROAD_RESEARCH_PATTERN_VERSION,
         "validation_opened": False,
         "holdout_opened": False,
         "hypotheses": [
@@ -433,6 +436,7 @@ def test_fixed_challenger_is_append_only_and_never_activated(tmp_path) -> None:
                 "hypothesis_id": "buyer_confirmation",
                 "classification": "C",
                 "eligible_for_manual_fixed_challenger": True,
+                "quality_review_complete": True,
             }
         ],
     }
@@ -490,7 +494,7 @@ def test_challenger_freeze_rejects_non_c_development_hint(tmp_path) -> None:
             dataset_fingerprint="dataset-v1",
             feature_fingerprint="feature-contract-v1",
             development_report={
-                "pattern_version": "swing-development-patterns-2026.08.22-v1",
+                "pattern_version": BROAD_RESEARCH_PATTERN_VERSION,
                 "validation_opened": False,
                 "holdout_opened": False,
                 "hypotheses": [
@@ -517,7 +521,7 @@ def test_manual_challenger_rescans_frozen_validation_before_holdout(tmp_path) ->
     )
     record_asset_broad_research(broad, dataset_fingerprint="dataset-v1", path=path)
     report = {
-        "pattern_version": "swing-development-patterns-2026.08.22-v1",
+        "pattern_version": BROAD_RESEARCH_PATTERN_VERSION,
         "validation_opened": False,
         "holdout_opened": False,
         "hypotheses": [
@@ -525,6 +529,7 @@ def test_manual_challenger_rescans_frozen_validation_before_holdout(tmp_path) ->
                 "hypothesis_id": "pullback_family",
                 "classification": "C",
                 "eligible_for_manual_fixed_challenger": True,
+                "quality_review_complete": True,
             }
         ],
     }

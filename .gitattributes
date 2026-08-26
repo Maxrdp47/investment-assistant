@@ -14,3 +14,4 @@ tests/test_swing_research_quality.py text eol=lf
 swing_buyer_confirmation_validation.py text eol=lf
 scripts/run_buyer_confirmation_validation.py text eol=lf
 tests/test_swing_buyer_confirmation_validation.py text eol=lf
+scripts/sync_buyer_confirmation_validation_kb.py text eol=lf

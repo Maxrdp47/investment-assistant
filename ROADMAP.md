@@ -1,5 +1,13 @@
 # Investment-Assistent Master-Roadmap
 
+## Buyer-Confirmation-Challenger v1 – Gate abgeschlossen 2026-08-27
+
+- Die eingefrorene Version `buyer-confirmation-objective-pullback-v1` hat ihre vollständige ungesehene Validation mit 2.520/2.520 Assets und 181.473 rohen Pullback-Fällen beendet. Freeze-Fingerprint: `6c41572e2619e9123c8219d2d51fa61f542c5666fe8304519797caa6a06b9293`; Review-Fingerprint: `64c4b78dbda9fb0d5cc9e828df3338b9cebc24e05bdb22f7578f8073f6833d12`.
+- Die Buyer-Gruppe war ohne Zusatzstress nur knapp positiv (+0,0094 R; Profitfaktor 1,017) und besser als die Kontrolle, fiel unter der vorab festgelegten konservativen Ausführung jedoch auf -0,0439 R und Profitfaktor 0,924. Nur 2 von 4 Jahren waren positiv. Die Gates `conservative_execution_treatment_positive`, `conservative_execution_treatment_pf_above_one` und `positive_in_at_least_60pct_of_years` sind fehlgeschlagen.
+- Verbindlicher Endstatus: `REJECTED_AT_VALIDATION`. Holdout bleibt dauerhaft für diese Evaluation ungeöffnet; External, True Forward und Produktion werden nicht gestartet. Die negative Evidenz bleibt append-only in Store, Bericht und Research-KB erhalten.
+- Für diese Version sind keine Retunes oder weiteren Kombinationstests zulässig. Eine spätere neue Hypothese müsste fachlich neu begründet, neu versioniert und vor Ergebnissichtung mit eigenem Freeze wieder bei Development beginnen; aus diesem negativen Validation-Ergebnis entsteht keine automatische Folgearbeit.
+- Broad-v1, Frozen Dataset, Development-Artefakt, Baseline und Produktionsstrategie bleiben unverändert. Die Buyer-Confirmation-Validierung ist damit fachlich terminal abgeschlossen.
+
 ## Projektziel
 
 Der Investment-Assistent ist eine lokale Python-Streamlit-App, die Aktien, ETFs und Kryptowährungen analysiert und verständliche Einschätzungen liefert. Die App soll langfristig wie ein professionelles Research-Werkzeug funktionieren: technisch sauber, transparent, nachvollziehbar und auch für Anfänger verständlich.

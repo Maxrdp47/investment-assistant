@@ -1,9 +1,20 @@
 # Investment Assistant – Projektstatus
 
-Stand: 2026-08-22
-Dokumentierter Git-Stand: Branch `codex/swing-forward-diagnostics-status`, Ausgangscommit `b6698c0bdcfa0565f10df1be16fc1b53927022e7`; der unten beschriebene zusammenhängende Arbeitsstand ist auf diesem Branch versioniert. Der exakte Abschlusscommit ist dem Git-Verlauf zu entnehmen.
+Stand: 2026-08-27
+Dokumentierter Git-Stand: Branch `codex/buyer-confirmation-validation`; der exakte Abschlusscommit ist dem Git-Verlauf zu entnehmen.
 
 Diese Datei fasst den technisch nachweisbaren Projektstand zusammen. Sie ist als kompakte Schnittstelle zwischen Planungs-Chat und Work-Chat gedacht und soll nach relevanten Änderungen fortgeführt werden. Private Portfolio-, Such-, Trade-, Entscheidungs-, Prognose- und Testdaten gehören nicht in dieses Dokument.
+
+## Buyer-Confirmation-Challenger v1 – terminaler Validation-Stand 2026-08-27
+
+- Die vor Ergebnissichtung eingefrorene Version `buyer-confirmation-objective-pullback-v1` wurde ground-up über die vollständige ungesehene Validation ausgeführt. Der unveränderliche Freeze-Fingerprint ist `6c41572e2619e9123c8219d2d51fa61f542c5666fe8304519797caa6a06b9293`; Dataset-, Code- und Feature-Fingerprint blieben `e2310023e5c83fc19ce8316b55514e9694c882e546277487ed75319e560be1ed`, `77ab6ed29d8d08e32fabb8c2aee01c0a94953ded4b69092227f074273b12d946` und `c09d43e3c297b1685796db568b63c23c5878b2f246e69508c409fdbaa77f01dd`.
+- Validation ist vollständig: 2.520/2.520 Assets, 181.473 rohe Pullback-Fälle. Die Buyer-Gruppe umfasst 30.352 rohe beziehungsweise 30.294 ausgewertete Fälle und 23.595 effektive Abhängigkeitscluster; die Kontrolle 151.121 rohe beziehungsweise 146.659 ausgewertete Fälle und 51.954 effektive Cluster. Das Validitäts-/Power-Gate bestand.
+- Ohne zusätzlichen Ausführungsstress lag die Buyer-Gruppe bei +0,0094 R Expectancy, Profitfaktor 1,017 und 42,19 % Trefferquote; die Kontrolle bei -0,1892 R, Profitfaktor 0,763 und 33,84 %. Der direkte Expectancy-Abstand betrug +0,1986 R, der vorab festgelegte gematchte Abstand +0,2089 R.
+- Der Challenger verfehlte jedoch die verbindlichen Robustheitsgates: Unter konservativer zusätzlicher Ausführung lag die Buyer-Gruppe bei -0,0439 R und Profitfaktor 0,924; außerdem waren nur 2 von 4 ausgewerteten Jahren positiv statt der geforderten mindestens 60 %. Der Kandidatenreihenfolge-Drawdown von 2.515,74 R ist ausdrücklich ein Research-Serienmaß und kein Portfolio-Drawdown.
+- Deterministische Entscheidung: `VALIDATION_FAIL`, terminal `REJECTED_AT_VALIDATION`. Review-Fingerprint: `64c4b78dbda9fb0d5cc9e828df3338b9cebc24e05bdb22f7578f8073f6833d12`. `next_stage_allowed=false`; Holdout blieb ungeöffnet bei 0 Assets/0 Fällen, External und True Forward wurden nicht gestartet.
+- Die negative Evidenz ist im separaten append-only Store `runtime/buyer_confirmation_validation.sqlite3` und im Entscheidungsbericht `runtime/research_exports/buyer_confirmation_validation_decision_2026-08-26-v1.json` erhalten. Die Research-KB führt den bestehenden Work Request `e8fc4673-485c-48d8-a948-c44d5ecb2d49` als `COMPLETED` mit Ergebnis `a5060b1a-0323-40ac-94f2-24f6be6f686b`; es wurde keine doppelte Hypothese erzeugt.
+- Abschlussprüfungen: vollständige Python-Kompilierung erfolgreich, 767/767 Tests in 71,69 Sekunden bestanden, Repository-Sicherheitscheck `OK`, Offline-Smoke einschließlich lokalem Streamlit-Start `OK` und `git diff --check` ohne Fehler.
+- Produktionswirkung: keine. Keine Retunes, Zusatzfilter, Baseline-/Strategieänderung, Brokerfunktion oder automatische Aktivierung. Broad-v1, Frozen Dataset, Development-Artefakt und laufende Forensik blieben unverändert.
 
 ## Future-only Market-Scope-/Research-Planung – 2026-08-23
 

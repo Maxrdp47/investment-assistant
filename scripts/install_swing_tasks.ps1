@@ -18,6 +18,10 @@ foreach ($requiredPath in @($settingsPath, $runnerPath, $pythonPath)) {
 $settings = Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $taskPrefix = [string]$settings.task_prefix
 $results = @()
+$strategyForwardEnabled = $true
+if ($null -ne $settings.strategy_forward -and $settings.strategy_forward.enabled -eq $false) {
+    $strategyForwardEnabled = $false
+}
 
 foreach ($scopeProperty in $settings.scopes.PSObject.Properties) {
     $scopeName = [string]$scopeProperty.Name
@@ -31,6 +35,21 @@ foreach ($scopeProperty in $settings.scopes.PSObject.Properties) {
         throw "Ungültige lokale Uhrzeit für $scopeName`: $runTime"
     }
     $taskName = "$taskPrefix-$scopeName"
+    if (-not $strategyForwardEnabled) {
+        $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if (-not $WhatIf -and $existingTask) {
+            Disable-ScheduledTask -TaskName $taskName | Out-Null
+        }
+        $results += [pscustomobject]@{
+            TaskName = $taskName
+            Scope = $scopeName
+            LocalRunTime = $runTime
+            ScheduleMode = $scheduleMode
+            Runner = $runnerPath
+            Mode = $(if ($WhatIf) { "Prüfung: Legacy-Forward bleibt deaktiviert" } else { "Legacy-Forward deaktiviert" })
+        }
+        continue
+    }
     if ($scheduleMode -ne "daily") {
         if (-not $WhatIf -and (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue)) {
             Unregister-ScheduledTask -TaskName $taskName -Confirm:$false

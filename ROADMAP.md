@@ -10,6 +10,16 @@
 - Für diese Version sind keine Retunes oder weiteren Kombinationstests zulässig. Eine spätere neue Hypothese müsste fachlich neu begründet, neu versioniert und vor Ergebnissichtung mit eigenem Freeze wieder bei Development beginnen; aus diesem negativen Validation-Ergebnis entsteht keine automatische Folgearbeit.
 - Broad-v1, Frozen Dataset, Development-Artefakt, Baseline und Produktionsstrategie bleiben unverändert. Die Buyer-Confirmation-Validierung ist damit fachlich terminal abgeschlossen.
 
+## Aktuelles Gate vor der nächsten Research-Epoch – 2026-08-28
+
+- `buyer-confirmation-objective-pullback-v1` ist abgeschlossen und in ungesehener Validation terminal `VALIDATION_FAIL`, `NEGATIVE` und `REJECTED_AT_VALIDATION`. Kein Holdout, kein Rescue, kein Retuning und kein weiterer Filter für diese Version.
+- `LEGACY FORWARD v1` mit Strategie `swing-long-pullback-breakout-2026.08.11-v3` ist technisch und betrieblich eingefroren. Historische Forward-/Paper-/Shadow-Evidenz bleibt erhalten, aber die Version darf keine neuen Strategie-Signale, strategiegebundenen Paper-Trades oder Shadow-Orders erzeugen.
+- Ein Observer wird nur erlaubt, wenn Datenbeobachtung bereits technisch beweisbar von Strategie-, Signal-, Trade-, Paper- und Shadow-Entscheidungen getrennt ist. Da diese Trennung aktuell nicht besteht, bleibt der Observer deaktiviert.
+- Der nächste große Schritt heißt `Multi-Asset Opportunity Discovery v1`. Er ist ein zukünftiger Development-Research-Epoch und in diesem Konsolidierungsauftrag ausdrücklich `NOT_STARTED`: kein Scan, keine neue Candidate Generation, keine Labels, Hypothesen oder Auswertung.
+- Ein `FUTURE FORWARD v2` existiert noch nicht. Er darf erst nach `Development → Fixed Challenger → Validation → Holdout → External Unseen Universe → Forward` derselben festgeschriebenen Version entstehen. Keine Abkürzung.
+- Die fünf KB-Work-Requests aus G2.12 bleiben `READY`, aber ungeordnet, nicht priorisiert, nicht gestartet und nicht automatisch die nächste Strategie.
+- Abnahme: 94 gezielte Lifecycle-/Forward-/Paper-/Shadow-/KB-/Buyer-Tests und 775/775 vollständige Regressionstests bestanden. Kompilierung, Repo-Safety, Offline-Smoke, Streamlit-Start, Swing-Preflight und Diff-Prüfung sind erfolgreich; die geschützten Frozen-, Broad- und Buyer-Fingerprints blieben unverändert.
+
 ## Projektziel
 
 Der Investment-Assistent ist eine lokale Python-Streamlit-App, die Aktien, ETFs und Kryptowährungen analysiert und verständliche Einschätzungen liefert. Die App soll langfristig wie ein professionelles Research-Werkzeug funktionieren: technisch sauber, transparent, nachvollziehbar und auch für Anfänger verständlich.
@@ -64,6 +74,8 @@ Stabilitätskriterien:
 ## Verbindliche Produktarchitektur
 
 Status am 2026-08-02: Zielbild beschlossen und als erste sichere Navigationsbasis umgesetzt. Die Startseite trennt jetzt `Asset-Analyse`, `Investment Opportunities` und `Swing Trade Finder`. Die bestehende Einzelanalyse deckt große Teile der künftigen Einstiegsanalyse ab; der bisherige `Opportunity Scanner` wird in der Oberfläche als `Swing Trade Finder` weitergeführt. `Investment Opportunities` besitzt zunächst nur einen ehrlichen Leer-/Planungszustand ohne erfundene Kandidaten. Der fachliche Feed, seine beiden Scores und die wählbare Long-Term-Analyse bleiben geplant.
+
+Das kanonische langfristige SwingTrader-Zielbild steht in [`SWINGTRADER_PRODUCT_ARCHITECTURE.md`](SWINGTRADER_PRODUCT_ARCHITECTURE.md). Verbindlicher Kernsatz: `Research Baseline != Production Strategy`. Der spätere SwingTrader ist kein klassischer Daily-Trading-Bot, sondern ein regelbasierter Multi-Factor Swing-/Investment-Assistent mit Asset Discovery, These, bedingtem Entry, unabhängiger Risk Engine, laufendem Positionsmonitoring und dynamischem Exit. Next-Open, fixe R-Ziele und 25-Sitzungs-Horizonte bleiben kontrollierte Research-Baselines und sind nicht automatisch das Produktverhalten.
 
 Die Anwendung erhält drei fachlich und in der Navigation klar getrennte Hauptbereiche:
 
@@ -1298,6 +1310,9 @@ Verbindlicher Ablauf und Schutzregeln:
 15. Misserfolg ist erlaubt. Ohne robusten Zusatznutzen wird die Idee verworfen und nicht so lange verändert, bis sie historisch funktioniert.
 16. Kill-Regel: Scheitert eine Idee trotz angemessener Stichprobe wiederholt Out-of-Sample oder im Forward-Test beziehungsweise lässt sie sich nur durch weitere Filter retten, wird sie eingestellt oder grundlegend neu formuliert.
 17. ML unterliegt denselben Regeln und darf keine Schutz-, Risiko- oder Freigabestufe umgehen.
+18. Research erfolgt sequenziell statt als großes Kombinationsraster: zuerst Setup/Entry untersuchen und manuell einfrieren, danach Stop untersuchen und einfrieren, danach Exit/Management untersuchen und einfrieren, erst dann den vollständigen festen Challenger Out-of-Sample prüfen. Jede Stufe ist eine eigene Ledger-Hypothese. Ein Kreuzprodukt aus Entry-, Stop-, Exit- und Featurevarianten sowie eine automatische Suche nach der historisch besten Gesamtkomposition sind gesperrt.
+19. Die vorhandene Grenze von 20 vergleichbaren Fällen ist ausschließlich eine frühe Diagnose- und Anzeigegrenze. Sie erlaubt deskriptive Hinweise und kann weitere Forschung begründen, aber niemals allein Hard-Filter, C, Strategie- oder Produktionsfreigabe. Effektiv unabhängige Evidenz sowie alle Development-/Robustheits-/OOS-/Forward-/Paper-/Shadow-Gates bleiben erforderlich.
+20. Das Long-v1-CRV von mindestens 2 bleibt unverändert eingefrorene Baseline, ist aber kein bewiesenes Optimum. Für neue Forschung zählt realisierter Expected R nach Kosten gemeinsam mit Trefferquote, durchschnittlichem Gewinner/Verlierer, Gaps und Drawdown. Keine freie nachträgliche CRV-Schwellenoptimierung.
 
 Einordnung externer Ideen vor einem Test:
 
@@ -1395,7 +1410,7 @@ Aktiver Einfluss bleibt gesperrt, bis Baseline und Datenbasis reif sind, ML mehr
 
 Status 2026-08-22: Vor dem ersten realen Broad-Vollpass technisch umgesetzt. Verbindliche Reihenfolge: `Broad Research → shared direction-neutral historical features → Long research first → later separate Short research`. Der aktuelle Broad-Pass erzeugt und speichert weiterhin ausschließlich Long-Kandidaten. Bearishe Merkmale sind nur kausale, nicht ausgewertete Infrastruktur; sie erzeugen weder Short-Signale noch Short-Challenger, Rankings, Confluence, Paper-/Shadow-Entwürfe oder eine Produktionsfreigabe.
 
-- Richtungsneutrales Research-Modell unterstützt intern `long | short`; der reale Kandidatenstrom bleibt fest `long`. Broad-Speicher Schema 3 hält die Richtung explizit und migriert den noch leeren Vorpass-Speicher nicht löschend.
+- Richtungsneutrales Research-Modell unterstützt intern `long | short`; der reale Kandidatenstrom bleibt fest `long`. Broad-Speicher Schema 4 hält die Richtung und den komprimierten append-only Breadth-Kontext explizit; der noch leere Vorpass-Speicher wurde nicht löschend migriert.
 - Der gemeinsame OHLCV-Pass speichert zusätzlich objektiven Abwärtsimpuls, Stärke und Dauer, anschließende Rally, kontinuierliche Retracement-Tiefe, Rallydauer, bullische Kerzen und längste Serie sowie ATR-normalisierte Rallygeschwindigkeit.
 - Bearishe Bestätigung `Close[t] < Low[t-1]`, bestätigte Lower Highs/Lows, High-/Low- und Close-Break, bearish BOS, ATR-normalisierte Überschreitung und Bestätigungszeitpunkt werden ausschließlich aus Daten bis zur abgeschlossenen Featurekerze erzeugt.
 - Der vorhandene RSI-/EMA-/ATR-/Volumen-/Volatilitäts-/Marktphasen-, Opening-Level-, Saisonalitäts- und COT-Kontext wird referenziert statt doppelt berechnet. Ergänzt sind Kurs unter EMA20/EMA50 und EMA20 unter EMA50.
@@ -1403,7 +1418,23 @@ Status 2026-08-22: Vor dem ersten realen Broad-Vollpass technisch umgesetzt. Ver
 - Getrennte Labels enthalten für 5/10/20/25 Sitzungen Forward Return, zukünftiges Maximum/Minimum, maximale Auf-/Abwärtsbewegung in Prozent und ATR, Zeit bis Hoch/Tief sowie die Rohwerte, aus denen spätere Long- und Short-MFE/MAE eindeutig ableitbar sind. Kein Label beeinflusst Kandidatenauswahl oder Features.
 - Richtungsneutrale Preisordnungsprüfung kennt `Stop < Entry < Target` für Long und `Target < Entry < Stop` als späteren Short-Vertrag. Aktuelle Order-, Risiko-, Scanner-, Paper- und Shadow-Pfade akzeptieren weiterhin nur Long und sperren explizite Short-Kandidaten fail-closed.
 - Borrow-Verfügbarkeit, Borrow Fees, Finanzierung, Broker-Shortkosten und reale Short-Spreads bleiben sichtbar `nicht erhoben / nicht approximiert`.
-- Feature-Schema: `swing-broad-pit-features-short-readiness-2026.08.22-v2`; Label-Schema: `swing-broad-direction-neutral-labels-2026.08.22-v2`. Der Frozen-Dataset-Fingerprint bleibt unverändert. Eine spätere Short-Forschung benötigt weiterhin eigene Hypothesen, Strategieversion sowie Validation-, Holdout-, External-, Forward-, Paper- und Shadow-Gates nach stabiler Long-Validierung.
+- Feature-Schema: `swing-broad-pit-features-frozen-first-pass-2026.08.22-v3`; Label-Schema unverändert `swing-broad-direction-neutral-labels-2026.08.22-v2`. Der Frozen-Dataset-Fingerprint bleibt unverändert. Eine spätere Short-Forschung benötigt weiterhin eigene Hypothesen, Strategieversion sowie Validation-, Holdout-, External-, Forward-, Paper- und Shadow-Gates nach stabiler Long-Validierung.
+
+##### G2.5a – eingefrorener zusätzlicher Featureumfang für den ersten Broad-Vollpass
+
+Status 2026-08-22: Vor dem ersten realen Broad-Vollpass umgesetzt und eingefroren. Je Kandidatenzeitpunkt entstehen kausal und richtungsneutral Relative Stärke gegen lokal vorhandene Markt-/Regionalbenchmarks, Trendqualität, Volatilitätskompression/-expansion, kontinuierliche Kerzenmerkmale, historische Hoch-/Tiefabstände, deterministische Konsolidierung und Gap-/Overnight-Risiko. Die Berechnungen werden je Asset und Zeitpunkt geteilt statt pro Setup doppelt ausgeführt. Sie sind nur gespeicherte Development-Research-Features und ändern keine Regel, Gewichtung, Long-v1-Auswahl, Stops, Ziele oder Produktion.
+
+- Relative Stärke enthält 20/60/120-Sitzungsrenditen von Asset und Benchmark sowie Differenz und relatives 20-Tage-Momentum. Lokal verfügbare Zuordnung: USA `SPY`, Australien `EWA`, global beziehungsweise Fallback `ACWI`. Historisch belastbare Sektorzuordnung und Cross-Section-Perzentile fehlen sichtbar und werden nicht rückwirkend erfunden.
+- Trendqualität enthält EMA20-/EMA50-Steigungen roh und ATR-normalisiert, feste Kurssteigungen, steigende Closes, Higher-/Lower-High-/Low-Anteile, Bewegungseffizienz und Gegenbewegungsanteil. Keine neue Sammlung klassischer Trendindikatoren.
+- Volatilität und Price Action enthalten ATR/Kurs, vergangenheitsbasierte ATR-Perzentile 60/120/252, ATR-Änderung, Range-Kompression/-Expansion, Volumenexpansion, Body/Wicks/Close-Lage, Inside/Outside, Gap, Close gegen Vorhoch/-tief und konsekutive Higher-/Lower-Strukturen. Keine subjektiven Kerzennamen.
+- Historische 20/50/100/252-Hochs und -Tiefs enthalten Prozent-/ATR-Abstände, Sitzungen seit Extrem und Rangeposition. Konsolidierung, Bereichstests, Breakout und vorherige Bewegung sind deterministisch und verwenden keine spätere Breakoutinformation.
+- Der Breadth-Layer wird erst nach bestandenem 248/248-Gate ausschließlich aus dem finalisierten Frozen-Universum lokal erzeugt und append-only komprimiert gespeichert. Er enthält Gesamtanteile über EMA20/50/200, positives Momentum, Nähe zu 20/50-Hochs und -Tiefs sowie Änderungen 5/10/20 und Beschleunigung. Region/Assettyp erscheinen erst ab mindestens fünf verfügbaren Assets je Merkmal. Er ist ausdrücklich nicht survivorship-bias-frei; Sektor-Breadth bleibt mangels historischer Point-in-Time-Mitgliedschaft nicht verfügbar.
+- Gap-/Overnight-Felder bleiben Research-Merkmale ohne Hard-Gate. Keine Providerdownloads, Short-Aktivierung, automatische Featureselektion, Grid Search, Confluence oder Holdout-Nutzung.
+- Featureumfang für diesen ersten Pass ist jetzt geschlossen. Weitere Merkmale sind bis zu seiner Auswertung gesperrt, außer zur Behebung eines klar belegten Daten- oder Kausalitätsfehlers. Dadurch soll ein zweiter vollständiger 2.520-Asset-Featurepass voraussichtlich vermieden werden.
+
+Kostenloser späterer Qualitätslayer, Status 2026-08-23: Die offiziellen SEC Financial Statement Data Sets können ab 15. April 2009 die je Filing damals zugewiesene SIC-Branche liefern. Ein getrennter Importer lädt auf ausdrücklichen Aufruf einzelne offizielle Quartals-ZIPs mit SEC-Fair-Access-Kontakt, Größenbegrenzung und sicherem Resume oder übernimmt bereits lokal vorhandene ZIPs. Er speichert nur gültige 10-K-/10-Q-/20-F-/40-F-Snapshots mit CIK, Accession, Annahmezeitpunkt, SIC und grober SIC-Division append-only. Ein As-of-Zugriff schließt spätere Filings strikt aus. Diese kostenlose Quelle verbessert später US-Branchen-/Peer-Auswertungen, verändert aber weder den eingefrorenen ersten Broad-Pass noch Long-v1 oder Produktion.
+
+Grenzen bleiben ausdrücklich sichtbar: SEC-FSDS deckt nur strukturierte SEC-Filings ab, bestätigt weder historische Börsenhandelbarkeit noch Indexmitgliedschaft und enthält keine Kurse ausgeschiedener Aktien. Deshalb entsteht daraus allein keine survivorship-bias-freie OHLCV-Basis oder vollständige Sektor-Breadth. Kostenlose Wikipedia-/Community-Listen werden wegen fehlender Point-in-Time-Verlässlichkeit nicht als Research-Wahrheit importiert.
 
 ##### G2.6 – spätere technische Research-Reserve
 
@@ -1504,11 +1535,46 @@ Der technische Broad-Vollpass wartet ausdrücklich **nicht** auf eine vollständ
 `Frozen Historical Data → Broad Research Candidates → Point-in-Time Features → Development Pattern Discovery → Fixed Challenger → Validation → Holdout → External Unseen Asset Universe → True Forward → Autonomous Paper → Shadow Live → Echtgeld-Gate`
 
 - `Frozen Historical Data` ist mit dem unveränderlichen Dataset-Fingerprint `e2310023e5c83fc19ce8316b55514e9694c882e546277487ed75319e560be1ed` vorhanden. Der neue Pfad lädt daraus ausschließlich lokal und löst keine unnötigen Providerabrufe aus.
-- `Broad Research Candidates`, `Point-in-Time Features`, getrennte spätere Labels, Stop-/Exit-Kontrafakten, append-only Resume-Speicher, Code-/Feature-Fingerprints und der Development-only A/B/C-Vergleich sind technisch umgesetzt. Der Development-Bericht zeigt zusätzlich ungefilterte Basis, Expectancy, verlorene Tradezahl und drei kleine vorab festgelegte Nachbarschaften für RSI, EMA20/50 und BOS. Der reale Vollpass startet erst nach 248/248 der bestehenden Kampagne; beim zuletzt geprüften relevanten Stand 243/248 sind deshalb weiterhin 0 breite Kandidaten gespeichert.
+- `Broad Research Candidates`, `Point-in-Time Features`, getrennte spätere Labels, Stop-/Exit-Kontrafakten, append-only Resume-Speicher, Code-/Feature-Fingerprints und der Development-only A/B-Vergleich sind technisch umgesetzt. Der Development-Bericht zeigt zusätzlich ungefilterte Basis, Expectancy, verlorene Tradezahl und drei kleine vorab festgelegte Nachbarschaften für RSI, EMA20/50 und BOS. Eine vorläufig gute Durchschnittskennzahl erzeugt seit Research-Quality-v1 noch kein C: Placebo, Plateau, Ablation, Cluster, Zeit/Regime, Entry-Effizienz, Execution, Komplexität und Survivorship müssen zuerst transparent geprüft sein. Die bestehende Kampagne ist seit 2026-08-23 vollständig bei 248/248; der Broad-Speicher ist intakt, enthält beim aktuellen Abschlussabgleich aber noch 0 Assetabschlüsse und 0 Kandidaten.
 - Der automatische Übergang ist fail-closed umgesetzt: Exakt 248/248, ein vollständiger gültiger Walk-Forward-Audit, identischer finalisierter Frozen-Dataset-Fingerprint sowie Code-/Feature-Fingerprints sind Pflicht. Ein einmaliger append-only Nachweis öffnet anschließend nur kleine 16-Asset-Researchblöcke; Schutzfenster, Produktionslocks, reguläre Scans und Resume werden zwischen den Blöcken erneut geprüft. Der alte Kampagnenbestand wird weder geändert noch neu gestartet, zusätzliche Downloads sind verboten.
-- Ein `C`-Hinweis darf nur aus vorab festgelegten Development-Mindestwerten entstehen und bedeutet ausschließlich: nach expliziter manueller Bestätigung als neue unveränderliche Challenger-Regel einfrieren. Keine Regel wird automatisch erzeugt, aktiviert oder in Long-v1 übernommen.
+- Ein `C`-Hinweis darf nur nach vollständig dokumentierter Research-Qualitätsprüfung entstehen und bedeutet ausschließlich: nach expliziter manueller Bestätigung als neue unveränderliche Challenger-Regel einfrieren. Gute vorab festgelegte Development-Mindestwerte allein ergeben nur einen vorläufigen B-Hinweis. Keine Regel wird automatisch erzeugt, aktiviert oder in Long-v1 übernommen.
 - Für einen bestätigten C-Challenger ist der Ground-up-Handoff technisch umgesetzt: fester Regel-/Code-/Daten-/Kostenfingerprint, vollständiger Rescan des Frozen-Bestands, zuerst Validation, danach nur nach manueller Stufenprüfung Holdout, anschließend External und True Forward. Development darf nicht nachträglich filtern; jede Parameteränderung erzeugt eine neue Version und beginnt den Pfad neu.
 - ML-Datensatzadapter ist um das breite Feature-Schema erweitert. Features und Labels bleiben physisch/logisch getrennt; Random Split, Modelltraining, automatische Featureauswahl, Regeländerung und Produktionsaktivierung sind weiterhin gesperrt.
+
+##### G2.8 – Robustheitsorientierte Research-Qualität
+
+Status 2026-08-23: Die produktionsneutrale technische Grundlage ist umgesetzt. Das Ziel ist ausdrücklich **nicht** die Strategie mit maximalem historischen Gewinn. Verbindliches Ziel ist: „Die einfachste Strategie mit robust positivem Edge nach Kosten, die über unterschiedliche Zeiträume, Assets und Marktregime stabil bleibt, ausreichende unabhängige Evidenz besitzt und bei leicht schlechteren Parametern und Ausführungsannahmen nicht zusammenbricht.“
+
+- Ein eigener append-only Research-Ledger speichert semantisch deduplizierte Hypothesen, Familie und Versuchszahl, Definition/Ursprung, Features/Parameter, Daten-/Feature-/Code-Fingerprints, verwandte Versuche sowie getrennte Auswertungs- und Entscheidungsereignisse. Umbenennen derselben fachlichen Hypothese erzeugt keinen neuen Versuch. Aktuell sind 0 reale Broad-Hypothesen registriert, weil der 248/248-Übergang noch geschlossen ist.
+- Regimegematchte neutrale Placebos sind deterministisch und outcome-blind. Zeitverschobene Signale und zufällige Entries mit gleicher Haltedauer können nur als bereits kausal vorbereitete Kontrollzeilen ergänzt werden; fehlende Kontrollen bleiben sichtbar nicht verfügbar. Placebos sind nie Strategien.
+- Kleine vorab festgelegte Parameternachbarschaften berichten Expectancy, Profitfaktor, Drawdown, Roh-/Effektivfälle und zeigen isolierte Spitzen statt den besten Einzelwert auszuwählen. Der Development-Bericht weist RSI-, EMA- und BOS-Plateaus explizit aus.
+- Feature-Ablation verlangt exakt ein entferntes Feature und zeigt Expectancy, Profitfaktor, Drawdown, Fallzahl, Trade-Retention sowie Zeit-/Regimestabilität. Sie entfernt kein Feature automatisch; bei ähnlicher ungesehener Leistung bleibt die einfachere Variante fachlich bevorzugt.
+- Effektive Evidenz wird konservativ als reproduzierbare Zusammenhangskomponente über Signal-/Handelstag, Issuer, wirtschaftlich identisches Instrument, vorhandenen Abhängigkeits- und Korrelationscluster gezählt. Rohfälle, Signalcluster, Issuer-/Instrument-/Korrelations-, Regime-, Sektor- und Regioncluster sowie clusterrobuste Unsicherheit bleiben getrennt sichtbar.
+- Zeitberichte enthalten Kalenderjahre, rollierende Zwei-/Dreijahres-Expectancy, Anteil positiver Jahre, schlechtestes Jahr, längste nicht positive Jahresphase, zeitlichen Drawdown, vor/nach 2020 und Beitragskonzentration. Markt- und Volatilitätsregime werden getrennt ausgewiesen.
+- Entry-Effizienz unterstützt MFE/MAE nach 1/3/5 Sitzungen, Zeit bis ±0,5R/±1R, Peak und Zeit bis Peak sowie die rein diagnostischen Klassen A bis D. Daily-Daten behaupten keine Intrabar-Reihenfolge.
+- Vorab festgelegte Execution-Stressszenarien bleiben getrennt von historischen Ergebnissen und schreiben keine Realität um. Der Bericht zeigt Basiskosten, höhere Slippage, ungünstigeren Entry, höhere Gesamtkosten und konservative Gap-/Stop-Ausführung samt Veränderungen.
+- Komplexität, Placebo-Vorsprung, Plateau, Ablation, Survivorship-Grenzen und „Warum könnte dieses Ergebnis falsch positiv sein?“ sind Bestandteil des einheitlichen Qualitätsberichts. Ein unvollständiger Bericht bleibt `manual_review_required` und kann weder Validation/Holdout öffnen noch C, Produktion oder Tuning aktivieren.
+- Historische, echte Forward-, Paper- und Shadow-Evidenz nutzen dieselben Metrikverträge, bleiben aber physisch und fachlich getrennt. Der vorhandene Event-/Earnings-/Makro-/Geopolitik-Layer bleibt ein eigener späterer Point-in-Time-Researchblock.
+- Survivorship Bias wird sichtbar auditiert. Das heutige Frozen-Universum ist keine vollständig historische Universumswahrheit; Historical Constituents, Delistings, Pleiten und Point-in-Time-Handelbarkeit fehlen weiterhin teilweise. Der kostenlose SEC-SIC-Pfad verbessert Branchenkontext, löst diese Grenze aber nicht und blockiert den ersten Broad-Pass nicht.
+
+##### G2.9 – Feature-Familien und einfache sequenzielle Strategie
+
+Status 2026-08-23: Als getrennte methodische Berichtsschicht umgesetzt. Der eingefrorene Broad-Featureumfang und alle gespeicherten Rohfeatures bleiben unverändert. Vorhandene Features werden deterministisch genau einer primären Informationsfamilie zugeordnet: `Trend/Momentum`, `Volatilität`, `Struktur`, `Bestätigung`, `Marktumfeld`, `Externe Information` oder `Execution/Risk`. Nicht zuordenbare Werte bleiben sichtbar `Noch nicht zugeordnet`.
+
+- Der Qualitätsbericht zeigt Rohfeaturezahl, Features je Familie, tatsächlich vertretene Informationsfamilien, Mehrfachmerkmale derselben Familie und semantisch stark überlappende Redundanzkandidaten. Das ist eine transparente methodische Warnung und keine behauptete empirische Korrelation.
+- EMA-Lage, EMA-Slope, Kurs-Slope und HH/HL zählen nicht als mehrere unabhängige Bestätigungen, wenn sie überwiegend dieselbe Trendinformation messen. Unabhängige Bestätigungen werden höchstens auf Ebene tatsächlich verschiedener Familien ausgewiesen.
+- Komplexität zeigt Regeln, Parameter, Rohfeatures, verschiedene Familien, Redundanz und Ablationsstatus. Es gibt kein erfundenes fixes Regelmaximum und keine automatische Featurelöschung. Jede zusätzliche Komponente muss später eigenen robusten OOS-Zusatznutzen zeigen; bei ähnlicher OOS-Leistung gewinnt die einfachere Strategie.
+- Der append-only Ledger erzwingt den Ablauf `Setup/Entry → Freeze → Stop → Freeze → Exit/Management → Freeze → vollständiger Challenger OOS`. Eine spätere Stufe kann erst registriert werden, wenn alle vorherigen Stufen ausdrücklich manuell eingefroren sind. Entry×Stop×Exit-Kreuzprodukte und Variantenlisten in der finalen OOS-Stufe werden abgelehnt.
+- Evidenzarten besitzen einen verbindlichen Vertrag und werden nie still zusammengeworfen: Historical Walk-Forward, Broad Historical, Swing Forward, Autonomous Paper, Shadow Live, User Trades und Legacy JSON. Kombinierte Berichte zeigen jede Gruppe einzeln und erzeugen keine vermischte Gesamtkennzahl.
+- COT, Saisonalität und Opening Levels bleiben sekundärer Research-Kontext ohne Sonderstatus oder automatische Confluence. COT ist bei Einzelaktien ohne emittentenspezifische Verbindung nur Markt-/Assetgruppenkontext und kein „Smart Money für Aktie X“. Instabile Saisonalität wird verworfen; Opening Levels benötigen eigenen robusten Zusatznutzen.
+- Event/News/Makro/Geopolitik bleibt `research_only`/`shadow_only`. Fehlende Eventdaten bedeuten nicht „kein Event“ und können weder Signal, Gewichtung, Position, Strategie noch Produktion ändern.
+- Overnight-/Intraday-Merkmale bleiben zunächst ausschließlich isolierte Research-/Shadow-Merkmale und dürfen keinen weiteren Pflichtfilter für bestehende Setups erzeugen. Insbesondere ist eine automatische Confluence-Regel wie `Momentum + Pullback + BOS + Opening Level + positive Overnight-Historie = Trade` gesperrt.
+- Zuerst muss jedes Overnight-/Intraday-Merkmal eigenständig zusätzlichen Informationswert gegenüber der unveränderten einfachen Baseline zeigen. Ein gefundener Effekt wird zunächst isoliert validiert; erst danach dürfen wenige vorab fachlich begründete Kombinationen untersucht werden. Jede Kombination muss ihren inkrementellen Zusatznutzen gegenüber der jeweils einfacheren Variante ausweisen.
+- Korrelierte, semantisch überlappende oder redundante Merkmale dürfen nicht mehrfach als unabhängige Bestätigung gezählt werden. Eine komplexere Variante ist nur zulässig, wenn sie die einfachere Baseline robust Out-of-Sample und im Walk-Forward nach Kosten verbessert. Kleine, instabile oder nur in engen Parameterbereichen sichtbare Effekte werden verworfen oder ausschließlich dokumentiert.
+- Verbindliches Einfachheitsprinzip gegen Overfiltering: Wenige robuste Regeln haben Vorrang vor vielen historisch perfekt passenden Filtern. Overnight-/Intraday-Research besitzt bis zum bestandenen Einzelmehrwert- und Inkrementalitätsgate keinerlei Signal-, Freigabe-, Gewichtungs- oder Produktionswirkung.
+- Technischer Status 2026-08-23: Das zentrale Overfiltering-Gate ist umgesetzt. Eine C-Einstufung verlangt jetzt ausdrücklich isolierten Baseline-Vergleich, materiellen inkrementellen Mehrwert nach Kosten, robuste OOS- und Walk-Forward-Verbesserung, zeitliche Stabilität, ein Parameterplateau und bestandene Redundanzkontrolle. Kombinationen benötigen zuvor gültige isolierte C-Nachweise, Vorabregistrierung und fachliche Begründung; höchstens drei Kombinationsvarianten dürfen registriert werden. Auch ein vollständig bestandenes Gate öffnet ausschließlich eine manuelle Research-Prüfung und kann keinen Pflichtfilter, Trade, Score oder Produktionseinfluss erzeugen.
+- Fibonacci bleibt eine Kontrollhypothese. 0,618 und 61,8–78,6 Prozent müssen kontinuierliche Pullback-Tiefe und gleich breite Nicht-Fibonacci-Zonen stabil OOS schlagen. Ohne Zusatznutzen wird Fib verworfen; weitere Level dürfen nicht nachgetestet werden, um historischen Erfolg zu finden.
+- Nach dieser methodischen Bereinigung wird vor der Auswertung des ersten Broad-Passes keine weitere Research-Infrastruktur und kein weiteres Feature ergänzt, außer zur Behebung eines belegten Daten-, Leakage- oder Kausalitätsfehlers.
 
 ##### G2.10 – Market Scope, Pullback-Verkäufer-Pushs und deferred FX/Carry
 
@@ -1538,6 +1604,57 @@ Status 2026-08-23: Als strikt future-only Planungs- und Schutzschicht umgesetzt.
 - Pflicht: ausschließlich Point-in-Time-Daten und korrekte Release-/Expectation-Zeitpunkte, historische Vintages revidierter Makrodaten, Baseline → Einzelfeatures → erst danach Kombinationen, OOS/Walk-Forward und Multiple-Testing-Schutz. Keine vorgegebene JPY-/BoJ-/Währungsrichtung.
 - Nicht als Wissen übernehmen: „Japan-Krise = Yen steigt“, „BoJ-Zinserhöhung = Yen-Long“, „Carry Trade wird sicher aufgelöst“ oder feste Yen-Renditeprognosen von +12–15 Prozent.
 
+##### G2.11 – Broad-v1-Errata und Hypothesen-Validity-v2
+
+Status 2026-08-25: Der vollständig abgeschlossene Broad-v1-Pass wurde ausschließlich auf Development und read-only auditiert. Broad-v1, Frozen Dataset, Kandidaten, Labels, Counterfactuals, Manifest, Fingerprints, altes Quality-Ledger, Validation und Holdout blieben unverändert. Der versionierte Auditbericht `research_reports/BROAD_V1_METHOD_AUDIT_2026-08-25.md` ist die append-only Einordnung; er überschreibt keine historische v1-Ausgabe.
+
+- Künftige Performanceberichte benötigen vor A/B/C ein einheitliches Gate für PIT-Verfügbarkeit, fachliche Applicability, Market-/Setup-Scope, Treatment und Control, raw/effective N, outcome-unabhängige Definition, Structural Missingness und fast-immer/fast-nie-Bedingungen. Fail-closed Status sind `NOT_TESTABLE`, `EMPTY`, `INVALID`, `UNDERPOWERED` und `NON_DISCRIMINATING`; keiner wird als B oder C interpretiert.
+- `cot_available` ist bei Broad-v1 wegen 0 evaluierbarer Fälle `NOT_TESTABLE`. `opening_level_contact` ist wegen 631.809 Treatments und 2 Controls `NON_DISCRIMINATING`; die alte OR-Regel schließt den aktuellen Daily Open ein, der konstruktionsbedingt fast immer in der Tageskerze liegt. Keine nachträgliche Opening-Schwelle wird gesucht.
+- Buyer Confirmation, bearishe Kerzen und Fibonacci werden fachlich nur auf `objective_pullback` ausgewertet; `bos_close_break` nur auf `objective_breakout`. Structural Missingness und nicht anwendbare Setups bleiben getrennte Zähler und werden nicht zu False/0.
+- Jeder künftige Ergebnisvertrag speichert `source_scope`, `test_scope`, `validated_scope` und `setup_scope`. Der tatsächliche Broad-v1-Test-Scope war Equities, ETF und Krypto; es gibt keine FX-, Futures- oder Commodity-Evidenz. Der ursprüngliche Fibonacci-Quellmarkt ist nicht gespeichert und bleibt `LEGACY_SOURCE_SCOPE_NOT_RECORDED`.
+- Gleich breite Fib-Kontrollzonen 0,450–0,618 und 0,786–0,954 sowie kontinuierliche Pullback-Tiefe sind gemeinsam Pflicht. Im Development bleibt nur ein kleiner, instabiler Fib-Resthinweis; keine weiteren Level oder Extensions werden gesucht.
+- Metriksemantik ist verbindlich: `candidate_sequence_drawdown` aus überlappenden Broad-Kandidaten ist weder `trade_strategy_drawdown` noch `portfolio_simulation_drawdown`. Winrate, PF, raw N und effective N nennen stets ihre Kandidaten-/Clustergrundgesamtheit.
+- Die neun vorab festgelegten RSI-/EMA-/BOS-Nachbarschaften sind durchgehend negativ. RSI, EMA und BOS werden weder neu parametrisiert noch durch Threshold-Suche gerettet.
+- Historischer Broad-v1-Auditstand: Buyer Confirmation blieb in diesem Audit B; bearishe Kerzen blieben B und ausdrücklich post hoc umgekehrt, Fibonacci blieb B. In Broad-v1 selbst erreichte keine Hypothese C und keine ungesehene Stufe wurde geöffnet. Später wurde ein enger Buyer-Challenger separat eingefroren, erhielt im Development `C_RECOMMENDATION` und scheiterte anschließend terminal in der vollständigen Validation; der aktuelle Status steht im Roadmap-Gate vom 2026-08-28.
+- Künftige Ledger trennen sieben fachliche Hypothesenfamilien; identische Alias-Features wie Buyer Confirmation und `candle_quality.close_above_prior_high` zählen nicht doppelt. Keine Confluence aus den Development-Gewinnern und keine automatische Strategieauswahl.
+- Abnahme: 61/61 gezielte Broad-/Validity-/Quality-/Policy-/Transition-Tests und 772/772 vollständige Regressionstests erfolgreich. Python-Kompilierung, Repository-Sicherheitscheck, Offline-Smoke samt lokalem Streamlit-Start und Git-Diff-Prüfung sind grün.
+
+##### G2.12 – fünf KB-gesteuerte READY-Folgeaufträge
+
+Status 2026-08-27: Ausschließlich als Folgeauftrag in die Roadmap übernommen, noch nicht ausgeführt. Die verbindliche Knowledge Base ist `runtime/research_knowledge.sqlite3`. Der read-only Planungsabgleich zeigte Integrität `ok`, keine Foreign-Key-Probleme und alle fünf genannten Work Requests weiterhin `READY`. Dieser Snapshot ersetzt nicht die erneute Prüfung direkt vor einer späteren Ausführung.
+
+Verbindlicher Startvertrag:
+
+- Vor jedem Auftrag Git-/Prozessstand, aktuellen Work Request, Hypothese, Experiment, Capability Assessment, vorhandene Results, Idempotency Key und Artefaktverknüpfungen erneut aus Repository und KB lesen.
+- Nicht blind ausführen. Ein fachlich bereits vollständig beantwortetes Experiment wird nicht neu gerechnet; ein vorhandenes immutable Resultat darf nur bei passendem Vertrag sauber referenziert werden.
+- Keine doppelten Runs, Results, Experimente oder Work Requests. Status nur `READY → IN_PROGRESS → COMPLETED/BLOCKED/CANCELLED`; `COMPLETED` nur mit persistentem direkt verknüpftem KB-Resultat.
+- Negative, neutrale und underpowered Ergebnisse behalten. Keine Schwellenoptimierung, kein Loss Repair und keine nachträgliche Ergebnisbereinigung.
+- PIT-Kausalität, Look-ahead, Datenqualität, Unsicherheit, raw/effective N, Kosten, Slippage, Market Scope und Cross-Market-Trennung sind Pflicht.
+- Broad-v1, Walk-Forward-v1, Frozen Dataset, Fingerprints, Cases, Labels und Artefakte bleiben immutable. Neue Features benötigen neue Version und neuen Fingerprint.
+- Keine automatische Strategie-, Scanner-, Produktions-, Validation-/Holdout-, Broker- oder Orderaktivierung.
+- CPU-/DB-intensive Läufe nicht unkontrolliert parallel starten. Ein Blocker wird persistiert dokumentiert; danach darf der nächste Auftrag geprüft werden.
+
+Optionale, nicht priorisierte Planungsgegenstände – keine Ausführungsreihenfolge:
+
+- **Fibonacci – zuerst Duplikat-/Resultatprüfung**
+   Work Request `d941320c-48ca-43fb-9bd9-0c362d8873ea`, Hypothese `505703b4-bbc1-4009-b94b-6d9ac032f925`, Experiment `9b0922e7-0673-4362-94d7-d59827680cf7`. Zuerst prüfen, ob Broad-v1 mit `objective_pullback`, 0,618–0,786, den gleich breiten Kontrollen 0,450–0,618 und 0,786–0,954 sowie kontinuierlicher Pullbacktiefe den Vertrag bereits vollständig beantwortet. Bei fachlicher Identität kein neuer Lauf; das immutable B-Ergebnis korrekt verknüpfen. Nur echte Vertragsdifferenzen dürfen einen fehlenden Test begründen. Keine Extensions oder Leveloptimierung.
+- **FX Carry Point-in-Time-Pipeline**
+   Work Request `1f6201fe-2cbd-4fc1-9bf1-291a4221bdfa`, Hypothese `0a6350d5-718f-437d-97c1-f484fb8e11bf`, Experiment `793d4731-4de5-4c16-a7f3-dd44dea1761c`. Versionierte PIT-Datenpipeline für Erwartungen/Konsens, Zinsdifferenzen, FX-Volatilität, bestätigte Interventionen, Veröffentlichungszeiten, Revisionen, Lags sowie korrekte Basis-/Gegenwährung prüfen beziehungsweise aufbauen. Fehlende historische PIT-Daten niemals approximieren oder rückdatieren; dann Teilresultat oder `BLOCKED` mit Coverage. Pipeline ist keine Strategieaktivierung.
+- **Failed Seller Attempts als neuer Research-Epoch**
+   Work Request `d4dbaf10-b321-4223-9a0b-91f0bc245151`, Hypothese `7cb6dd8b-85e2-4b46-ac9a-0654a1310fc4`, Experiment `f0ae30fb-d00e-461f-84ad-ac3110f4ae49`. Broad-v1 nicht editieren. Neue kausale Features in eigenem Featurevertrag, eigener Version und eigenem Fingerprint auf kompatibler Frozen-OHLCV-Basis prüfen. Präregistrierte Definition unverändert verwenden; keine freie Suche nach Attempt-Anzahl, Candle-/Confirmation-Schwellen oder Kombinationen. Korrelation, effective N und Overfiltering berichten.
+- **Gold/Silber isolierter Commodity-Research-Runner**
+   Work Request `4fdfb983-ddbc-4178-bd36-7aa34267df0b`, Hypothese `f8e6a64b-1cf9-431f-9477-4a7a17ab5478`, Experiment `255532e0-3b54-412a-a29e-866bfe4bda82`. Scope exakt aus der KB übernehmen. `GC=F`/`SI=F`, Continuous-Futures-/Roll-Semantik, Session Alignment, fehlende Sessions, Next-Bar Entry, PIT, Kosten/Slippage sowie Selection-/Multiple-Testing-Bias ausdrücklich prüfen. Keine Übertragung auf Aktien-/ETF-SwingTrader.
+- **Wasseraktien isoliert**
+   Work Request `3721453e-158f-42cb-8d76-a28f054b7d97`, Hypothese `78bcdab6-e542-4844-bc95-fbdf1b3b1f9b`, Experiment `b2e990f1-16f9-4bad-a5ad-09184c4225c2`. Präregistrierten Vertrag ohne Parameteränderung verwenden. `XYL`, `BMI`, `PNR` sowie `SPY`/`PHO` exakt auswerten; Einzelwerte und gleichgewichteten Korb getrennt berichten. Keine nachträgliche Auswahl nur erfolgreicher Aktien.
+
+Abnahme des späteren Folgeauftrags:
+
+- KB-Integrität, Foreign Keys, Append-only-Regeln, Idempotenz, Resultat-/Artefaktlinks und doppelte Results prüfen.
+- Pro Work Request Ausgangs-/Endstatus, Experimentstatus, Resultat-ID, Wiederverwendung oder Neulauf, Ergebnisrichtung, Kennzahlen, raw/effective N, Gates, Referenzen, Code, Tests und Blocker dokumentieren.
+- Broad-v1, Walk-Forward-v1 und Frozen-Fingerprint vor/nachher nachweisen; neue Versionen/Fingerprints nennen.
+- Bei Codeänderungen mindestens Kompilierung, relevante KB-/Research-Tests, vorhandene Tests, Repository-Sicherheitscheck, Streamlit-Start und `git diff --check` ausführen.
+- Kein Force Push und keine produktive Strategie-, Scanner-, Broker- oder Orderintegration.
+
 ##### Future-only Härtung nach der 248/248-Kampagnenforensik
 
 Status 2026-08-23: Als getrennte Vertragsschicht für neue Kampagnen vorbereitet. Die abgeschlossene Kampagne v1 bleibt mit dem Frozen-Dataset-Fingerprint `e2310023e5c83fc19ce8316b55514e9694c882e546277487ed75319e560be1ed` unveränderliche historische Referenz. Queue, Cases, Resultate, Strategy-Freezes, Fingerprints, Long-v1 und historische A/B/C-Ergebnisse werden weder migriert noch nachberechnet. Der laufende erste Broad-Pass bleibt vollständig unverändert.
@@ -1560,9 +1677,11 @@ Status 2026-08-22: Der outcome-blinde append-only Auswahl-, Freeze- und Ergebnis
 - Ergebnisse dürfen niemals zur Optimierung derselben Strategieversion zurückfließen. Ein Kollaps sperrt diese Version; jede Änderung erzeugt eine neue Version und benötigt später eine neue ungesehene Prüfung.
 - Auch ein bestandenes External Gate ist keine Produktionsfreigabe. Danach bleiben True Forward, autonomer Paper-Bot, Shadow Live und ein ausdrücklich manuelles Echtgeld-Gate verpflichtend.
 
-#### Langfristiges Endziel: vollständig regelbasierter autonomer Swing-Trading-Bot
+#### Langfristiges Endziel: Multi-Factor Swing-/Investment-Assistent und späterer autonomer Bot
 
 Wirtschaftliches Langfristziel ist ein möglicher regelmäßiger monatlicher Zusatzverdienst. Es gibt keine Renditegarantie und keine Anforderung, jeden Monat Gewinn zu erzielen. Optimiert wird auf einen robusten positiven Erwartungswert nach realistischen Kosten bei kontrolliertem Risiko, nicht auf maximalen historischen Gewinn.
+
+Das Endprodukt ist kein Daily-Trader. Asset Discovery, Thesis, Entry, Risk, Position Monitoring und Dynamic Exit werden als getrennte Module entwickelt und separat validiert. Ein einzelnes erfolgreiches Entry-Feature oder eine kontrollierte Next-Open-/2R-/25-Sitzungs-Baseline reicht niemals für die zusammengesetzte Produkt- oder Echtgeldfreigabe. Das vollständige kanonische Zielbild steht in [`SWINGTRADER_PRODUCT_ARCHITECTURE.md`](SWINGTRADER_PRODUCT_ARCHITECTURE.md).
 
 Verbindliche Entwicklungsfolge:
 
@@ -2589,6 +2708,17 @@ Für jede neu entdeckte Aufgabe dokumentieren:
 
 Neue Aufgaben dürfen die ROADMAP erweitern. Sie dürfen aber nicht automatisch Komfortfunktionen vor Analysequalität schieben. Wenn eine neu entdeckte Aufgabe wichtiger ist als die bisherige Reihenfolge, muss die Prioritätsänderung im Änderungsprotokoll begründet werden.
 
+## Spätere Dokumentationsbereinigung
+
+Die große Dokumentationsmigration bleibt bis nach dem ersten Broad-Pass nachgeordnet und darf ihn nicht verzögern. Verbindliches späteres Ziel:
+
+- `ROADMAP.md` enthält zukünftige Arbeit und Prioritäten.
+- `PROJECT_STATUS.md` enthält den aktuellen belegten Ist-Stand.
+- `CHANGELOG.md` enthält abgeschlossene historische Änderungen.
+- `RESEARCH_POLICY.md` enthält dauerhafte Forschungs- und Validierungsregeln.
+
+Bis zu dieser Bereinigung beginnt `PROJECT_STATUS.md` mit einem klar datierten Block `Current Truth`. Historische Einträge bleiben als damalige Zustände erhalten und dürfen nicht mit dem aktuellen Kampagnenstand verwechselt werden.
+
 ## Teststrategie
 
 Nach relevanten Änderungen mindestens:
@@ -2613,8 +2743,35 @@ Wenn ein Test wegen Netzwerk, Yahoo Finance, GitHub-Authentifizierung oder Nutzu
 
 ## Änderungsprotokoll
 
+### 2026-08-27
+
+- Kanonisches Zielbild `SWINGTRADER_PRODUCT_ARCHITECTURE.md` ergänzt und in der Roadmap verankert. Langfristiges Produkt ist ein Multi-Factor Swing-/Investment-Assistent mit Discovery, These, Entry, unabhängiger Risk Engine, Monitoring, dynamischem Exit und Audit – kein klassischer Daily-Trading-Bot.
+- `Research Baseline != Production Strategy` verbindlich festgeschrieben. Next-Open/Next-Bar, fixe Stops/R-Ziele und 25-Sitzungs-Horizonte bleiben wissenschaftliche Baselines beziehungsweise Counterfactuals und sind kein zwingendes späteres Produktverhalten.
+- Den ersten Nutzerprompt als noch nicht gestarteten KB-gesteuerten G2.12-Folgeauftrag mit fünf READY Work Requests, IDs, Reihenfolge, Immutable-/PIT-/Idempotenzschutz und Abnahmekriterien aufgenommen. Kein Work Request ausgeführt und kein KB-Status verändert.
+- Reine Dokumentations-/Architekturänderung: keine Strategie, kein Signal, Score, Ranking, Entry, Stop, Exit, Scanner, Eventwirkung, Research-Ergebnis, Validation/Holdout, Broker- oder Orderfunktion geändert.
+
+### 2026-08-23
+
+- Verbindliche Overfiltering-Sperre für Overnight-/Intraday-Research technisch umgesetzt: zunächst nur isolierter Zusatznutzen gegenüber der einfachen Baseline, danach höchstens drei fachlich vorab begründete Kombinationen mit gemessenem materiellem inkrementellem Mehrwert nach Kosten. Redundante Merkmale zählen nicht mehrfach; komplexere Varianten benötigen robuste OOS-, Walk-Forward-, Zeit- und Parameterplateau-Evidenz. Selbst ein bestandenes Gate erlaubt nur manuelle Research-Prüfung und erzeugt keinen Pflichtfilter, Trade oder Produktionseinfluss. 35/35 gezielte Research-/Policy-Tests und 697/697 vollständige Regressionstests bestanden; kein Commit und kein Push für diese Ergänzung.
+- Methodische Research-Bereinigung als getrennte Policy-Schicht umgesetzt: deterministische Feature-Familien, Rohfeature-/Familienzählung, semantische Redundanzkandidaten und Komplexitätswarnung ohne Featurelöschung. Der eingefrorene Broad-Featureumfang wurde nicht erweitert.
+- Sequenziellen Ledgervertrag `Setup/Entry → Stop → Exit/Management → Challenger OOS` ergänzt. Jede Stufe ist ein eigener Versuch und benötigt den manuellen Freeze aller Vorgänger; kombinatorische Entry×Stop×Exit-Raster und Variantenlisten im finalen OOS sind gesperrt.
+- 20 Fälle verbindlich nur als frühe Diagnose eingeordnet. CRV ≥ 2 bleibt unveränderte Long-v1-Baseline statt bewiesenes Optimum. Fib besitzt eine OOS-Kill-Regel gegen kontinuierliche Tiefe und gleich breite Kontrollzonen; COT/Saisonalität/Opening Levels sowie Eventdaten bleiben sekundär beziehungsweise research/shadow only.
+- Evidenzvertrag für Historical Walk-Forward, Broad Historical, Swing Forward, Autonomous Paper, Shadow Live, User Trades und Legacy JSON umgesetzt. Berichte halten jede Gruppe getrennt und bilden keine still vermischte Statistik.
+- Späteres Dokumentationsziel festgehalten: ROADMAP für Zukunft, PROJECT_STATUS für Ist-Stand, CHANGELOG für Historie und RESEARCH_POLICY für dauerhafte Regeln. Bis dahin besitzt PROJECT_STATUS einen datierten `Current Truth`-Block; keine große Migration vor dem ersten Broad-Pass.
+- 12/12 gezielte Policy-Tests und anschließend die vollständige Regression mit 622/622 Tests erfolgreich. Broad-Code-Fingerprint vor/nach `77ab6ed29d8d08e32fabb8c2aee01c0a94953ded4b69092227f074273b12d946`, Broad-Feature-Vertragsfingerprint vor/nach `c09d43e3c297b1685796db568b63c23c5878b2f246e69508c409fdbaa77f01dd`, Frozen-Dataset vor/nach `e2310023e5c83fc19ce8316b55514e9694c882e546277487ed75319e560be1ed`. Long-v1 unverändert; kein Commit oder Push.
+- Robustheitsorientierte Research-Quality-v1 umgesetzt: append-only Hypothesen-/Ereignis-Ledger mit semantischer Deduplizierung und Familien-Versuchszähler, regimegematchte Placebos, feste Parameterplateaus, Ein-Feature-Ablation, konservative Abhängigkeitscluster, Zeit-/Regimestabilität, Entry-Effizienz A–D, getrennte Execution-Stresstests, Komplexitäts- und Survivorship-Audit sowie vollständiger Falsch-positiv-Bericht.
+- Das zukünftige Development-C-Gate verschärft: gute Durchschnittswerte allein bleiben B und `quality_review_complete = false`. Erst eine vollständig dokumentierte manuelle Robustheitsprüfung kann ein C für den unveränderlichen Freeze vorbereiten. Keine automatische Strategieauswahl, kein Tuning, keine Validation-/Holdout-Öffnung und keine Produktionswirkung.
+- Der Broad-Runner registriert seine acht Development-Hypothesen nach vollständigem Broad-Pass im getrennten Ledger; Resume zählt weder semantisch identische Hypothesen noch identische Evaluationen doppelt. Aktuell 0 reale Ledger-Hypothesen und 0 Broad-Kandidaten, weil die unveränderte Kampagne beim lesenden Stand 246/248 noch zwei C-Jobs offen hat.
+- 42/42 gezielte Research-Quality-, Broad-, Kontext-, Übergangs- und Diagnose-Tests sowie Python-Kompilierung erfolgreich. Eine erneute Vollregression wurde während der noch offenen historischen Kampagne bewusst nicht gestartet. Long-v1, 248er Queue, historische Fälle, Forward-, Paper-, Shadow-, Stop-, Ziel-, Kosten- und Produktionsdaten wurden nicht verändert; kein Commit und kein Push.
+- Kostenlosen getrennten Point-in-Time-Referenzpfad für offizielle SEC-FSDS-Daten umgesetzt. Quartals-ZIPs ab 2009 liefern filinggenaue SIC-Snapshots; Import, Deduplizierung, Fingerprints, SQLite-Speicher und As-of-Abfrage sind append-only und kausal.
+- Optionaler offizieller SEC-Download verlangt die Laufzeit-Kontaktkennung, begrenzt Dateien auf 200 MiB, validiert das ZIP vor dem atomaren Austausch und verwendet bei vorhandenem gültigem Archiv kein Netzwerk. Ohne Kontaktkennung findet kein Abruf statt.
+- Der Pfad hat keine automatische Research-, Regel-, Broad-, Long-v1- oder Produktionswirkung. Historische Indexmitgliedschaft, Handelbarkeit und delistete OHLCV bleiben sichtbar nicht verfügbar. 568/568 vollständige Tests vor der abschließenden reinen CLI-Ergänzung sowie danach 11/11 gezielte Tests erfolgreich; kein Commit und kein Push ausgelöst.
+
 ### 2026-08-22
 
+- Zusätzlichen kausalen Featureumfang vor dem ersten Broad-Vollpass fertig integriert und eingefroren: Relative Stärke, Trendqualität, Volatilitätsstruktur, rohe Candle-/Price-Action-Werte, historische Hochs/Tiefs, Konsolidierung, Frozen-Universe-Breadth und Gap-/Overnight-Risiko. Sektor-/Peer-Historie und Cross-Section-Perzentile bleiben sichtbar nicht verfügbar; regionale Breadth benötigt mindestens fünf Assets. Keine Regeln oder Produktion geändert.
+- Broad-Speicher nicht löschend auf Schema 4, Feature-Schema auf `swing-broad-pit-features-frozen-first-pass-2026.08.22-v3` und ML-Adapter auf `swing-ml-broad-research-frozen-first-pass-2026.08.22-v3` angehoben. Code-Fingerprint `7e763c3d786d3d79431f5b635d5e637e7b4f6add85d6ffa2596c7b8507e21b62`, Feature-Vertragsfingerprint `649bc9b45ad73c0d97aa95c0472c04cc8a01d30bff0c321972dd50d15e249e0b`; Frozen-Dataset unverändert `e2310023e5c83fc19ce8316b55514e9694c882e546277487ed75319e560be1ed`.
+- Vollständige Regression 559/559, Python-Kompilierung, Repository-Sicherheitscheck, Streamlit-Start und Git-Diff-Prüfung erfolgreich. Der anschließende Live-Smoke konnte für `BTC-EUR` wegen nicht verfügbarer externer Yahoo-Kursdaten keine Chartdaten laden; es wurden keine Ersatzdaten erfunden. Kampagne unverändert 243/248 (A 80/80, B 80/80, C 75/80); Broad-Vollpass bleibt gesperrt und hat weiterhin 0 Kandidaten. In dieser Arbeitseinheit wurde kein Commit und kein Push ausgelöst; der Branch-HEAD wurde währenddessen durch einen anderen Projektprozess auf `17f4f911f8f8afba4ed371ea26b12b65030adfef` fortgeschrieben, die abschließenden Änderungen bleiben lokal offen.
 - Vorbereitenden Short-Readiness-Layer in den noch nicht real gestarteten Broad-Research-Pass integriert. Bearishe Abwärtsimpuls-/Rally-, Bestätigungs-, Marktstruktur-, EMA- und Fibonacci-Merkmale werden Point-in-Time gemeinsam mit den vorhandenen Long-Features erzeugt, aber weder ausgewertet noch als Signal oder Challenger verwendet. Die Labelseite speichert richtungsneutrale Rohbewegungen für 5/10/20/25 Sitzungen; Short-Ausführungsdaten werden nicht erfunden.
 - Broad-Feature-Schema auf `swing-broad-pit-features-short-readiness-2026.08.22-v2`, Label-Schema auf `swing-broad-direction-neutral-labels-2026.08.22-v2` und den leeren Broad-Speichervertrag nicht löschend auf Schema 3 erweitert. Aktueller Code-Fingerprint `b7020db164445369b39cbbef619f965d71b8012b325439dc2fab79bc2e6f8811`, Feature-Vertragsfingerprint `46acb6e82b0feaaf0809b4b665944e1171189025e97d842cbcf846fa31de2e5e`; Frozen-Dataset-Fingerprint unverändert `e2310023e5c83fc19ce8316b55514e9694c882e546277487ed75319e560be1ed`.
 - Explizite Short-Kandidaten werden von gemeinsamer Risk Engine sowie Paper-/Shadow-Pfaden fail-closed abgewiesen. Long-v1-Strategie, Kandidatenauswahl, Stops, Ziele, Kosten, Kampagnenqueue und bestehende Evidenz blieben unverändert. Relevanter Kampagnenstand lesend 243/248; Broad-Vollpass weiterhin gesperrt und produktiver Broad-Speicher weiterhin ohne Kandidaten.

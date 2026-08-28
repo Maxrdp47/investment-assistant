@@ -14,7 +14,11 @@ from cot_positioning import (
     cot_shadow_store_audit,
 )
 from swing_forward_runner import run_swing_forward_evaluations
-from swing_forward_store import record_swing_forward_scan, swing_forward_store_audit
+from swing_forward_store import (
+    SWING_STRATEGY_VERSION,
+    record_swing_forward_scan,
+    swing_forward_store_audit,
+)
 from swing_event_research import (
     collect_forward_event_contexts,
     event_research_store_audit,
@@ -39,6 +43,41 @@ from swing_universe import active_swing_assets, load_swing_universe
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_SWING_BACKGROUND_SETTINGS_PATH = PROJECT_ROOT / "config" / "swing_background_settings.json"
+
+
+def _strategy_forward_configuration(payload: dict) -> dict:
+    configured = payload.get("strategy_forward")
+    if configured is None:
+        return {
+            "enabled": True,
+            "lifecycle_status": "ACTIVE_LEGACY_DEFAULT",
+            "strategy_version": SWING_STRATEGY_VERSION,
+            "new_strategy_signals_allowed": True,
+            "new_paper_cycles_allowed": True,
+            "new_shadow_drafts_allowed": True,
+            "broker_order_allowed": False,
+        }
+    strategy_forward = dict(configured)
+    if strategy_forward.get("enabled") is False:
+        required_false = (
+            "new_strategy_signals_allowed",
+            "new_paper_cycles_allowed",
+            "new_shadow_drafts_allowed",
+            "broker_order_allowed",
+        )
+        unsafe = [name for name in required_false if strategy_forward.get(name) is not False]
+        if unsafe:
+            raise ValueError(
+                "Ein eingefrorener Strategy-Forward muss fail-closed sein: "
+                + ", ".join(unsafe)
+            )
+        if str(strategy_forward.get("lifecycle_status") or "") != "LEGACY_RESEARCH_FROZEN":
+            raise ValueError(
+                "Ein deaktivierter Strategy-Forward muss als LEGACY_RESEARCH_FROZEN markiert sein."
+            )
+        if str(strategy_forward.get("strategy_version") or "") != SWING_STRATEGY_VERSION:
+            raise ValueError("Die eingefrorene Strategy-Version stimmt nicht mit Forward v1 überein.")
+    return strategy_forward
 
 
 def _project_path(value: object) -> Path:
@@ -103,6 +142,13 @@ def load_swing_background_settings(
         raise ValueError(
             "Event-Research muss research_only, produktionsneutral und brokerlos konfiguriert sein."
         )
+    strategy_forward = _strategy_forward_configuration(payload)
+    observer = dict(payload.get("observer") or {})
+    if strategy_forward.get("enabled") is False and observer.get("enabled") is True:
+        raise ValueError(
+            "Ein Observer darf erst aktiviert werden, wenn er technisch sicher von Strategie-, "
+            "Paper- und Shadow-Entscheidungen getrennt ist."
+        )
     return payload
 
 
@@ -116,6 +162,8 @@ def swing_background_preflight(
     settings_path: Path = DEFAULT_SWING_BACKGROUND_SETTINGS_PATH,
 ) -> dict:
     settings = load_swing_background_settings(settings_path)
+    strategy_forward = _strategy_forward_configuration(settings)
+    observer = dict(settings.get("observer") or {})
     universe_path = _project_path(settings["universe_path"])
     report = load_swing_universe(universe_path)
     assets = active_swing_assets(report)
@@ -165,6 +213,23 @@ def swing_background_preflight(
             name: scope.get("schedule_mode", "daily") for name, scope in settings["scopes"].items()
         },
         "orders_enabled": False,
+        "strategy_forward": {
+            "enabled": bool(strategy_forward.get("enabled")),
+            "lifecycle_status": strategy_forward.get("lifecycle_status"),
+            "strategy_version": strategy_forward.get("strategy_version"),
+            "new_strategy_signals_allowed": bool(
+                strategy_forward.get("new_strategy_signals_allowed")
+            ),
+            "new_paper_cycles_allowed": bool(strategy_forward.get("new_paper_cycles_allowed")),
+            "new_shadow_drafts_allowed": bool(strategy_forward.get("new_shadow_drafts_allowed")),
+            "broker_order_allowed": bool(strategy_forward.get("broker_order_allowed")),
+        },
+        "observer": {
+            "enabled": bool(observer.get("enabled")),
+            "market_data_collection_allowed": bool(observer.get("enabled")),
+            "strategy_decision_allowed": False,
+            "trade_decision_allowed": False,
+        },
         "paper_bot": paper_bot_store_audit(paper_path),
         "shadow_live": shadow_live_store_audit(shadow_path),
         "event_research": (
@@ -221,6 +286,26 @@ def run_swing_background_scope(
     settings = load_swing_background_settings(settings_path)
     if scope_name not in settings["scopes"]:
         raise ValueError(f"Unbekannter Swing-Scanbereich: {scope_name}")
+    strategy_forward = _strategy_forward_configuration(settings)
+    observer = dict(settings.get("observer") or {})
+    if strategy_forward.get("enabled") is False:
+        return {
+            "status": "legacy_strategy_frozen",
+            "scope": scope_name,
+            "lifecycle_status": strategy_forward["lifecycle_status"],
+            "strategy_version": strategy_forward["strategy_version"],
+            "reason": strategy_forward.get("reason"),
+            "strategy_forward_enabled": False,
+            "observer_enabled": bool(observer.get("enabled")),
+            "market_data_loaded": False,
+            "strategy_evaluation_started": False,
+            "scan_recorded": False,
+            "new_strategy_signals": 0,
+            "paper_cycle_created": False,
+            "shadow_drafts_created": False,
+            "broker_order_allowed": False,
+            "orders_enabled": False,
+        }
     scope = dict(settings["scopes"][scope_name])
     database_path = _project_path(settings["database_path"])
     universe_path = _project_path(settings["universe_path"])

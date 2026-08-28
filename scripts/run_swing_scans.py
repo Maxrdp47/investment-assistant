@@ -30,7 +30,12 @@ def main() -> int:
             parser.error("--scope ist ohne --preflight erforderlich")
         result = run_swing_background_scope(args.scope, settings_path=args.settings)
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0 if result["status"] in {"ok", "provider_unavailable", "already_active"} else 1
+    return 0 if result["status"] in {
+        "ok",
+        "provider_unavailable",
+        "already_active",
+        "legacy_strategy_frozen",
+    } else 1
 
 
 if __name__ == "__main__":

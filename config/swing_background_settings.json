@@ -1,9 +1,24 @@
 {
-  "version": "swing-background-2026.08.23-v4",
+  "version": "swing-background-2026.08.28-v5",
   "universe_path": "config/swing_universe.csv",
   "database_path": "runtime/swing_forward.sqlite3",
   "log_path": "runtime/logs/swing_background.log",
   "task_prefix": "InvestmentAssistantSwingScan",
+  "strategy_forward": {
+    "enabled": false,
+    "lifecycle_status": "LEGACY_RESEARCH_FROZEN",
+    "strategy_version": "swing-long-pullback-breakout-2026.08.11-v3",
+    "retired_on": "2026-08-28",
+    "reason": "Die Legacy-Version entspricht nicht mehr dem aktuellen Research- und Produktpfad und besitzt keine ausreichende Evidenz fuer eine weitere aktive Strategieevaluation.",
+    "new_strategy_signals_allowed": false,
+    "new_paper_cycles_allowed": false,
+    "new_shadow_drafts_allowed": false,
+    "broker_order_allowed": false
+  },
+  "observer": {
+    "enabled": false,
+    "reason": "Der bestehende Laufpfad trennt reine Marktbeobachtung nicht sicher von Strategiequalifikation und Paper-/Shadow-Erzeugung."
+  },
   "paper_bot": {
     "enabled": true,
     "database_path": "runtime/swing_paper_bot.sqlite3",

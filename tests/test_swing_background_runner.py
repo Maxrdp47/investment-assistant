@@ -21,6 +21,7 @@ def settings_file(
     autonomous_bot: bool = False,
     event_research: bool = False,
     cot_context: bool = False,
+    strategy_forward_enabled: bool = True,
 ) -> Path:
     payload = {
         "version": "test-background-v1",
@@ -28,6 +29,18 @@ def settings_file(
         "database_path": str(tmp_path / database_name),
         "log_path": str(tmp_path / "swing.log"),
         "task_prefix": "TestSwingTask",
+        "strategy_forward": {
+            "enabled": strategy_forward_enabled,
+            "lifecycle_status": (
+                "ACTIVE_TEST" if strategy_forward_enabled else "LEGACY_RESEARCH_FROZEN"
+            ),
+            "strategy_version": "swing-long-pullback-breakout-2026.08.11-v3",
+            "new_strategy_signals_allowed": strategy_forward_enabled,
+            "new_paper_cycles_allowed": strategy_forward_enabled,
+            "new_shadow_drafts_allowed": strategy_forward_enabled,
+            "broker_order_allowed": False,
+        },
+        "observer": {"enabled": False},
         "scopes": {
             "asia": {
                 "local_run_time": "10:30",
@@ -101,6 +114,9 @@ def test_production_schedule_keeps_night_off_and_chains_evening_provider_load() 
     settings = load_swing_background_settings()
     scopes = settings["scopes"]
     pipeline = (PROJECT_ROOT / "scripts" / "run_evening_pipeline.cmd").read_text(encoding="utf-8")
+    installer = (PROJECT_ROOT / "scripts" / "install_swing_tasks.ps1").read_text(
+        encoding="utf-8"
+    )
 
     assert scopes["asia"]["local_run_time"] == "10:30"
     assert scopes["europe"]["local_run_time"] == "18:15"
@@ -109,7 +125,89 @@ def test_production_schedule_keeps_night_off_and_chains_evening_provider_load() 
     assert "00:30" not in json.dumps(settings)
     assert "02:15" not in json.dumps(settings)
     assert pipeline.index("run_forecasts.cmd") < pipeline.index("america_global") < pipeline.index("crypto")
+    assert settings["strategy_forward"]["enabled"] is False
+    assert settings["strategy_forward"]["lifecycle_status"] == "LEGACY_RESEARCH_FROZEN"
+    assert settings["strategy_forward"]["new_strategy_signals_allowed"] is False
+    assert settings["strategy_forward"]["new_paper_cycles_allowed"] is False
+    assert settings["strategy_forward"]["new_shadow_drafts_allowed"] is False
+    assert settings["strategy_forward"]["broker_order_allowed"] is False
+    assert settings["observer"]["enabled"] is False
+    assert "run_swing_scans.cmd" not in pipeline
+    assert pipeline.count("status=LEGACY_RESEARCH_FROZEN") == 2
+    assert "Disable-ScheduledTask" in installer
+    assert "Legacy-Forward deaktiviert" in installer
     assert "exit /b %pipeline_exit%" in pipeline
+
+
+def test_frozen_legacy_forward_is_a_side_effect_free_noop(tmp_path) -> None:
+    settings = settings_file(
+        tmp_path,
+        autonomous_bot=True,
+        event_research=True,
+        cot_context=True,
+        strategy_forward_enabled=False,
+    )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("Ein eingefrorener Legacy-Forward darf keine Arbeit starten.")
+
+    result = run_swing_background_scope(
+        "asia",
+        settings_path=settings,
+        scan_callable=forbidden,
+        evaluation_callable=forbidden,
+        event_collection_callable=forbidden,
+        cot_collection_callable=forbidden,
+        shadow_quote_collection_callable=forbidden,
+    )
+
+    assert result == {
+        "status": "legacy_strategy_frozen",
+        "scope": "asia",
+        "lifecycle_status": "LEGACY_RESEARCH_FROZEN",
+        "strategy_version": "swing-long-pullback-breakout-2026.08.11-v3",
+        "reason": None,
+        "strategy_forward_enabled": False,
+        "observer_enabled": False,
+        "market_data_loaded": False,
+        "strategy_evaluation_started": False,
+        "scan_recorded": False,
+        "new_strategy_signals": 0,
+        "paper_cycle_created": False,
+        "shadow_drafts_created": False,
+        "broker_order_allowed": False,
+        "orders_enabled": False,
+    }
+    assert not list(tmp_path.glob("*.sqlite3"))
+    assert not (tmp_path / "swing.log").exists()
+
+
+def test_frozen_legacy_forward_configuration_is_fail_closed(tmp_path) -> None:
+    settings = settings_file(tmp_path, strategy_forward_enabled=False)
+    payload = json.loads(settings.read_text(encoding="utf-8"))
+    payload["strategy_forward"]["new_paper_cycles_allowed"] = True
+    settings.write_text(json.dumps(payload), encoding="utf-8")
+
+    try:
+        load_swing_background_settings(settings)
+    except ValueError as exc:
+        assert "fail-closed" in str(exc)
+    else:
+        raise AssertionError("Ein unsicherer Freeze-Vertrag muss abgelehnt werden.")
+
+
+def test_observer_cannot_be_enabled_without_clean_technical_separation(tmp_path) -> None:
+    settings = settings_file(tmp_path, strategy_forward_enabled=False)
+    payload = json.loads(settings.read_text(encoding="utf-8"))
+    payload["observer"]["enabled"] = True
+    settings.write_text(json.dumps(payload), encoding="utf-8")
+
+    try:
+        load_swing_background_settings(settings)
+    except ValueError as exc:
+        assert "Observer" in str(exc)
+    else:
+        raise AssertionError("Ein nicht separierter Observer muss gesperrt bleiben.")
 
 
 def scan_result(scope: str, *, selected: int, loaded: int) -> dict:

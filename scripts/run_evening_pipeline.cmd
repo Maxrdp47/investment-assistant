@@ -10,15 +10,11 @@ call "%~dp0run_forecasts.cmd"
 set "forecast_exit=%errorlevel%"
 >> "%evening_log%" echo [%date% %time%] ENDE stage=forecasts exit=%forecast_exit%
 
->> "%evening_log%" echo [%date% %time%] START stage=america_global
-call "%~dp0run_swing_scans.cmd" america_global
-set "america_exit=%errorlevel%"
->> "%evening_log%" echo [%date% %time%] ENDE stage=america_global exit=%america_exit%
+set "america_exit=0"
+>> "%evening_log%" echo [%date% %time%] SKIP stage=america_global status=LEGACY_RESEARCH_FROZEN
 
->> "%evening_log%" echo [%date% %time%] START stage=crypto
-call "%~dp0run_swing_scans.cmd" crypto
-set "crypto_exit=%errorlevel%"
->> "%evening_log%" echo [%date% %time%] ENDE stage=crypto exit=%crypto_exit%
+set "crypto_exit=0"
+>> "%evening_log%" echo [%date% %time%] SKIP stage=crypto status=LEGACY_RESEARCH_FROZEN
 
 set "pipeline_exit=0"
 if not "%forecast_exit%"=="0" set "pipeline_exit=%forecast_exit%"

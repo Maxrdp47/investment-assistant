@@ -21,7 +21,7 @@ from swing_research_market_scope import (
 
 
 SWING_ABC_V2_VERSION = "swing-ground-up-abc-2026.08.23-v2.1"
-SWING_EFFECTIVE_N_VERSION = "swing-effective-n-2026.08.23-v1"
+SWING_EFFECTIVE_N_VERSION = "swing-effective-n-2026.08.28-v2"
 SWING_CAMPAIGN_V2_METHODOLOGY_VERSION = "swing-campaign-methodology-2026.08.23-v2.1"
 ABC_ROUNDS = ("A", "B", "C")
 RESEARCH_STAGES = ("entry", "stop", "exit_management", "full_challenger_oos")
@@ -34,6 +34,7 @@ _SELECTION_FIELDS = (
     "ticker",
     "listing_id",
     "issuer_id",
+    "dependency_status",
     "economic_instrument_id",
     "correlation_cluster",
     "asset_type",
@@ -99,6 +100,7 @@ def abc_v2_selection_projection(candidate: Mapping[str, object]) -> dict[str, ob
             "ticker": _clean(candidate.get("ticker")),
             "listing_id": _clean(candidate.get("listing_id")),
             "issuer_id": _clean(candidate.get("issuer_id")),
+            "dependency_status": _clean(candidate.get("dependency_status")),
             "economic_instrument_id": _clean(candidate.get("economic_instrument_id")),
             "correlation_cluster": _clean(candidate.get("correlation_cluster")),
             "asset_type": _clean(candidate.get("asset_type")),
@@ -406,7 +408,7 @@ def _label_interval(row: Mapping[str, object]) -> tuple[date, date]:
 def _episode_count(
     rows: Sequence[Mapping[str, object]],
     dependency_field: str,
-) -> tuple[int, int]:
+) -> tuple[int, int, int]:
     """Count non-overlapping label episodes within one dependency identity.
 
     Unknown identities never get merged.  This avoids pretending that every
@@ -414,10 +416,12 @@ def _episode_count(
     """
     groups: dict[str, list[tuple[date, date]]] = defaultdict(list)
     known_rows = 0
+    unknown_rows = 0
     for row in rows:
         value = _clean(row.get(dependency_field), "").casefold()
         if not value or value in {"unknown", "unbekannt", "none", "n/a"}:
             value = f"__missing__:{row['candidate_id']}"
+            unknown_rows += 1
         else:
             known_rows += 1
         groups[value].append(_label_interval(row))
@@ -431,7 +435,8 @@ def _episode_count(
                 current_end = end
             elif end > current_end:
                 current_end = end
-    return episodes, known_rows
+    known_episodes = episodes - unknown_rows
+    return known_episodes, known_rows, unknown_rows
 
 
 def effective_n_report(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
@@ -447,12 +452,17 @@ def effective_n_report(rows: Sequence[Mapping[str, object]]) -> dict[str, object
         "economic_instrument_id",
         "correlation_cluster",
     ):
-        episodes, known_rows = _episode_count(projections, key)
+        episodes, known_rows, unknown_rows = _episode_count(projections, key)
         episode_counts[key] = {
             "non_overlapping_episodes": episodes,
             "rows_with_known_identity": known_rows,
+            "rows_with_unknown_identity": unknown_rows,
         }
-        if known_rows:
+        if key == "issuer_id":
+            # Unknown issuer relationships may not be promoted to independent
+            # evidence.  They contribute zero to issuer-adjusted effective N.
+            hard_limits.append(episodes)
+        elif known_rows:
             hard_limits.append(episodes)
     effective_n = min(hard_limits, default=0)
     dimensions = {}
@@ -507,6 +517,10 @@ def effective_n_report(rows: Sequence[Mapping[str, object]]) -> dict[str, object
         ],
         "effective_n_le_raw_n": effective_n <= len(rows),
         "raw_trades_are_independent_evidence": False,
+        "unknown_issuer_cases_counted_as_independent": False,
+        "issuer_dependency_coverage_complete": (
+            episode_counts["issuer_id"]["rows_with_unknown_identity"] == 0
+        ),
     }
 
 

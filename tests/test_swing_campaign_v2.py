@@ -249,11 +249,14 @@ def test_unknown_identity_values_do_not_form_one_fake_dependency_cluster() -> No
 
     report = effective_n_report(rows)
 
-    assert report["effective_n"] == 2
+    assert report["effective_n"] == 0
     assert report["non_overlapping_dependency_episodes"]["issuer_id"] == {
-        "non_overlapping_episodes": 2,
+        "non_overlapping_episodes": 0,
         "rows_with_known_identity": 0,
+        "rows_with_unknown_identity": 2,
     }
+    assert report["unknown_issuer_cases_counted_as_independent"] is False
+    assert report["issuer_dependency_coverage_complete"] is False
 
 
 @pytest.mark.parametrize(

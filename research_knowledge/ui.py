@@ -87,6 +87,45 @@ def _result_metric_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def result_lifecycle_status(result: dict[str, Any]) -> str | None:
+    """Expose a terminal challenger status without changing hypothesis semantics."""
+
+    validation = result.get("validation")
+    if not isinstance(validation, dict):
+        return None
+    if (
+        result.get("conclusion") == "negative"
+        and validation.get("status") == "VALIDATION_FAIL"
+        and validation.get("next_stage_allowed") is False
+    ):
+        return "REJECTED_AT_VALIDATION"
+    return None
+
+
+def result_validation_assessment_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for assessment in result.get("validation_assessments") or ():
+        rows.append(
+            {
+                "Richtung": assessment["result_direction"],
+                "OOS": assessment["oos_status"],
+                "Walk-Forward": assessment["walk_forward_status"],
+                "External/Unseen": assessment["external_unseen_status"],
+                "Forward": assessment["forward_status"],
+                "Paper": assessment["paper_status"],
+                "Sample Size": assessment["sample_size_status"],
+                "Unsicherheit": assessment["uncertainty_status"],
+                "Kosten/Slippage": assessment["costs_slippage_status"],
+                "Datenqualität": assessment["data_quality_status"],
+                "Leakage": assessment["leakage_status"],
+                "PIT": assessment["pit_status"],
+                "Kritischer Blocker": "Ja" if assessment["critical_blocker"] else "Nein",
+                "Begründung": assessment["rationale"],
+            }
+        )
+    return rows
+
+
 def _render_sources(detail: dict[str, Any]) -> None:
     st.subheader("Quellen und externe Evidenz")
     if not detail["sources"]:
@@ -154,8 +193,11 @@ def _render_experiments(detail: dict[str, Any]) -> None:
                     )
                 )
             for result in experiment["results"]:
+                lifecycle_status = result_lifecycle_status(result)
                 st.markdown(
-                    f"**{result['title']} · {CONCLUSION_LABELS.get(result['conclusion'], result['conclusion'])}**"
+                    f"**{result['title']} · {CONCLUSION_LABELS.get(result['conclusion'], result['conclusion'])}"
+                    + (f" · `{lifecycle_status}`" if lifecycle_status else "")
+                    + "**"
                 )
                 metric_rows = _result_metric_rows(result)
                 if metric_rows:
@@ -176,6 +218,10 @@ def _render_experiments(detail: dict[str, Any]) -> None:
                 ]
                 if available_stages:
                     st.dataframe(available_stages, use_container_width=True, hide_index=True)
+                assessment_rows = result_validation_assessment_rows(result)
+                if assessment_rows:
+                    st.markdown("**Resultat-Gate-Bewertung**")
+                    st.dataframe(assessment_rows, use_container_width=True, hide_index=True)
 
 
 def _render_ledger(detail: dict[str, Any]) -> None:

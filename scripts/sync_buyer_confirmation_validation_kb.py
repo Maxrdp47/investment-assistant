@@ -3,6 +3,7 @@ from __future__ import annotations
 """Idempotently link the frozen Buyer Confirmation run to the research KB."""
 
 import argparse
+import hashlib
 import json
 import sqlite3
 import sys
@@ -21,12 +22,170 @@ EXPERIMENT_TITLE = "Buyer Confirmation v1 – Frozen Validation/Holdout"
 WORK_REQUEST_KEY = "buyer-confirmation-objective-pullback-v1:unseen-evaluation"
 CLAIM_TOKEN = "buyer-confirmation-objective-pullback-v1-claim"
 WORKER_CONTEXT = "codex/buyer-confirmation-validation"
+TERMINAL_VALIDATION_REJECTION = "REJECTED_AT_VALIDATION"
 
 
 def _connection(path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
     return connection
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _result_payload(report: dict[str, object], final_decision: str) -> dict[str, object]:
+    status = str(report.get("status") or "")
+    treatment = dict(report.get("treatment") or {})
+    geometry = dict(treatment.get("risk_and_entry_geometry") or {})
+    if final_decision.startswith("REJECTED"):
+        conclusion = "negative"
+    elif final_decision == "ELIGIBLE_FOR_TRUE_FORWARD":
+        conclusion = "supports"
+    else:
+        conclusion = "inconclusive"
+    return {
+        "title": f"Buyer Confirmation v1 – {status}",
+        "conclusion": conclusion,
+        "interpretation": (
+            f"Frozen unseen evaluation ended as {final_decision}; no retuning, additional filter, "
+            "production activation, or broker action was performed."
+        ),
+        "sample_size": int(treatment.get("evaluated_n") or 0),
+        "hit_rate": treatment.get("win_rate_pct"),
+        "expectancy": treatment.get("expectancy_r"),
+        "profit_factor": treatment.get("profit_factor"),
+        "mfe": dict(geometry.get("mfe_r") or {}).get("mean"),
+        "mae": dict(geometry.get("mae_r") or {}).get("mean"),
+        "drawdown": dict(report.get("candidate_sequence_drawdown") or {}).get(
+            "maximum_drawdown_r"
+        ),
+        "slippage": 5.0,
+        "validation": report,
+    }
+
+
+def _validate_terminal_decision(report: dict[str, object], final_decision: str) -> None:
+    if final_decision != TERMINAL_VALIDATION_REJECTION:
+        return
+    expected_failed_gates = {
+        "conservative_execution_treatment_pf_above_one",
+        "conservative_execution_treatment_positive",
+        "positive_in_at_least_60pct_of_years",
+    }
+    if (
+        str(report.get("status") or "") != "VALIDATION_FAIL"
+        or str(report.get("research_stage") or "") != "validation"
+        or report.get("next_stage_allowed") is not False
+        or set(report.get("failed_gates") or ()) != expected_failed_gates
+    ):
+        raise ValueError(
+            "REJECTED_AT_VALIDATION widerspricht dem gespeicherten Validation-Bericht."
+        )
+
+
+def _ensure_negative_validation_assessment(
+    path: Path,
+    *,
+    workflow: ResearchWorkflow,
+    result_id: str,
+    decision_report_path: Path,
+    report: dict[str, object],
+    final_decision: str,
+) -> dict[str, object] | None:
+    """Append the missing negative gate assessment exactly once.
+
+    The hypothesis-level validation-selection table intentionally remains empty:
+    its schema accepts only fully qualified supporting results.  A failed
+    Validation belongs in the result assessment and evidence ledger instead.
+    """
+
+    if final_decision != TERMINAL_VALIDATION_REJECTION:
+        return None
+    with _connection(path) as connection:
+        existing = connection.execute(
+            "SELECT * FROM result_validation_assessments WHERE result_id=? "
+            "ORDER BY assessed_at, rowid",
+            (result_id,),
+        ).fetchall()
+    if len(existing) > 1:
+        raise ValueError("Buyer-Validation besitzt mehrere KB-Gate-Assessments.")
+    if existing:
+        assessment = dict(existing[0])
+        expected = {
+            "result_direction": "NEGATIVE",
+            "oos_status": "FAILED",
+            "walk_forward_status": "FAILED",
+            "external_unseen_status": "NOT_RUN",
+            "forward_status": "NOT_RUN",
+            "paper_status": "NOT_RUN",
+            "sample_size_status": "PASSED",
+            "uncertainty_status": "PASSED",
+            "costs_slippage_status": "FAILED",
+            "data_quality_status": "PASSED",
+            "leakage_status": "PASSED",
+            "pit_status": "PASSED",
+        }
+        mismatches = {
+            key: {"expected": value, "stored": assessment.get(key)}
+            for key, value in expected.items()
+            if assessment.get(key) != value
+        }
+        if mismatches:
+            raise ValueError(
+                "Gespeichertes Buyer-Validation-Assessment widerspricht dem Endstatus: "
+                + json.dumps(mismatches, ensure_ascii=False, sort_keys=True)
+            )
+        assessment["idempotent_replay"] = True
+        return assessment
+    failed_gates = ", ".join(str(item) for item in report.get("failed_gates") or ())
+    report_path = Path(decision_report_path).resolve()
+    return workflow.assess_result_for_validation(
+        result_id,
+        research_type="tradable_strategy_feature",
+        result_direction="NEGATIVE",
+        source_scopes=("EQUITIES",),
+        hypothesis_test_scopes=("EQUITIES",),
+        experiment_test_scopes=("EQUITIES",),
+        validated_scopes=(),
+        rejected_scopes=("EQUITIES",),
+        is_status="PASSED",
+        oos_status="FAILED",
+        walk_forward_status="FAILED",
+        external_unseen_status="NOT_RUN",
+        forward_status="NOT_RUN",
+        paper_status="NOT_RUN",
+        sample_size_status="PASSED",
+        uncertainty_status="PASSED",
+        costs_slippage_status="FAILED",
+        data_quality_status="PASSED",
+        leakage_status="PASSED",
+        pit_status="PASSED",
+        critical_blocker=False,
+        limitations=(
+            "Negative Evidenz gilt nur für die exakt eingefrorene objective_pullback-Regel; "
+            "das historische Universum ist nicht vollständig survivorship-free."
+        ),
+        artifact_references=(
+            {
+                "system": "buyer_confirmation_validation",
+                "record_type": "stage_decision",
+                "record_id": str(report.get("review_fingerprint") or "VALIDATION_FAIL"),
+                "uri": str(report_path),
+                "sha256": _file_sha256(report_path),
+            },
+        ),
+        rationale=(
+            "Die vollständig ausgeführte ungesehene Validation ist terminal fehlgeschlagen. "
+            f"Fehlgeschlagene vorab definierte Gates: {failed_gates}. Holdout blieb gesperrt."
+        ),
+        assessed_at=report.get("reviewed_at"),
+    )
 
 
 def prepare(path: Path, *, prepared_at: str | None = None) -> dict[str, object]:
@@ -196,56 +355,80 @@ def complete(
     workflow = ResearchWorkflow(path)
     prepared = prepare(path, prepared_at=completed_at)
     request = workflow.get_work_request(str(prepared["work_request_id"]), include_context=False)
-    if request["current_status"] == "COMPLETED":
-        return {**prepared, "work_request_status": "COMPLETED", "idempotent_replay": True}
     report = json.loads(Path(decision_report_path).read_text(encoding="utf-8"))
-    status = str(report.get("status") or "")
-    treatment = dict(report.get("treatment") or {})
-    geometry = dict(treatment.get("risk_and_entry_geometry") or {})
-    if final_decision.startswith("REJECTED"):
-        conclusion = "negative"
-    elif final_decision == "ELIGIBLE_FOR_TRUE_FORWARD":
-        conclusion = "supports"
-    else:
-        conclusion = "inconclusive"
+    _validate_terminal_decision(report, final_decision)
+    payload = _result_payload(report, final_decision)
+    if request["current_status"] == "COMPLETED":
+        result_id = str(request.get("result_id") or "")
+        if not result_id:
+            raise ValueError("Abgeschlossener Work Request besitzt kein KB-Resultat.")
+        stored_result = workflow.knowledge.get_result(result_id)
+        expected_identity = {
+            "title": payload["title"],
+            "conclusion": payload["conclusion"],
+            "sample_size": payload["sample_size"],
+        }
+        mismatches = {
+            key: {"expected": value, "stored": stored_result.get(key)}
+            for key, value in expected_identity.items()
+            if stored_result.get(key) != value
+        }
+        if mismatches:
+            raise ValueError(
+                "Abgeschlossenes Buyer-Validation-Resultat widerspricht dem Entscheidungsbericht: "
+                + json.dumps(mismatches, ensure_ascii=False, sort_keys=True)
+            )
+        assessment = _ensure_negative_validation_assessment(
+            path,
+            workflow=workflow,
+            result_id=result_id,
+            decision_report_path=decision_report_path,
+            report=report,
+            final_decision=final_decision,
+        )
+        return {
+            **prepared,
+            "work_request_status": "COMPLETED",
+            "result_id": result_id,
+            "result_validation_assessment_id": assessment.get("id") if assessment else None,
+            "candidate_lifecycle_status": final_decision,
+            "hypothesis_status_unchanged": True,
+            "hypothesis_validation_evidence_selected": False,
+            "idempotent_replay": True,
+        }
     completed = workflow.complete_work_request(
         str(request["id"]),
         claim_token=CLAIM_TOKEN,
         worker_context=WORKER_CONTEXT,
-        result={
-            "title": f"Buyer Confirmation v1 – {status}",
-            "conclusion": conclusion,
-            "interpretation": (
-                f"Frozen unseen evaluation ended as {final_decision}; no retuning, additional filter, "
-                "production activation, or broker action was performed."
-            ),
-            "sample_size": int(treatment.get("evaluated_n") or 0),
-            "hit_rate": treatment.get("win_rate_pct"),
-            "expectancy": treatment.get("expectancy_r"),
-            "profit_factor": treatment.get("profit_factor"),
-            "mfe": dict(geometry.get("mfe_r") or {}).get("mean"),
-            "mae": dict(geometry.get("mae_r") or {}).get("mean"),
-            "drawdown": dict(report.get("candidate_sequence_drawdown") or {}).get(
-                "maximum_drawdown_r"
-            ),
-            "slippage": 5.0,
-            "validation": report,
-        },
+        result=payload,
         result_reference=str(Path(decision_report_path).resolve()),
         artifact_references=(
             {
                 "system": "buyer_confirmation_validation",
                 "record_type": "stage_decision",
-                "record_id": str(report.get("review_fingerprint") or status),
+                "record_id": str(report.get("review_fingerprint") or report.get("status")),
             },
         ),
         completed_at=completed_at,
     )
+    result_id = str(completed.get("result_id") or "")
+    assessment = _ensure_negative_validation_assessment(
+        path,
+        workflow=workflow,
+        result_id=result_id,
+        decision_report_path=decision_report_path,
+        report=report,
+        final_decision=final_decision,
+    )
     return {
         **prepared,
         "work_request_status": completed["current_status"],
-        "result_id": completed.get("result_id"),
+        "result_id": result_id,
+        "result_validation_assessment_id": assessment.get("id") if assessment else None,
         "final_decision": final_decision,
+        "candidate_lifecycle_status": final_decision,
+        "hypothesis_status_unchanged": True,
+        "hypothesis_validation_evidence_selected": False,
         "negative_evidence_retained": True,
         "automatic_strategy_change": False,
         "production_activation": False,

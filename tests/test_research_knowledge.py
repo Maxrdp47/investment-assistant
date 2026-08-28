@@ -7,7 +7,11 @@ import pytest
 
 from research_knowledge import CURRENT_SCHEMA_VERSION, ResearchKnowledgeBase, initialize_database
 from research_knowledge.schema import SCHEMA_MIGRATIONS
-from research_knowledge.ui import hypothesis_table_rows
+from research_knowledge.ui import (
+    hypothesis_table_rows,
+    result_lifecycle_status,
+    result_validation_assessment_rows,
+)
 
 
 def source(kb: ResearchKnowledgeBase, title: str, source_type: str = "paper") -> dict:
@@ -80,6 +84,58 @@ def result(kb: ResearchKnowledgeBase, experiment_id: str, *, conclusion: str = "
         interpretation="Der Effekt verschwindet außerhalb der Entwicklung und nach Kosten.",
         recorded_at="2026-08-21T10:00:00+00:00",
     )
+
+
+def test_negative_validation_result_is_reported_as_terminal_not_holdout_ready() -> None:
+    stored = {
+        "conclusion": "negative",
+        "validation": {"status": "VALIDATION_FAIL", "next_stage_allowed": False},
+        "validation_assessments": [
+            {
+                "result_direction": "NEGATIVE",
+                "oos_status": "FAILED",
+                "walk_forward_status": "FAILED",
+                "external_unseen_status": "NOT_RUN",
+                "forward_status": "NOT_RUN",
+                "paper_status": "NOT_RUN",
+                "sample_size_status": "PASSED",
+                "uncertainty_status": "PASSED",
+                "costs_slippage_status": "FAILED",
+                "data_quality_status": "PASSED",
+                "leakage_status": "PASSED",
+                "pit_status": "PASSED",
+                "critical_blocker": 0,
+                "rationale": "Validation fehlgeschlagen; Holdout gesperrt.",
+            }
+        ],
+    }
+
+    assert result_lifecycle_status(stored) == "REJECTED_AT_VALIDATION"
+    rows = result_validation_assessment_rows(stored)
+    assert rows == [
+        {
+            "Richtung": "NEGATIVE",
+            "OOS": "FAILED",
+            "Walk-Forward": "FAILED",
+            "External/Unseen": "NOT_RUN",
+            "Forward": "NOT_RUN",
+            "Paper": "NOT_RUN",
+            "Sample Size": "PASSED",
+            "Unsicherheit": "PASSED",
+            "Kosten/Slippage": "FAILED",
+            "Datenqualität": "PASSED",
+            "Leakage": "PASSED",
+            "PIT": "PASSED",
+            "Kritischer Blocker": "Nein",
+            "Begründung": "Validation fehlgeschlagen; Holdout gesperrt.",
+        }
+    ]
+    assert result_lifecycle_status(
+        {
+            "conclusion": "supports",
+            "validation": {"status": "VALIDATION_PASS", "next_stage_allowed": True},
+        }
+    ) is None
 
 
 def test_source_hypothesis_experiment_result_persist_with_full_ledger(tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 # SwingTrader – kanonische Produktarchitektur
 
-Stand: 2026-08-27
+Stand: 2026-08-29
 
 Dieses Dokument ist das verbindliche langfristige Zielbild für den SwingTrader des Investment-Assistenten. Es beschreibt keine neue aktive Handelslogik und erteilt keine Produktions-, Broker- oder Echtgeldfreigabe. Der belegte Ist-Stand bleibt in `PROJECT_STATUS.md`; Prioritäten und offene Arbeit stehen in `ROADMAP.md`.
 
@@ -44,7 +44,7 @@ Aufgaben:
 - Zukunftswissen, rückdatierte heutige Daten und still vermischte Listings verhindern.
 - Unsicherheit und nicht verfügbare Daten sichtbar halten.
 
-Aktueller Stand: Mehrere Point-in-Time-, Fingerprint-, Append-only-, Listing-, Forward- und Research-Verträge existieren. Die vollständige historische Coverage für Fundamentals, Erwartungen, Events, Branchen, Handelbarkeit und Mikrostruktur ist noch nicht vorhanden.
+Aktueller Stand: Der future-only Research-Identity-Vertrag trennt Asset, Listing und nur belastbar bekannte Issuer; unbekannte Beziehungen werden nicht als unabhängige Evidenz gezählt. Ein zentraler Listing-Bundle-Guard sperrt gemischte OHLCV-, Kurs-, Währungs-, Handelszeit-, Entry-, Stop- und Zieldaten. Die FX-PIT-Grundpipeline modelliert Paarinversion, Session, Verfügbarkeit und Revisionen, weist fehlende historische Erwartungen/Vintages aber ehrlich als nicht verfügbar aus. Die vollständige historische Coverage für Fundamentals, Erwartungen, Events, Branchen, Handelbarkeit und Mikrostruktur ist weiterhin nicht vorhanden.
 
 ### B. Asset Discovery / Opportunity Engine
 

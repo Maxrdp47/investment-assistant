@@ -66,6 +66,8 @@ def test_xpeng_adr_and_primary_are_distinct_listings_in_one_dependency_cluster()
     assert identities[1]["is_depositary_receipt"] is True
     assert identities[0]["currency"] == "HKD"
     assert identities[1]["currency"] == "USD"
+    assert identities[0]["exchange_timezone"] == "Asia/Hong_Kong"
+    assert identities[1]["exchange_timezone"] == "America/New_York"
 
 
 @pytest.mark.parametrize(
@@ -126,6 +128,8 @@ def test_listing_bundle_rejects_price_stop_target_currency_or_listing_mixing() -
     valid = {
         "identity": identity,
         "ohlcv": {"listing_id": listing_id, "currency": "USD"},
+        "price": {"listing_id": listing_id, "currency": "USD", "value": 20.0},
+        "trading_hours": {"listing_id": listing_id, "currency": "USD"},
         "entry": {"listing_id": listing_id, "currency": "USD", "value": 20.0},
         "stop": {"listing_id": listing_id, "currency": "USD", "value": 18.0},
         "target": {"listing_id": listing_id, "currency": "USD", "value": 24.0},
@@ -136,6 +140,14 @@ def test_listing_bundle_rejects_price_stop_target_currency_or_listing_mixing() -
         validate_listing_scoped_bundle(
             {**valid, "stop": {"listing_id": "listing-9868-hk", "currency": "HKD"}}
         )
+    for section in ("ohlcv", "price", "trading_hours", "target"):
+        with pytest.raises(ResearchIdentityError, match="gehört nicht"):
+            validate_listing_scoped_bundle(
+                {
+                    **valid,
+                    section: {"listing_id": "listing-9868-hk", "currency": "HKD"},
+                }
+            )
     with pytest.raises(ResearchIdentityError, match="Listing-Währung"):
         validate_listing_scoped_bundle(
             {**valid, "target": {"listing_id": listing_id, "currency": "EUR"}}

@@ -10,15 +10,15 @@
 - Für diese Version sind keine Retunes oder weiteren Kombinationstests zulässig. Eine spätere neue Hypothese müsste fachlich neu begründet, neu versioniert und vor Ergebnissichtung mit eigenem Freeze wieder bei Development beginnen; aus diesem negativen Validation-Ergebnis entsteht keine automatische Folgearbeit.
 - Broad-v1, Frozen Dataset, Development-Artefakt, Baseline und Produktionsstrategie bleiben unverändert. Die Buyer-Confirmation-Validierung ist damit fachlich terminal abgeschlossen.
 
-## Aktuelles Gate vor der nächsten Research-Epoch – 2026-08-28
+## Aktuelles Gate vor der nächsten Research-Epoch – 2026-08-29
 
 - `buyer-confirmation-objective-pullback-v1` ist abgeschlossen und in ungesehener Validation terminal `VALIDATION_FAIL`, `NEGATIVE` und `REJECTED_AT_VALIDATION`. Kein Holdout, kein Rescue, kein Retuning und kein weiterer Filter für diese Version.
 - `LEGACY FORWARD v1` mit Strategie `swing-long-pullback-breakout-2026.08.11-v3` ist technisch und betrieblich eingefroren. Historische Forward-/Paper-/Shadow-Evidenz bleibt erhalten, aber die Version darf keine neuen Strategie-Signale, strategiegebundenen Paper-Trades oder Shadow-Orders erzeugen.
 - Ein Observer wird nur erlaubt, wenn Datenbeobachtung bereits technisch beweisbar von Strategie-, Signal-, Trade-, Paper- und Shadow-Entscheidungen getrennt ist. Da diese Trennung aktuell nicht besteht, bleibt der Observer deaktiviert.
-- Der nächste große Schritt heißt `Multi-Asset Opportunity Discovery v1`. Er ist ein zukünftiger Development-Research-Epoch und in diesem Konsolidierungsauftrag ausdrücklich `NOT_STARTED`: kein Scan, keine neue Candidate Generation, keine Labels, Hypothesen oder Auswertung.
+- Der nächste große Schritt heißt `Multi-Asset Opportunity Discovery v1`. Die methodischen Vorbedingungen sind vorbereitet, der Scan selbst bleibt in diesem Auftrag ausdrücklich `NOT_STARTED`: keine neue Candidate Generation, keine neuen Multi-Asset-Labels, kein Challenger und keine ungesehene Stufe.
 - Ein `FUTURE FORWARD v2` existiert noch nicht. Er darf erst nach `Development → Fixed Challenger → Validation → Holdout → External Unseen Universe → Forward` derselben festgeschriebenen Version entstehen. Keine Abkürzung.
-- Die fünf KB-Work-Requests aus G2.12 bleiben `READY`, aber ungeordnet, nicht priorisiert, nicht gestartet und nicht automatisch die nächste Strategie.
-- Abnahme: 94 gezielte Lifecycle-/Forward-/Paper-/Shadow-/KB-/Buyer-Tests und 775/775 vollständige Regressionstests bestanden. Kompilierung, Repo-Safety, Offline-Smoke, Streamlit-Start, Swing-Preflight und Diff-Prüfung sind erfolgreich; die geschützten Frozen-, Broad- und Buyer-Fingerprints blieben unverändert.
+- Drei der fünf KB-Work-Requests aus G2.12 sind methodisch abgeschlossen: Fibonacci durch Wiederverwendung des identischen immutable Broad-v1-Ergebnisses, FX-Carry als transparent begrenzte PIT-Datenpipeline und Failed Seller als eigener Development-Feature-Epoch. Gold/Silber und Wasser bleiben unangetastet `READY`. Kein Auftrag ist automatisch eine Strategie.
+- Aktuelle Abnahme: 41 gezielte Identity-/FX-/Failed-Seller-/KB-Tests und 794/794 vollständige Regressionstests bestanden. Kompilierung, Repo-Safety, Offline-Smoke, separater Streamlit-Start, Swing-Preflight und Diff-Prüfung sind erfolgreich; Frozen-, Broad-, Buyer- und Legacy-Forward-Schutz blieben unverändert.
 
 ## Projektziel
 
@@ -1619,9 +1619,9 @@ Status 2026-08-25: Der vollständig abgeschlossene Broad-v1-Pass wurde ausschlie
 - Künftige Ledger trennen sieben fachliche Hypothesenfamilien; identische Alias-Features wie Buyer Confirmation und `candle_quality.close_above_prior_high` zählen nicht doppelt. Keine Confluence aus den Development-Gewinnern und keine automatische Strategieauswahl.
 - Abnahme: 61/61 gezielte Broad-/Validity-/Quality-/Policy-/Transition-Tests und 772/772 vollständige Regressionstests erfolgreich. Python-Kompilierung, Repository-Sicherheitscheck, Offline-Smoke samt lokalem Streamlit-Start und Git-Diff-Prüfung sind grün.
 
-##### G2.12 – fünf KB-gesteuerte READY-Folgeaufträge
+##### G2.12 – fünf KB-gesteuerte Folgeaufträge
 
-Status 2026-08-27: Ausschließlich als Folgeauftrag in die Roadmap übernommen, noch nicht ausgeführt. Die verbindliche Knowledge Base ist `runtime/research_knowledge.sqlite3`. Der read-only Planungsabgleich zeigte Integrität `ok`, keine Foreign-Key-Probleme und alle fünf genannten Work Requests weiterhin `READY`. Dieser Snapshot ersetzt nicht die erneute Prüfung direkt vor einer späteren Ausführung.
+Status 2026-08-29: Die verbindliche Knowledge Base ist `runtime/research_knowledge.sqlite3`. Fibonacci, FX-Carry-PIT und Failed Seller sind mit je genau einem persistenten Resultat und Artefaktlinks `COMPLETED`; KB-Integrität ist `ok`, Foreign-Key-Probleme 0. Gold/Silber und Wasser bleiben unverändert `READY`. Der große Multi-Asset-Scan wurde nicht gestartet.
 
 Verbindlicher Startvertrag:
 
@@ -1636,12 +1636,12 @@ Verbindlicher Startvertrag:
 
 Optionale, nicht priorisierte Planungsgegenstände – keine Ausführungsreihenfolge:
 
-- **Fibonacci – zuerst Duplikat-/Resultatprüfung**
-   Work Request `d941320c-48ca-43fb-9bd9-0c362d8873ea`, Hypothese `505703b4-bbc1-4009-b94b-6d9ac032f925`, Experiment `9b0922e7-0673-4362-94d7-d59827680cf7`. Zuerst prüfen, ob Broad-v1 mit `objective_pullback`, 0,618–0,786, den gleich breiten Kontrollen 0,450–0,618 und 0,786–0,954 sowie kontinuierlicher Pullbacktiefe den Vertrag bereits vollständig beantwortet. Bei fachlicher Identität kein neuer Lauf; das immutable B-Ergebnis korrekt verknüpfen. Nur echte Vertragsdifferenzen dürfen einen fehlenden Test begründen. Keine Extensions oder Leveloptimierung.
-- **FX Carry Point-in-Time-Pipeline**
-   Work Request `1f6201fe-2cbd-4fc1-9bf1-291a4221bdfa`, Hypothese `0a6350d5-718f-437d-97c1-f484fb8e11bf`, Experiment `793d4731-4de5-4c16-a7f3-dd44dea1761c`. Versionierte PIT-Datenpipeline für Erwartungen/Konsens, Zinsdifferenzen, FX-Volatilität, bestätigte Interventionen, Veröffentlichungszeiten, Revisionen, Lags sowie korrekte Basis-/Gegenwährung prüfen beziehungsweise aufbauen. Fehlende historische PIT-Daten niemals approximieren oder rückdatieren; dann Teilresultat oder `BLOCKED` mit Coverage. Pipeline ist keine Strategieaktivierung.
-- **Failed Seller Attempts als neuer Research-Epoch**
-   Work Request `d4dbaf10-b321-4223-9a0b-91f0bc245151`, Hypothese `7cb6dd8b-85e2-4b46-ac9a-0654a1310fc4`, Experiment `f0ae30fb-d00e-461f-84ad-ac3110f4ae49`. Broad-v1 nicht editieren. Neue kausale Features in eigenem Featurevertrag, eigener Version und eigenem Fingerprint auf kompatibler Frozen-OHLCV-Basis prüfen. Präregistrierte Definition unverändert verwenden; keine freie Suche nach Attempt-Anzahl, Candle-/Confirmation-Schwellen oder Kombinationen. Korrelation, effective N und Overfiltering berichten.
+- **Fibonacci – abgeschlossen durch identisches vorhandenes Resultat**
+   Work Request `d941320c-48ca-43fb-9bd9-0c362d8873ea`, Experiment `9b0922e7-0673-4362-94d7-d59827680cf7`, Resultat `4a3f776a-17a5-45f6-b0b7-0b9fa51272bb`: `COMPLETED` ohne neuen Run. Broad-v1 beantwortete `objective_pullback`, 0,618–0,786, beide gleich breiten Kontrollen und kontinuierliche Pullbacktiefe bereits vollständig. B-/Development-Evidenz bleibt erhalten; keine Extension, neue Zone, Validation oder Aktivierung.
+- **FX Carry Point-in-Time-Pipeline – transparent teilweise abgeschlossen**
+   Work Request `1f6201fe-2cbd-4fc1-9bf1-291a4221bdfa`, Experiment `793d4731-4de5-4c16-a7f3-dd44dea1761c`, Resultat `a4c0b1c7-ab1d-4802-bfc6-48d869843cb6`: `COMPLETED`. EUR/USD, USD/JPY und GBP/USD besitzen reproduzierbare Paar-, Inversions-, Vorzeichen-, Session-, Verfügbarkeits- und Revisionsverträge. Historische PIT-Vintages, Erwartungen, Konsense, Interventionen, implied Volatility und Bid/Ask fehlen lokal und wurden nicht approximiert. 0 Research-Varianten, keine FX-Strategie.
+- **Failed Seller Attempts – Development-Feature-Epoch abgeschlossen**
+   Work Request `d4dbaf10-b321-4223-9a0b-91f0bc245151`, Experiment `f0ae30fb-d00e-461f-84ad-ac3110f4ae49`, Resultat `07f46840-35e1-41f4-949c-264c7cf08fbe`: `COMPLETED`. Eigener kausaler Featurevertrag/Fingerprint, 379.039 technisch vollständige Development-Fälle und exakt vier präregistrierte Einzelversuche. Positive deskriptive Werte sind wegen vollständig unbekannter issuerbereinigter Abhängigkeit `INCONCLUSIVE`; keine Kombination, Validation, Holdout, Filter- oder Strategieaktivierung.
 - **Gold/Silber isolierter Commodity-Research-Runner**
    Work Request `4fdfb983-ddbc-4178-bd36-7aa34267df0b`, Hypothese `f8e6a64b-1cf9-431f-9477-4a7a17ab5478`, Experiment `255532e0-3b54-412a-a29e-866bfe4bda82`. Scope exakt aus der KB übernehmen. `GC=F`/`SI=F`, Continuous-Futures-/Roll-Semantik, Session Alignment, fehlende Sessions, Next-Bar Entry, PIT, Kosten/Slippage sowie Selection-/Multiple-Testing-Bias ausdrücklich prüfen. Keine Übertragung auf Aktien-/ETF-SwingTrader.
 - **Wasseraktien isoliert**

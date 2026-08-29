@@ -198,11 +198,11 @@ def build_fibonacci_reuse(*, created_at: str) -> dict[str, object]:
         "strategy_activated": False,
         "source_artifacts": [
             {
-                "path": str(FIB_AUDIT_JSON.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+                "path": _display_path(FIB_AUDIT_JSON),
                 "sha256": _file_sha256(FIB_AUDIT_JSON),
             },
             {
-                "path": str(FIB_AUDIT_MD.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+                "path": _display_path(FIB_AUDIT_MD),
                 "sha256": _file_sha256(FIB_AUDIT_MD),
             },
         ],

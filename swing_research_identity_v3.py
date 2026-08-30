@@ -22,7 +22,7 @@ from swing_research_identity_v2 import ResearchIdentityError, validate_listing_s
 
 RESEARCH_IDENTITY_V3_VERSION = "swing-research-identity-2026.08.29-v3"
 RESEARCH_DEPENDENCY_V3_VERSION = "swing-research-dependency-2026.08.29-v3"
-IDENTITY_REGISTRY_SCHEMA_VERSION = 1
+IDENTITY_REGISTRY_SCHEMA_VERSION = 2
 DEFAULT_IDENTITY_REGISTRY_PATH = (
     Path(__file__).resolve().parent / "runtime" / "research_identity_registry.sqlite3"
 )
@@ -35,7 +35,12 @@ VERIFIED_ISSUER_ANCHORS = {
     "EXCHANGE_ISSUER_REFERENCE",
     "DOCUMENTED_ADR_RELATION",
 }
-MAPPING_STATUSES = {"VERIFIED", "UNRESOLVED"}
+MAPPING_STATUSES = {
+    "VERIFIED",
+    "CANDIDATE_UNVERIFIED",
+    "UNRESOLVED",
+    "CONFLICT",
+}
 LISTING_ROLES = {"PRIMARY", "SECONDARY", "UNKNOWN"}
 QUALITY_LEVELS = {"HIGH", "MEDIUM", "UNKNOWN"}
 
@@ -152,7 +157,10 @@ def normalize_identity_mapping(record: Mapping[str, object]) -> dict[str, object
 
     status = _upper(record.get("mapping_status")) or "UNRESOLVED"
     if status not in MAPPING_STATUSES:
-        raise ResearchIdentityError("mapping_status muss VERIFIED oder UNRESOLVED sein.")
+        raise ResearchIdentityError(
+            "mapping_status muss VERIFIED, CANDIDATE_UNVERIFIED, "
+            "UNRESOLVED oder CONFLICT sein."
+        )
     anchor_type = _upper(record.get("issuer_anchor_type"))
     anchor_value = _text(record.get("issuer_anchor_value"))
     explicit_issuer = _text(record.get("issuer_id") or record.get("company_id"))
@@ -164,7 +172,9 @@ def normalize_identity_mapping(record: Mapping[str, object]) -> dict[str, object
         issuer_id = explicit_issuer or _stable_id("issuer", anchor_type, anchor_value)
     else:
         if explicit_issuer:
-            raise ResearchIdentityError("UNRESOLVED darf keine sichere issuer_id behaupten.")
+            raise ResearchIdentityError(
+                f"{status} darf keine sichere issuer_id behaupten."
+            )
         issuer_id = None
         anchor_type = None
         anchor_value = None
@@ -241,12 +251,16 @@ def normalize_identity_mapping(record: Mapping[str, object]) -> dict[str, object
         "mapping_status": status,
         "mapping_source": source,
         "source_reference": source_reference,
+        "source_identifier": _text(record.get("source_identifier")) or anchor_value,
+        "evidence": list(record.get("evidence") or []),
         "confidence": confidence_number,
         "quality": quality,
         "asset_id": asset_id,
         "listing_id": listing_id,
         "issuer_id": issuer_id,
         "company_id": issuer_id,
+        "issuer_dependency_cluster": f"issuer:{issuer_id}" if issuer_id else "UNKNOWN",
+        "listing_dependency_cluster": f"listing:{listing_id}",
         "dependency_cluster_id": f"issuer:{issuer_id}" if issuer_id else "UNKNOWN",
         "dependency_status": "KNOWN" if issuer_id else "UNKNOWN",
         "ticker": ticker,
@@ -288,6 +302,7 @@ def normalize_identity_mapping(record: Mapping[str, object]) -> dict[str, object
         "research_dependency_only": True,
         "pit_trading_feature": False,
         "unknown_is_independent_evidence": False,
+        "metadata": dict(record.get("metadata") or {}),
     }
     payload["mapping_fingerprint"] = _fingerprint(payload)
     return payload
@@ -322,7 +337,11 @@ def build_identity_registry(
         "records": normalized,
         "record_n": len(normalized),
         "verified_issuer_n": sum(item["mapping_status"] == "VERIFIED" for item in normalized),
+        "candidate_unverified_n": sum(
+            item["mapping_status"] == "CANDIDATE_UNVERIFIED" for item in normalized
+        ),
         "unresolved_n": sum(item["mapping_status"] == "UNRESOLVED" for item in normalized),
+        "conflict_n": sum(item["mapping_status"] == "CONFLICT" for item in normalized),
         "name_only_links_created": 0,
         "automatic_fuzzy_links_created": 0,
     }
@@ -415,32 +434,131 @@ def dependency_evidence_report_v3(
     issuer_clusters: set[str] = set()
     listing_clusters: set[str] = set()
     unknown = 0
+    conflicts = 0
+    verified_observations = 0
     issuer_case_counts: Counter[str] = Counter()
     listing_case_counts: Counter[str] = Counter()
-    for case in cases:
+    unresolved_listing_keys: set[str] = set()
+    for index, case in enumerate(cases):
         listing_id = _text(case.get("listing_id"))
         issuer_id = _text(case.get("issuer_id"))
+        mapping_status = str(case.get("mapping_status") or "UNRESOLVED").upper()
         if listing_id:
             listing_clusters.add(listing_id)
             listing_case_counts[listing_id] += 1
-        if issuer_id and str(case.get("dependency_status") or "KNOWN").upper() == "KNOWN":
+        if mapping_status != "VERIFIED":
+            unresolved_listing_keys.add(
+                listing_id or _text(case.get("ticker")) or f"row:{index}"
+            )
+        dependency_known = bool(
+            issuer_id
+            and mapping_status == "VERIFIED"
+            and str(case.get("dependency_status") or "KNOWN").upper() == "KNOWN"
+        )
+        if dependency_known:
             issuer_clusters.add(issuer_id)
             issuer_case_counts[issuer_id] += 1
+            verified_observations += 1
         else:
             unknown += 1
+            conflicts += int(mapping_status == "CONFLICT")
+    raw_n = len(cases)
     payload: dict[str, object] = {
         "version": RESEARCH_DEPENDENCY_V3_VERSION,
-        "raw_n": len(cases),
+        "raw_n": raw_n,
+        "raw_observations": raw_n,
+        "raw_listings": len(listing_clusters),
         "issuer_cluster_n": len(issuer_clusters),
+        "verified_issuer_clusters": len(issuer_clusters),
         "listing_cluster_n": len(listing_clusters),
+        "unresolved_listings": len(unresolved_listing_keys),
         "dependency_unknown_n": unknown,
+        "dependency_unknown": unknown,
+        "conflict_observation_n": conflicts,
+        "verified_dependency_observation_n": verified_observations,
+        "verified_dependency_coverage_pct": (
+            round(verified_observations / raw_n * 100, 6) if raw_n else 0.0
+        ),
         "effective_n_known_issuers_only": len(issuer_clusters),
+        "effective_independent_issuer_count": len(issuer_clusters),
         "same_issuer_excess_case_n": sum(max(value - 1, 0) for value in issuer_case_counts.values()),
         "same_listing_excess_case_n": sum(max(value - 1, 0) for value in listing_case_counts.values()),
         "unknown_counted_as_independent": False,
         "raw_n_claimed_independent": False,
         "effective_n_status": "COMPLETE" if unknown == 0 else "PARTIAL_UNKNOWN",
+        "issuer_clusters": [
+            {"issuer_id": key, "observation_n": issuer_case_counts[key]}
+            for key in sorted(issuer_case_counts)
+        ],
+        "listing_clusters": [
+            {"listing_id": key, "observation_n": listing_case_counts[key]}
+            for key in sorted(listing_case_counts)
+        ],
     }
+    payload["report_fingerprint"] = _fingerprint(payload)
+    return payload
+
+
+def dependency_episode_report_v3(
+    cases: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    """Count non-overlapping evidence episodes for verified issuers only.
+
+    Rows without a verified issuer contribute zero to the issuer-adjusted
+    effective N.  Separate observations for one issuer count again only when
+    their outcome windows no longer overlap.
+    """
+
+    base = dependency_evidence_report_v3(cases)
+    intervals: dict[str, list[tuple[str, str]]] = {}
+    for case in cases:
+        issuer_id = _text(case.get("issuer_id"))
+        status = str(case.get("mapping_status") or "UNRESOLVED").upper()
+        dependency_status = str(case.get("dependency_status") or "UNKNOWN").upper()
+        if not issuer_id or status != "VERIFIED" or dependency_status != "KNOWN":
+            continue
+        start = _day(
+            case.get("signal_day") or case.get("observation_day"),
+            "signal_day",
+        )
+        end = _day(
+            case.get("label_end_day") or case.get("outcome_end_day") or start,
+            "label_end_day",
+        )
+        if start is None:
+            # Registry-level coverage has no temporal observation window.  It
+            # still represents one dependency cluster, never one row per case.
+            start = end = "0001-01-01"
+        if end is None:
+            end = start
+        if end < start:
+            raise ResearchIdentityError("label_end_day darf nicht vor signal_day liegen.")
+        intervals.setdefault(issuer_id, []).append((start, end))
+
+    episode_n = 0
+    issuer_episode_counts: dict[str, int] = {}
+    for issuer_id, issuer_intervals in sorted(intervals.items()):
+        count = 0
+        current_end: str | None = None
+        for start, end in sorted(issuer_intervals):
+            if current_end is None or start > current_end:
+                count += 1
+                current_end = end
+            elif end > current_end:
+                current_end = end
+        issuer_episode_counts[issuer_id] = count
+        episode_n += count
+
+    payload = {
+        **base,
+        "effective_independent_issuer_count": episode_n,
+        "effective_n_known_issuers_only": episode_n,
+        "effective_n_method": "non_overlapping_outcome_windows_per_verified_issuer",
+        "issuer_episode_counts": issuer_episode_counts,
+        "unknown_dependency_contribution_to_effective_n": 0,
+        "effective_n_le_raw_n": episode_n <= len(cases),
+    }
+    payload.pop("report_fingerprint", None)
     payload["report_fingerprint"] = _fingerprint(payload)
     return payload
 

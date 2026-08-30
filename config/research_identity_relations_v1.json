@@ -1,0 +1,80 @@
+{
+  "version": "research-identity-relations-2026.08.30-v1",
+  "policy": {
+    "names_are_identifiers": false,
+    "relations_require_official_issuer_evidence": true,
+    "listing_data_may_be_mixed": false
+  },
+  "relations": [
+    {
+      "issuer_id": "official-issuer:baidu-inc",
+      "issuer_anchor_value": "baidu-inc-official-dual-listing-v1",
+      "source_reference": "https://ir.baidu.com/news-releases/news-release-details/baidu-pursue-voluntary-conversion-dual-primary-listing-main/",
+      "evidence": "Baidu identifies Nasdaq BIDU and HKEX 9888 as listings of the same company.",
+      "listings": [
+        {"ticker": "BIDU", "listing_role": "SECONDARY", "instrument_type": "ADS"},
+        {"ticker": "9888.HK", "listing_role": "PRIMARY", "instrument_type": "COMMON_STOCK"}
+      ]
+    },
+    {
+      "issuer_id": "official-issuer:jd-com-inc",
+      "issuer_anchor_value": "jd-com-inc-official-adr-home-v1",
+      "source_reference": "https://ir.jd.com/static-files/8d40e85a-72ec-4796-8bbc-eb5edd09c78a",
+      "evidence": "JD.com identifies Nasdaq JD ADS and HKEX 9618 Class A ordinary shares.",
+      "listings": [
+        {"ticker": "JD", "listing_role": "SECONDARY", "instrument_type": "ADS"},
+        {"ticker": "9618.HK", "listing_role": "PRIMARY", "instrument_type": "COMMON_STOCK"}
+      ]
+    },
+    {
+      "issuer_id": "official-issuer:netease-inc",
+      "issuer_anchor_value": "netease-inc-official-adr-home-v1",
+      "source_reference": "https://ir.netease.com/",
+      "evidence": "NetEase identifies Nasdaq NTES and HKEX 9999 as listings of NetEase, Inc.",
+      "listings": [
+        {"ticker": "NTES", "listing_role": "SECONDARY", "instrument_type": "ADS"},
+        {"ticker": "9999.HK", "listing_role": "PRIMARY", "instrument_type": "COMMON_STOCK"}
+      ]
+    },
+    {
+      "issuer_id": "official-issuer:sanofi-sa",
+      "issuer_anchor_value": "sanofi-sa-official-adr-home-v1",
+      "source_reference": "https://www.sanofi.com/en/investors/sanofi-share-and-adrs",
+      "evidence": "Sanofi identifies Euronext Paris SAN and Nasdaq SNY ADS as its listings.",
+      "listings": [
+        {"ticker": "SNY", "listing_role": "SECONDARY", "instrument_type": "ADS"},
+        {"ticker": "SAN.PA", "listing_role": "PRIMARY", "instrument_type": "COMMON_STOCK"}
+      ]
+    },
+    {
+      "issuer_id": "official-issuer:sap-se",
+      "issuer_anchor_value": "sap-se-official-adr-home-v1",
+      "source_reference": "https://www.sap.com/investors/en/stock/adr.html",
+      "evidence": "SAP identifies NYSE SAP ADRs as receipts backed by its German ordinary shares.",
+      "listings": [
+        {"ticker": "SAP", "listing_role": "SECONDARY", "instrument_type": "ADR"},
+        {"ticker": "SAP.DE", "listing_role": "PRIMARY", "instrument_type": "COMMON_STOCK"}
+      ]
+    },
+    {
+      "issuer_id": "official-issuer:airbus-se",
+      "issuer_anchor_value": "airbus-se-official-european-listings-v1",
+      "source_reference": "https://www.airbus.com/en/investors/share-price-and-information",
+      "evidence": "Airbus identifies its AIR shares on Paris, Frankfurt and Spanish exchanges under ISIN NL0000235190.",
+      "listings": [
+        {"ticker": "AIR.PA", "listing_role": "PRIMARY", "instrument_type": "COMMON_STOCK"},
+        {"ticker": "AIR.DE", "listing_role": "SECONDARY", "instrument_type": "COMMON_STOCK"}
+      ]
+    },
+    {
+      "issuer_id": "official-issuer:xpeng-inc",
+      "issuer_anchor_value": "xpeng-inc-official-ads-home-v1",
+      "source_reference": "https://ir.xiaopeng.com/news-releases/news-release-details/xpeng-announces-vehicle-delivery-results-april-2026",
+      "evidence": "XPeng identifies NYSE XPEV and HKEX 9868 as listings of XPeng Inc.",
+      "listings": [
+        {"ticker": "XPEV", "listing_role": "SECONDARY", "instrument_type": "ADS"},
+        {"ticker": "9868.HK", "listing_role": "PRIMARY", "instrument_type": "COMMON_STOCK"}
+      ]
+    }
+  ]
+}

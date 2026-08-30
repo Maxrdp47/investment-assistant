@@ -1,0 +1,68 @@
+{
+  "version": "fx-pit-observer-settings-2026.08.29-v1",
+  "mode": "FX_PIT_OBSERVER",
+  "enabled": true,
+  "database_path": "runtime/fx_forward_pit.sqlite3",
+  "lock_path": "runtime/fx_forward_pit.collector.lock",
+  "log_path": "runtime/logs/fx_pit_collector.log",
+  "task_name": "InvestmentAssistant-FX-PIT-Observer",
+  "local_run_time": "21:45",
+  "schedule": {
+    "mode": "daily_basis_snapshot",
+    "timezone": "Europe/Berlin",
+    "start_when_available": true,
+    "wake_to_run": false,
+    "multiple_instances": "IgnoreNew",
+    "cot_refresh_weekday_utc": 4,
+    "event_boost_enabled": false,
+    "quote_sampling_frequency": "not_enabled_without_reliable_bid_ask_source"
+  },
+  "pairs": ["EUR/USD", "USD/JPY", "GBP/USD"],
+  "providers": {
+    "yahoo_daily_ohlc": {
+      "enabled": true,
+      "source_type": "FORWARD_PIT",
+      "purpose": "daily_fx_price_bar_only",
+      "bid_ask_allowed": false,
+      "maximum_requests_per_run": 3
+    },
+    "official_cftc_cot": {
+      "enabled": true,
+      "source_type": "FORWARD_PIT",
+      "purpose": "weekly_positioning_context",
+      "refresh_only_on_configured_weekday": true,
+      "shadow_only": true
+    },
+    "actual_policy_rates": {
+      "enabled": true,
+      "source_type": "FORWARD_PIT",
+      "adapter": null,
+      "missingness_status": "NO_RELIABLE_DATA"
+    },
+    "macro_expectations_vintages": {
+      "enabled": true,
+      "source_type": "FORWARD_PIT",
+      "adapter": null,
+      "missingness_status": "NO_RELIABLE_DATA"
+    },
+    "reliable_bid_ask": {
+      "enabled": true,
+      "source_type": "FORWARD_PIT",
+      "adapter": null,
+      "missingness_status": "NO_RELIABLE_DATA"
+    }
+  },
+  "cot_currency_market_names": {
+    "EUR": ["EURO FX"],
+    "USD": ["U.S. DOLLAR INDEX", "USD INDEX"],
+    "JPY": ["JAPANESE YEN"],
+    "GBP": ["BRITISH POUND"]
+  },
+  "safety": {
+    "strategy_signal_allowed": false,
+    "trade_decision_allowed": false,
+    "paper_trade_allowed": false,
+    "shadow_order_allowed": false,
+    "broker_order_allowed": false
+  }
+}

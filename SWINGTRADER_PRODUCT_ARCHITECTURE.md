@@ -1,6 +1,6 @@
 # SwingTrader – kanonische Produktarchitektur
 
-Stand: 2026-08-29
+Stand: 2026-08-30
 
 Dieses Dokument ist das verbindliche langfristige Zielbild für den SwingTrader des Investment-Assistenten. Es beschreibt keine neue aktive Handelslogik und erteilt keine Produktions-, Broker- oder Echtgeldfreigabe. Der belegte Ist-Stand bleibt in `PROJECT_STATUS.md`; Prioritäten und offene Arbeit stehen in `ROADMAP.md`.
 
@@ -44,7 +44,7 @@ Aufgaben:
 - Zukunftswissen, rückdatierte heutige Daten und still vermischte Listings verhindern.
 - Unsicherheit und nicht verfügbare Daten sichtbar halten.
 
-Aktueller Stand: Der future-only Research-Identity-Vertrag trennt Asset, Listing und nur belastbar bekannte Issuer; unbekannte Beziehungen werden nicht als unabhängige Evidenz gezählt. Ein zentraler Listing-Bundle-Guard sperrt gemischte OHLCV-, Kurs-, Währungs-, Handelszeit-, Entry-, Stop- und Zieldaten. Die FX-PIT-Grundpipeline modelliert Paarinversion, Session, Verfügbarkeit und Revisionen, weist fehlende historische Erwartungen/Vintages aber ehrlich als nicht verfügbar aus. Die vollständige historische Coverage für Fundamentals, Erwartungen, Events, Branchen, Handelbarkeit und Mikrostruktur ist weiterhin nicht vorhanden.
+Aktueller Stand: Der future-only Research-Identity-Vertrag v3 trennt Asset, Listing und nur über belastbare LEI-/CIK-/FIGI-/ISIN-/Börsen-/ADR-Anker bekannte Issuer; unbekannte Beziehungen werden nicht als unabhängige Evidenz gezählt. Ein zentraler Listing-Bundle-Guard sperrt gemischte OHLCV-, Kurs-, Währungs-, Handelszeit-, Entry-, Stop- und Zieldaten. Für das aktuelle Universum sind wegen eines realen HTTP-403-Fehlers der kostenlosen SEC-Quelle alle 2.520 Issuer-Zuordnungen weiterhin sichtbar unbekannt; der Multi-Asset-Precheck bleibt deshalb gesperrt. Die FX-PIT-Grundpipeline modelliert Paarinversion, Session, Verfügbarkeit und Revisionen und hält inzwischen 12.779 tägliche Kursbeobachtungen für EUR/USD, USD/JPY und GBP/USD von 2010 bis 2026. Ein getrennter append-only FX-PIT-Observer sammelt täglich um 21:45 Uhr Kurs-, COT-, Missingness- und Source-Health-Evidenz ohne Strategie- oder Tradepfad. Fehlende historische Erwartungen, Makro-Vintages, Policy Rates und Bid/Ask bleiben ehrlich nicht verfügbar. Die vollständige historische Coverage für Fundamentals, Erwartungen, Events, Branchen, Handelbarkeit und Mikrostruktur ist weiterhin nicht vorhanden.
 
 ### B. Asset Discovery / Opportunity Engine
 

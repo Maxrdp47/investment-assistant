@@ -57,6 +57,35 @@ def test_inverse_pair_normalizes_ohlc_high_and_low_correctly() -> None:
     )
 
 
+def test_direct_pair_rejects_low_side_envelope_violations() -> None:
+    contract = default_fx_pair_contracts()["EUR/USD"]
+    with pytest.raises(FxCarryContractError, match="inkonsistent"):
+        normalize_fx_ohlc(
+            contract,
+            {"open": 1.09, "high": 1.12, "low": 1.10, "close": 1.11},
+        )
+    with pytest.raises(FxCarryContractError, match="inkonsistent"):
+        normalize_fx_ohlc(
+            contract,
+            {"open": 1.11, "high": 1.12, "low": 1.10, "close": 1.09},
+        )
+
+
+def test_inverse_pair_rejects_envelope_violation_after_correct_high_low_swap() -> None:
+    contract = fx_pair_contract(
+        "EUR",
+        "USD",
+        source_ticker="USDEUR=X",
+        source_base_currency="USD",
+        source_quote_currency="EUR",
+    )
+    with pytest.raises(FxCarryContractError, match="inkonsistent"):
+        normalize_fx_ohlc(
+            contract,
+            {"open": 0.7, "high": 0.9, "low": 0.75, "close": 0.85},
+        )
+
+
 def test_carry_sign_uses_base_minus_quote_and_no_future_release() -> None:
     contract = default_fx_pair_contracts()["EUR/USD"]
     observations = [

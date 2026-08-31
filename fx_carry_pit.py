@@ -154,7 +154,11 @@ def normalize_fx_ohlc(
             "low": 1.0 / values["high"],
             "close": 1.0 / values["close"],
         }
-    if result["high"] < max(result["open"], result["close"], result["low"]):
+    if not (
+        result["low"] <= result["open"] <= result["high"]
+        and result["low"] <= result["close"] <= result["high"]
+        and result["low"] <= result["high"]
+    ):
         raise FxCarryContractError("Normalisierte FX-OHLC ist inkonsistent.")
     return result
 

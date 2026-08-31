@@ -121,6 +121,8 @@ def code_fingerprint() -> str:
     files = (
         Path(__file__),
         PROJECT_ROOT / "scripts" / "run_multi_asset_discovery_v1_pilot.py",
+        PROJECT_ROOT / "historical_dependency_policy.py",
+        PROJECT_ROOT / "fx_historical_remediation.py",
     )
     return fingerprint(
         {
@@ -537,6 +539,14 @@ def build_feature_snapshot(
         "issuer_id": asset.get("issuer_id"),
         "mapping_status": str(asset.get("mapping_status") or "UNRESOLVED"),
         "dependency_status": str(asset.get("dependency_status") or "UNKNOWN"),
+        "historical_dependency_policy_version": asset.get(
+            "historical_dependency_policy_version"
+        ),
+        "historical_dependency_policy_fingerprint": asset.get(
+            "historical_dependency_policy_fingerprint"
+        ),
+        "historical_dependency_reason": asset.get("historical_dependency_reason"),
+        "identity_is_trading_feature": False,
         "signal_day": signal_day,
         "decision_time": decision_stamp.tz_convert("UTC").isoformat(),
         "known_at_lte_decision_time": True,

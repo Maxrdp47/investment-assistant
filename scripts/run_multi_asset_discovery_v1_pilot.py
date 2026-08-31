@@ -19,9 +19,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from fx_carry_pit import default_fx_pair_contracts, normalize_fx_ohlc  # noqa: E402
+from historical_dependency_policy import (  # noqa: E402
+    build_historical_dependency_policy,
+    classify_historical_dependency,
+)
 from multi_asset_discovery_v1 import (  # noqa: E402
-    DEFAULT_FEATURE_STORE,
-    DEFAULT_OUTCOME_STORE,
     build_contract_freeze,
     build_feature_snapshot,
     build_outcome,
@@ -47,15 +49,23 @@ DEFAULT_MANIFEST = (
     / "manifest.json"
 )
 DEFAULT_IDENTITY_STORE = PROJECT_ROOT / "runtime" / "research_identity_registry.sqlite3"
-DEFAULT_FX_STORE = PROJECT_ROOT / "runtime" / "fx_historical_pit.sqlite3"
+DEFAULT_FX_STORE = (
+    PROJECT_ROOT / "runtime" / "fx_historical_pit_2026-09-01-v2.sqlite3"
+)
+DEFAULT_FEATURE_STORE = (
+    PROJECT_ROOT / "runtime" / "multi_asset_discovery_v1_pilot_v2_features.sqlite3"
+)
+DEFAULT_OUTCOME_STORE = (
+    PROJECT_ROOT / "runtime" / "multi_asset_discovery_v1_pilot_v2_outcomes.sqlite3"
+)
 DEFAULT_EXPORT_ROOT = PROJECT_ROOT / "runtime" / "research_exports"
 DEFAULT_FREEZE_OUTPUT = (
     DEFAULT_EXPORT_ROOT
-    / "multi_asset_discovery_v1_contract_freeze_2026-08-31-v1-implementation-r4.json"
+    / "multi_asset_discovery_v1_contract_freeze_2026-09-01-v1-implementation-r5.json"
 )
 DEFAULT_PILOT_OUTPUT = (
     DEFAULT_EXPORT_ROOT
-    / "multi_asset_discovery_v1_integrity_pilot_2026-08-31-v1-authoritative-r4.json"
+    / "multi_asset_discovery_v1_integrity_pilot_2026-09-01-v1-authoritative-r5.json"
 )
 
 
@@ -97,13 +107,21 @@ def _modern_history(
     return pd.read_parquet(file_path), selected
 
 
-def _load_fx_histories(path: Path) -> tuple[dict[str, pd.DataFrame], dict[str, dict[str, str]]]:
+def _load_fx_histories(
+    path: Path,
+) -> tuple[dict[str, pd.DataFrame], dict[str, dict[str, str]], str]:
     uri = f"file:{Path(path).as_posix()}?mode=ro"
     with sqlite3.connect(uri, uri=True) as connection:
         rows = connection.execute(
             "SELECT record_json FROM historical_fx_records "
             "WHERE feature='PRICE' AND pit_eligible=1 ORDER BY pair_id, observation_date"
         ).fetchall()
+        version_row = connection.execute(
+            "SELECT dataset_fingerprint FROM fx_dataset_versions "
+            "ORDER BY rowid DESC LIMIT 1"
+        ).fetchone()
+    if version_row is None:
+        raise RuntimeError("FX-v2-Store besitzt keinen Dataset-Fingerprint.")
     contracts = default_fx_pair_contracts()
     values: dict[str, list[dict[str, object]]] = {pair: [] for pair in contracts}
     availability: dict[str, dict[str, str]] = {pair: {} for pair in contracts}
@@ -121,28 +139,33 @@ def _load_fx_histories(path: Path) -> tuple[dict[str, pd.DataFrame], dict[str, d
         for pair, items in values.items()
         if items
     }
-    return frames, availability
+    return frames, availability, str(version_row[0])
 
 
 def _resolve_asset(
     symbol: str,
     asset_class: str,
     registry: Mapping[str, object],
+    *,
+    as_of: str,
+    dependency_policy: Mapping[str, object],
 ) -> dict[str, object]:
     resolved = resolve_research_identity_v3(
         {
             "ticker": symbol,
             "mic": "US-CONSOLIDATED",
-            "exchange": "US Consolidated",
             "asset_class": "KRYPTO" if asset_class == "CRYPTO" else asset_class,
             "first_seen_at": "2026-08-31T00:00:00+00:00",
             "imported_at": "2026-08-31T00:00:00+00:00",
         },
         registry=registry,
-        as_of="2020-12-15",
+        as_of=None,
+    )
+    historical = classify_historical_dependency(
+        resolved, as_of=as_of, policy=dependency_policy
     )
     mapping_status = str(resolved.get("mapping_status") or "UNRESOLVED").upper()
-    issuer_id = resolved.get("issuer_id")
+    issuer_id = historical.get("issuer_id")
     return {
         "ticker": symbol,
         "asset_id": resolved.get("asset_id") or symbol,
@@ -150,7 +173,15 @@ def _resolve_asset(
         "listing_id": resolved.get("listing_id"),
         "issuer_id": issuer_id,
         "mapping_status": mapping_status,
-        "dependency_status": "KNOWN" if mapping_status == "VERIFIED" and issuer_id else "UNKNOWN",
+        "dependency_status": historical["dependency_status"],
+        "historical_dependency_policy_version": historical[
+            "historical_dependency_policy_version"
+        ],
+        "historical_dependency_policy_fingerprint": historical[
+            "historical_dependency_policy_fingerprint"
+        ],
+        "historical_dependency_reason": historical["historical_dependency_reason"],
+        "pit_trading_feature": False,
     }
 
 
@@ -192,6 +223,8 @@ def _build_cases(
     registry: Mapping[str, object],
     fx_frames: Mapping[str, pd.DataFrame],
     fx_availability: Mapping[str, Mapping[str, str]],
+    fx_dataset_fingerprint: str,
+    dependency_policy: Mapping[str, object],
 ) -> tuple[list[dict[str, object]], dict[str, pd.DataFrame]]:
     contract = load_discovery_contract()
     pilot = dict(contract["pilot_contract"])
@@ -202,7 +235,13 @@ def _build_cases(
     for asset_class, key in (("EQUITIES", "equities"), ("ETF", "etf"), ("CRYPTO", "crypto")):
         for symbol in pilot[key]:
             frame, source = _modern_history(manifest, manifest_path, str(symbol))
-            asset = _resolve_asset(str(symbol), asset_class, registry)
+            asset = _resolve_asset(
+                str(symbol),
+                asset_class,
+                registry,
+                as_of=normal_day,
+                dependency_policy=dependency_policy,
+            )
             decision_time = f"{normal_day}T23:59:59+00:00"
             feature = build_feature_snapshot(
                 asset=asset,
@@ -221,7 +260,7 @@ def _build_cases(
             frame=frame,
             decision_position=_position(frame, normal_day),
             decision_time=decision_time,
-            dataset_fingerprint=f"fx-historical-pit:{file_sha256(DEFAULT_FX_STORE)}",
+            dataset_fingerprint=f"fx-historical-pit:{fx_dataset_fingerprint}",
         )
         features.append(feature)
         frames_by_case[str(feature["case_id"])] = frame
@@ -229,7 +268,13 @@ def _build_cases(
     symbol = str(pilot["extra_boundary_case"])
     frame, source = _modern_history(manifest, manifest_path, symbol)
     boundary = build_feature_snapshot(
-        asset=_resolve_asset(symbol, "EQUITIES", registry),
+        asset=_resolve_asset(
+            symbol,
+            "EQUITIES",
+            registry,
+            as_of=boundary_day,
+            dependency_policy=dependency_policy,
+        ),
         frame=frame,
         decision_position=_position(frame, boundary_day),
         decision_time=f"{boundary_day}T23:59:59+00:00",
@@ -258,12 +303,18 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     fx_path = Path(args.fx_store)
     manifest = _load_manifest(manifest_path)
     registry = _load_latest_identity_registry(identity_path)
+    dependency_policy = build_historical_dependency_policy()
+    fx_frames, fx_availability, fx_dataset_fingerprint = _load_fx_histories(fx_path)
     source_snapshots = {
         "dataset_fingerprint": manifest["dataset_fingerprint"],
         "dataset_manifest_sha256": file_sha256(manifest_path),
         "identity_registry_fingerprint": registry["registry_fingerprint"],
         "identity_store_sha256": file_sha256(identity_path),
         "fx_store_sha256": file_sha256(fx_path),
+        "fx_dataset_fingerprint": fx_dataset_fingerprint,
+        "historical_dependency_policy_fingerprint": dependency_policy[
+            "policy_fingerprint"
+        ],
         "protected_sources_opened_read_only": True,
         "protected_sources_modified": False,
     }
@@ -286,13 +337,14 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             frozen_at=str(args.frozen_at or started_at),
         )
         _write_immutable(freeze_path, freeze)
-    fx_frames, fx_availability = _load_fx_histories(fx_path)
     features, frames_by_case = _build_cases(
         manifest=manifest,
         manifest_path=manifest_path,
         registry=registry,
         fx_frames=fx_frames,
         fx_availability=fx_availability,
+        fx_dataset_fingerprint=fx_dataset_fingerprint,
+        dependency_policy=dependency_policy,
     )
     outcomes = [
         build_outcome(feature_snapshot=feature, frame=frames_by_case[str(feature["case_id"])])
@@ -304,6 +356,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         registry=registry,
         fx_frames=fx_frames,
         fx_availability=fx_availability,
+        fx_dataset_fingerprint=fx_dataset_fingerprint,
+        dependency_policy=dependency_policy,
     )
     replay_outcomes = [
         build_outcome(feature_snapshot=feature, frame=replay_frames[str(feature["case_id"])])
@@ -350,6 +404,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "stage_split_fingerprint": freeze["stage_split_fingerprint"],
             "safe_zone_fingerprint": freeze["safe_zone_fingerprint"],
             "event_pit_availability_fingerprint": freeze["event_pit_availability_fingerprint"],
+            "fx_dataset_fingerprint": fx_dataset_fingerprint,
+            "historical_dependency_policy_version": dependency_policy["version"],
+            "historical_dependency_policy_fingerprint": dependency_policy[
+                "policy_fingerprint"
+            ],
             "feature_store_record": feature_record,
             "outcome_store_record": outcome_record,
             "sqlite_checkpoint": checkpoint,

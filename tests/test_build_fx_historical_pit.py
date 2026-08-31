@@ -97,3 +97,27 @@ def test_invalid_provider_bar_is_skipped_and_visible(tmp_path: Path) -> None:
     assert result["inventory"]["record_n"] == 0
     assert result["source_health"]["EUR/USD"]["invalid_bar_n"] == 1
     assert result["source_health"]["EUR/USD"]["status"] == "SUCCESS_WITH_INVALID_BARS_SKIPPED"
+
+
+def test_low_side_provider_envelope_violation_is_also_skipped(tmp_path: Path) -> None:
+    def bad_loader(contract, start, end):
+        return [
+            {
+                "date": "2020-01-01",
+                "open": 1.0,
+                "high": 1.2,
+                "low": 1.1,
+                "close": 1.15,
+            }
+        ]
+
+    result = build_historical_fx_foundation(
+        start="2020-01-01",
+        end="2020-01-03",
+        imported_at=STAMP,
+        db_path=tmp_path / "historical.sqlite3",
+        export_path=tmp_path / "artifact.json",
+        history_loader=bad_loader,
+    )
+    assert result["inventory"]["record_n"] == 0
+    assert result["source_health"]["EUR/USD"]["invalid_bar_n"] == 1

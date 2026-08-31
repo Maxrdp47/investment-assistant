@@ -540,11 +540,11 @@ def dependency_episode_report_v3(
     for issuer_id, issuer_intervals in sorted(intervals.items()):
         count = 0
         current_end: str | None = None
-        for start, end in sorted(issuer_intervals):
+        # Earliest-finish greedy selection is the exact maximum-cardinality
+        # set of pairwise non-overlapping intervals.
+        for start, end in sorted(issuer_intervals, key=lambda item: (item[1], item[0])):
             if current_end is None or start > current_end:
                 count += 1
-                current_end = end
-            elif end > current_end:
                 current_end = end
         issuer_episode_counts[issuer_id] = count
         episode_n += count
@@ -553,7 +553,9 @@ def dependency_episode_report_v3(
         **base,
         "effective_independent_issuer_count": episode_n,
         "effective_n_known_issuers_only": episode_n,
-        "effective_n_method": "non_overlapping_outcome_windows_per_verified_issuer",
+        "effective_n_method": (
+            "maximum_pairwise_non_overlapping_outcome_windows_per_verified_issuer"
+        ),
         "issuer_episode_counts": issuer_episode_counts,
         "unknown_dependency_contribution_to_effective_n": 0,
         "effective_n_le_raw_n": episode_n <= len(cases),

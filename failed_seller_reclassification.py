@@ -9,8 +9,10 @@ from datetime import date, timedelta
 from typing import Mapping, Sequence
 
 
-FAILED_SELLER_RECLASSIFICATION_VERSION = "failed-seller-dependency-reclassification-2026.08.30-v1"
-DEPENDENCY_METHOD = "verified_issuer_non_overlapping_conservative_42_calendar_day_windows"
+FAILED_SELLER_RECLASSIFICATION_VERSION = "failed-seller-dependency-reclassification-2026.08.30-v2"
+DEPENDENCY_METHOD = (
+    "verified_issuer_maximum_non_overlapping_conservative_42_calendar_day_windows"
+)
 # Broad-v1 labels observe at most 25 trading sessions.  Forty-two calendar days
 # conservatively cover that horizon without inventing an exchange calendar.
 CONSERVATIVE_OUTCOME_WINDOW_DAYS = 42
@@ -61,8 +63,10 @@ class DependencyAccumulator:
         if previous_end is None or start > previous_end:
             self._episodes[issuer_id] += 1
             self._latest_end[issuer_id] = end
-        elif end > previous_end:
-            self._latest_end[issuer_id] = end
+        # All windows have the same fixed length and rows arrive in start-day
+        # order.  Keeping the end of the last *selected* interval produces the
+        # maximum pairwise non-overlapping subset.  Extending it for skipped
+        # overlaps would incorrectly merge long chains into one episode.
         self.issuer_ids.add(issuer_id)
         self.verified_observation_n += 1
 

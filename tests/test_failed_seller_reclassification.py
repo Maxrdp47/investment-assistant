@@ -76,6 +76,22 @@ def test_reclassification_collapses_overlaps_excludes_unknown_and_preserves_coun
     verify_original_counts(_original(result), result)
 
 
+def test_reclassification_does_not_extend_selected_window_for_skipped_overlap() -> None:
+    accumulators = make_accumulators()
+    flags = {variant: True for variant in VARIANTS}
+    for signal_day in ("2025-01-01", "2025-02-01", "2025-02-20"):
+        update_accumulators(
+            accumulators,
+            signal_day=signal_day,
+            identity=_identity("issuer-1"),
+            flags=flags,
+        )
+
+    result = dependency_results(accumulators)
+    assert result["baseline"]["raw_observations"] == 3
+    assert result["baseline"]["effective_independent_issuer_count"] == 2
+
+
 def test_assessment_never_upgrades_or_opens_unseen_stages() -> None:
     accumulators = make_accumulators()
     flags = {variant: True for variant in VARIANTS}

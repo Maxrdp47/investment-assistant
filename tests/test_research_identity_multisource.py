@@ -173,3 +173,39 @@ def test_effective_n_collapses_overlapping_issuer_windows_and_excludes_unknown()
     assert report["effective_independent_issuer_count"] == 2
     assert report["unknown_dependency_contribution_to_effective_n"] == 0
     assert report["effective_n_le_raw_n"] is True
+
+
+def test_effective_n_uses_maximum_non_overlapping_interval_subset() -> None:
+    rows = [
+        {
+            "ticker": "A",
+            "listing_id": "listing-a",
+            "issuer_id": "issuer-1",
+            "mapping_status": "VERIFIED",
+            "dependency_status": "KNOWN",
+            "signal_day": "2025-01-01",
+            "label_end_day": "2025-01-10",
+        },
+        {
+            "ticker": "A2",
+            "listing_id": "listing-a2",
+            "issuer_id": "issuer-1",
+            "mapping_status": "VERIFIED",
+            "dependency_status": "KNOWN",
+            "signal_day": "2025-01-05",
+            "label_end_day": "2025-01-20",
+        },
+        {
+            "ticker": "A",
+            "listing_id": "listing-a",
+            "issuer_id": "issuer-1",
+            "mapping_status": "VERIFIED",
+            "dependency_status": "KNOWN",
+            "signal_day": "2025-01-11",
+            "label_end_day": "2025-01-12",
+        },
+    ]
+
+    report = dependency_episode_report_v3(rows)
+    assert report["raw_observations"] == 3
+    assert report["effective_independent_issuer_count"] == 2

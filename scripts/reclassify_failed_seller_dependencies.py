@@ -46,7 +46,7 @@ DEFAULT_OUTPUT = (
     PROJECT_ROOT
     / "runtime"
     / "research_exports"
-    / "failed_seller_dependency_reclassification_2026-08-30-v1.json"
+    / "failed_seller_dependency_reclassification_2026-08-30-v2.json"
 )
 DEFAULT_STORE = PROJECT_ROOT / "runtime" / "failed_seller_reclassifications.sqlite3"
 

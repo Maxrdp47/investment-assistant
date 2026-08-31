@@ -90,4 +90,3 @@ def test_frozen_pilot_only_contract_blocks_full_development_without_downgrade() 
         item.endswith("full_development_scan_authorized")
         for item in result["failed_checks"]
     )
-

@@ -147,4 +147,3 @@ def test_remediation_keeps_v1_immutable_and_excludes_invalid_bar(tmp_path: Path)
         command="test",
     )
     assert replay["dataset_fingerprint"] == result["dataset_fingerprint"]
-

@@ -133,4 +133,3 @@ def test_policy_self_check_passes_without_mutating_features() -> None:
     assert report["status"] == "PASS"
     assert all(report["checks"].values())
     assert build_historical_dependency_policy()["trading_feature"] is False
-

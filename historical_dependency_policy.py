@@ -247,4 +247,3 @@ def historical_dependency_policy_self_check() -> dict[str, object]:
     }
     payload["self_check_fingerprint"] = fingerprint(payload)
     return payload
-

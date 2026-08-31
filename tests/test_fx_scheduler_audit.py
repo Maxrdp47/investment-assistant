@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fx_scheduler_audit import evaluate_fx_scheduler
+from fx_scheduler_audit import FX_SCHEDULER_AUDIT_VERSION, evaluate_fx_scheduler
 
 
 RUN_ID = "fxpit-run-test"
@@ -72,6 +72,7 @@ def _evaluate(tasks, query_status="SUCCESS"):
 def test_exactly_one_safe_canonical_scheduler_passes() -> None:
     result = _evaluate([_task()])
     assert result["status"] == "PASS"
+    assert result["version"] == FX_SCHEDULER_AUDIT_VERSION
     assert result["matching_task_n"] == 1
     assert result["duplicate_scheduler_created"] is False
     assert result["checks"]["historical_planned_run_succeeded"] is True

@@ -21,9 +21,9 @@ DEFAULT_CONFIG = PROJECT_ROOT / "config" / "fx_pit_collector.json"
 DEFAULT_DB = PROJECT_ROOT / "runtime" / "fx_forward_pit.sqlite3"
 DEFAULT_LOG = PROJECT_ROOT / "runtime" / "logs" / "fx_pit_collector.log"
 DEFAULT_OUTPUT = (
-    PROJECT_ROOT / "runtime" / "research_exports" / "fx_pit_scheduler_audit_2026-08-30-v1.json"
+    PROJECT_ROOT / "runtime" / "research_exports" / "fx_pit_scheduler_audit_2026-08-31-v3.json"
 )
-REFERENCE_RUN_ID = "fxpit-run-7731628881ef8df424f8a710633fedd1"
+REFERENCE_RUN_ID = "fxpit-run-d6bb93a2d1685de5c3a564dcb1bf7d8a"
 
 
 def _git(*args: str) -> str:
@@ -104,10 +104,42 @@ def _collector_run(path: Path, run_id: str) -> dict[str, object]:
     return json.loads(str(row[0]))
 
 
+def _completed_daily_runs(path: Path) -> list[dict[str, object]]:
+    uri = f"file:{path.resolve().as_posix()}?mode=ro"
+    with sqlite3.connect(uri, uri=True) as connection:
+        rows = connection.execute(
+            "SELECT run_json FROM collector_runs ORDER BY started_at, run_id"
+        ).fetchall()
+    completed = []
+    for row in rows:
+        run = json.loads(str(row[0]))
+        if run.get("status") != "COMPLETED" or not str(
+            run.get("schedule_slot") or ""
+        ).endswith(":daily"):
+            continue
+        completed.append(
+            {
+                "run_id": run.get("run_id"),
+                "schedule_slot": run.get("schedule_slot"),
+                "start": run.get("start"),
+                "end": run.get("end"),
+                "run_fingerprint": run.get("run_fingerprint"),
+                "data_collection_only": run.get("data_collection_only"),
+                "strategy_signal_generated": run.get("strategy_signal_generated"),
+                "trade_decision_generated": run.get("trade_decision_generated"),
+                "paper_trade_generated": run.get("paper_trade_generated"),
+                "shadow_order_generated": run.get("shadow_order_generated"),
+                "broker_order_allowed": run.get("broker_order_allowed"),
+            }
+        )
+    return completed
+
+
 def run(args: argparse.Namespace) -> dict[str, object]:
     config = json.loads(Path(args.config).read_text(encoding="utf-8"))
     query_status, tasks, query_error = _query_scheduler(str(config["task_name"]))
     collector = _collector_run(Path(args.database), args.run_id)
+    completed_daily_runs = _completed_daily_runs(Path(args.database))
     runner = PROJECT_ROOT / "scripts" / "run_fx_pit_collector.cmd"
     audit = evaluate_fx_scheduler(
         query_status=query_status,
@@ -127,12 +159,20 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     audit["query_error"] = query_error
     audit["reference_run_in_collector_log"] = log_has_run
     audit["checks"]["reference_run_in_collector_log"] = log_has_run
+    audit["completed_daily_scheduler_runs"] = completed_daily_runs
+    audit["completed_daily_scheduler_run_n"] = len(completed_daily_runs)
+    audit["checks"]["at_least_one_completed_daily_scheduler_run"] = (
+        len(completed_daily_runs) >= 1
+    )
+    audit["second_completed_daily_scheduler_run_observed"] = (
+        len(completed_daily_runs) >= 2
+    )
     audit["status"] = "PASS" if all(audit["checks"].values()) else "FAIL"
     audit.pop("audit_fingerprint", None)
     audit["created_at"] = args.at or datetime.now(timezone.utc).isoformat()
     audit["branch"] = _git("rev-parse", "--abbrev-ref", "HEAD")
     audit["commit"] = _git("rev-parse", "HEAD")
-    audit["command"] = "python scripts/audit_fx_pit_scheduler.py"
+    audit["command"] = "python " + " ".join(sys.argv)
     audit["input_artifacts"] = {
         "config": str(Path(args.config).resolve()),
         "database": str(Path(args.database).resolve()),

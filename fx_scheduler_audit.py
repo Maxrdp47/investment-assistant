@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Mapping, Sequence
 
 
-FX_SCHEDULER_AUDIT_VERSION = "fx-pit-scheduler-audit-2026.08.30-v1"
+FX_SCHEDULER_AUDIT_VERSION = "fx-pit-scheduler-audit-2026.08.31-v3"
 
 
 def _fingerprint(value: object) -> str:

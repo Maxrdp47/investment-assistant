@@ -1,0 +1,196 @@
+{
+  "contract_version": "multi-asset-opportunity-discovery-2026.08.31-v1",
+  "research_role": "technical_integrity_pilot_only",
+  "market_scope": [
+    "EQUITIES",
+    "ETF",
+    "FX",
+    "CRYPTO"
+  ],
+  "analysis_resolution": "completed_daily_bars_only",
+  "asset_class_analysis": "strictly_separate",
+  "candidate_generation": {
+    "mode": "fixed_representatives_for_integrity_pilot",
+    "predictive_prefilter_allowed": false,
+    "composite_opportunity_score_allowed": false,
+    "full_development_scan_allowed": false,
+    "selection_may_use_future_outcomes": false,
+    "technical_eligibility_only": true
+  },
+  "point_in_time": {
+    "decision_basis": "last_completed_daily_bar",
+    "feature_known_at_must_not_exceed_decision_time": true,
+    "next_entry": "next_available_session_open",
+    "minimum_history_observations": 220,
+    "equities_etf_bar_available_at": "23:59:59Z_on_observation_date",
+    "crypto_bar_available_at": "23:59:59Z_on_observation_date",
+    "fx_bar_available_at": "source_record_available_at",
+    "event_required_fields": [
+      "known_at",
+      "published_at",
+      "effective_at",
+      "source",
+      "coverage_status",
+      "pit_eligible"
+    ],
+    "retroactive_event_importance_allowed": false,
+    "retroactive_exposure_inference_allowed": false
+  },
+  "stage_contract": {
+    "split_version": "swing-broad-chronological-splits-2026.08.22-v1",
+    "modern_development": [
+      "2016-01-01",
+      "2021-12-31"
+    ],
+    "modern_validation": [
+      "2022-01-01",
+      "2023-12-31"
+    ],
+    "modern_holdout_starts": "2024-01-01",
+    "outcome_may_cross_stage_boundary": false,
+    "censoring_status": "CENSORED_AT_STAGE_BOUNDARY"
+  },
+  "outcome_contract": {
+    "horizon_daily_observations": 252,
+    "checkpoints": [
+      20,
+      60,
+      120,
+      252
+    ],
+    "upside_r_levels": [
+      1.0,
+      2.0,
+      3.0
+    ],
+    "intraday_and_close_breaches_separate": true,
+    "mfe_mae_units": [
+      "PERCENT",
+      "ATR14",
+      "STRUCTURAL_R"
+    ],
+    "structural_r_definition": "entry_open_minus_original_safe_zone_c_lower_boundary",
+    "no_intrabar_order_invention": true
+  },
+  "safe_zone_contract": {
+    "version": "multi-asset-safe-zones-2026.08.31-v1",
+    "models": [
+      "A_CONFIRMED_SWING_LOW",
+      "B_CONFIRMED_SUPPORT_ZONE",
+      "C_SUPPORT_ELSE_SWING_LOW_MINUS_0_5_ATR14"
+    ],
+    "swing_pivot_left_bars": 2,
+    "swing_pivot_right_bars": 2,
+    "confirmation_move_atr14": 1.0,
+    "support_min_distinct_confirmed_reactions": 2,
+    "support_max_distance_atr14": 1.0,
+    "support_distance_atr_reference": "minimum_atr14_of_the_two_reactions",
+    "zone_c_atr_buffer": 0.5,
+    "original_zone_immutable": true,
+    "protective_ratchet_may_only_rise": true,
+    "protective_ratchet_requires_new_confirmed_structure": true,
+    "max_stop_distance_filter_allowed": false,
+    "parameter_grid_allowed": false
+  },
+  "sell_zone_contract": {
+    "version": "multi-asset-sell-zones-2026.08.31-v1",
+    "models": {
+      "A_PRIOR_RESISTANCE": "nearest_confirmed_swing_high_above_signal_close_known_at_decision",
+      "B_STRUCTURAL_PROJECTION": "prior_resistance_plus_prior_resistance_minus_original_structural_base_upper",
+      "C_VOLATILITY_OVEREXTENSION": "signal_close_plus_2_0_times_signal_atr14"
+    },
+    "measurement_only": true,
+    "automatic_exit_allowed": false,
+    "parameter_grid_allowed": false
+  },
+  "feature_contract": {
+    "version": "multi-asset-discovery-features-2026.08.31-v1",
+    "families": [
+      "PRICE_RETURNS",
+      "TREND_EMA",
+      "MOMENTUM_RSI",
+      "VOLATILITY_ATR",
+      "GAPS_OVERNIGHT_INTRADAY",
+      "VOLUME_LIQUIDITY",
+      "CONFIRMED_STRUCTURE",
+      "SAFE_ZONES",
+      "SELL_ZONES",
+      "MARKET_REGIME",
+      "EVENT_CONTEXT",
+      "FUNDAMENTAL_CONTEXT"
+    ],
+    "missingness_states": [
+      "AVAILABLE",
+      "UNKNOWN",
+      "UNAVAILABLE",
+      "SHADOW",
+      "PROVIDER_FAILURE",
+      "STRUCTURAL_NOT_APPLICABLE"
+    ],
+    "features_physically_separate_from_outcomes": true,
+    "features_created_before_outcomes": true,
+    "future_derived_feature_allowed": false
+  },
+  "deterioration_contract": {
+    "families": [
+      "PRICE_STRUCTURE",
+      "MOMENTUM",
+      "VOLATILITY",
+      "LIQUIDITY",
+      "EVENT"
+    ],
+    "families_must_remain_separate": true,
+    "automatic_combined_exit_rule_allowed": false
+  },
+  "dependency_contract": {
+    "identity_version": "swing-research-identity-2026.08.29-v3",
+    "dependency_version": "swing-research-dependency-2026.08.29-v3",
+    "raw_n_is_independent_n": false,
+    "same_listing_overlapping_252_observation_windows_are_dependent": true,
+    "unknown_dependency_contribution_to_effective_n": 0,
+    "issuer_adjusted_effective_n_only_for_verified_known_dependencies": true
+  },
+  "store_contract": {
+    "feature_store": "runtime/multi_asset_discovery_v1_pilot_features.sqlite3",
+    "outcome_store": "runtime/multi_asset_discovery_v1_pilot_outcomes.sqlite3",
+    "append_only": true,
+    "serial_sqlite_writes_main_process_only": true,
+    "resume_must_not_duplicate": true
+  },
+  "pilot_contract": {
+    "fixed_decision_day": "2020-12-15",
+    "boundary_censoring_decision_day": "2021-12-15",
+    "equities": [
+      "AAPL",
+      "MSFT"
+    ],
+    "etf": [
+      "SPY",
+      "QQQ"
+    ],
+    "fx": [
+      "EUR/USD",
+      "GBP/USD",
+      "USD/JPY"
+    ],
+    "crypto": [
+      "BTC-USD",
+      "ETH-USD",
+      "SOL-USD"
+    ],
+    "extra_boundary_case": "AAPL",
+    "large_scan_allowed": false,
+    "performance_claim_allowed": false
+  },
+  "lifecycle": {
+    "validation_opened": false,
+    "holdout_opened": false,
+    "external_opened": false,
+    "true_forward_opened": false,
+    "paper_opened": false,
+    "shadow_opened": false,
+    "broker_opened": false,
+    "production_strategy_changed": false,
+    "automatic_orders_allowed": false
+  }
+}

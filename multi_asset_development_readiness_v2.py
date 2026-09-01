@@ -19,7 +19,7 @@ from multi_asset_development_readiness import (
 
 
 FINAL_DEVELOPMENT_READINESS_V2 = (
-    "multi-asset-final-development-readiness-2026.09.01-v2"
+    "multi-asset-final-development-readiness-2026.09.01-v3"
 )
 
 
@@ -122,6 +122,11 @@ def evaluate_multi_asset_development_readiness_v2(
         == "PASS"
         and scheduler_preflight.get("canonical_task_count") in {0, 1}
         and scheduler_preflight.get("multiple_instances") == "IgnoreNew",
+        "scheduler_uses_project_logon_convention": scheduler_preflight.get(
+            "logon_type"
+        )
+        == execution.get("scheduler_logon_type")
+        == "Interactive",
         "no_strategy_or_trade_outputs": all(
             execution.get(key) is False
             for key in (

@@ -48,9 +48,9 @@ DEFAULT_IDENTITY_STORE = PROJECT_ROOT / "runtime" / "research_identity_registry.
 DEFAULT_FX_STORE = (
     PROJECT_ROOT / "runtime" / "fx_historical_pit_2026-09-01-v2.sqlite3"
 )
-STORE_SCHEMA_VERSION = "multi-asset-discovery-development-store-2026.09.01-v1"
-CONTROL_SCHEMA_VERSION = "multi-asset-discovery-development-control-2026.09.01-v1"
-WORK_PLAN_VERSION = "multi-asset-discovery-development-work-plan-2026.09.01-v1"
+STORE_SCHEMA_VERSION = "multi-asset-discovery-development-store-2026.09.01-v2"
+CONTROL_SCHEMA_VERSION = "multi-asset-discovery-development-control-2026.09.01-v2"
+WORK_PLAN_VERSION = "multi-asset-discovery-development-work-plan-2026.09.01-v2"
 
 
 class MultiAssetDevelopmentExecutionError(RuntimeError):
@@ -183,7 +183,7 @@ def build_development_universe(
         for item in assets
     ]
     payload: dict[str, object] = {
-        "version": "multi-asset-discovery-development-universe-2026.09.01-v1",
+        "version": "multi-asset-discovery-development-universe-2026.09.01-v2",
         "mode": "full_eligibility_universe",
         "assets": assets,
         "asset_count": len(assets),

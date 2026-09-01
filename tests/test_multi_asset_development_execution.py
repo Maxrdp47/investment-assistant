@@ -439,7 +439,7 @@ def test_scheduler_contract_is_persistent_and_single_instance() -> None:
     )
     assert "StartWhenAvailable" in text
     assert "MultipleInstances IgnoreNew" in text
-    assert "LogonType S4U" in text
+    assert "LogonType Interactive" in text
     assert "ExecutionTimeLimit (New-TimeSpan -Seconds 0)" in text
     assert "Register-ScheduledTask" in text
     assert "Start-ScheduledTask" in text

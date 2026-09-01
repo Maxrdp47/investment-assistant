@@ -75,6 +75,7 @@ def _base() -> dict[str, object]:
             "status": "PASS",
             "canonical_task_count": 0,
             "multiple_instances": "IgnoreNew",
+            "logon_type": "Interactive",
         },
     }
 

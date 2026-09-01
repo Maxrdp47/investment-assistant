@@ -65,6 +65,10 @@ def _scheduler_preflight(task_name: str) -> dict[str, object]:
     matches = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
     installer = PROJECT_ROOT / "scripts" / "install_multi_asset_development_task.ps1"
     runner = PROJECT_ROOT / "scripts" / "run_multi_asset_development.cmd"
+    installer_text = installer.read_text(encoding="utf-8") if installer.exists() else ""
+    logon_type = (
+        "Interactive" if "-LogonType Interactive" in installer_text else "UNKNOWN"
+    )
     return {
         "status": (
             "PASS"
@@ -72,6 +76,7 @@ def _scheduler_preflight(task_name: str) -> dict[str, object]:
             and len(matches) <= 1
             and installer.exists()
             and runner.exists()
+            and logon_type == "Interactive"
             else "FAIL"
         ),
         "query_return_code": completed.returncode,
@@ -79,6 +84,7 @@ def _scheduler_preflight(task_name: str) -> dict[str, object]:
         "installer_exists": installer.exists(),
         "runner_exists": runner.exists(),
         "multiple_instances": "IgnoreNew",
+        "logon_type": logon_type,
         "start_when_available": True,
     }
 

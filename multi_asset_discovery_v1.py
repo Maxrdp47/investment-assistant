@@ -467,8 +467,12 @@ def build_feature_snapshot(
     decision_time: str,
     dataset_fingerprint: str,
     event_facts: Sequence[Mapping[str, object]] = (),
+    prepared_frame: pd.DataFrame | None = None,
+    safe_zones_override: Mapping[str, object] | None = None,
+    sell_zones_override: Mapping[str, object] | None = None,
+    execution_contract_version: str = DISCOVERY_VERSION,
 ) -> dict[str, object]:
-    prepared = prepare_indicators(frame)
+    prepared = prepared_frame if prepared_frame is not None else prepare_indicators(frame)
     minimum = int(load_discovery_contract()["point_in_time"]["minimum_history_observations"])
     if decision_position < minimum - 1:
         raise MultiAssetDiscoveryContractError("Der Entscheidungspunkt besitzt zu wenig Historie.")
@@ -484,8 +488,16 @@ def build_feature_snapshot(
     if decision_stamp.date().isoformat() < signal_day:
         raise MultiAssetDiscoveryContractError("decision_time liegt vor der Signalkerze.")
     row = prepared.iloc[decision_position]
-    safe_zones = build_safe_zones(prepared, decision_position)
-    sell_zones = build_sell_zones(prepared, decision_position, safe_zones)
+    safe_zones = (
+        dict(safe_zones_override)
+        if safe_zones_override is not None
+        else build_safe_zones(prepared, decision_position)
+    )
+    sell_zones = (
+        dict(sell_zones_override)
+        if sell_zones_override is not None
+        else build_sell_zones(prepared, decision_position, safe_zones)
+    )
     allowed_events = []
     for event in event_facts:
         known_at = event.get("known_at")
@@ -531,7 +543,7 @@ def build_feature_snapshot(
     )
     snapshot: dict[str, object] = {
         "feature_version": FEATURE_VERSION,
-        "contract_version": DISCOVERY_VERSION,
+        "contract_version": execution_contract_version,
         "asset_id": str(asset.get("asset_id") or asset.get("ticker") or asset.get("pair_id")),
         "symbol": str(asset.get("ticker") or asset.get("pair_id")),
         "asset_class": asset_class,
@@ -573,7 +585,7 @@ def build_feature_snapshot(
     identity = {
         "asset_id": snapshot["asset_id"],
         "signal_day": signal_day,
-        "contract_version": DISCOVERY_VERSION,
+        "contract_version": execution_contract_version,
         "dataset_fingerprint": dataset_fingerprint,
     }
     snapshot["case_id"] = f"mad1-{fingerprint(identity)[:32]}"
@@ -632,15 +644,30 @@ def _checkpoint(
     }
 
 
-def _ratchet_path(prepared: pd.DataFrame, signal_position: int, future_end_position: int) -> dict[str, object]:
-    initial = build_safe_zones(prepared, signal_position)
+def _ratchet_path(
+    prepared: pd.DataFrame,
+    signal_position: int,
+    future_end_position: int,
+    *,
+    safe_zone_history: Sequence[Mapping[str, object]] | None = None,
+) -> dict[str, object]:
+    initial = (
+        dict(safe_zone_history[signal_position])
+        if safe_zone_history is not None
+        else build_safe_zones(prepared, signal_position)
+    )
     zone_c = dict(initial.get("C") or {})
     if zone_c.get("status") != "AVAILABLE":
         return {"status": "UNAVAILABLE", "updates": [], "never_lowered": True}
     current = float(zone_c["lower"])
     updates = []
     for position in range(signal_position + 1, future_end_position + 1):
-        candidate = dict(build_safe_zones(prepared, position).get("C") or {})
+        candidate_source = (
+            safe_zone_history[position]
+            if safe_zone_history is not None
+            else build_safe_zones(prepared, position)
+        )
+        candidate = dict(candidate_source.get("C") or {})
         if candidate.get("status") != "AVAILABLE":
             continue
         proposed = float(candidate["lower"])
@@ -667,10 +694,12 @@ def build_outcome(
     *,
     feature_snapshot: Mapping[str, object],
     frame: pd.DataFrame,
+    prepared_frame: pd.DataFrame | None = None,
+    safe_zone_history: Sequence[Mapping[str, object]] | None = None,
 ) -> dict[str, object]:
     if not feature_snapshot.get("feature_fingerprint"):
         raise MultiAssetDiscoveryContractError("Outcome benötigt einen eingefrorenen Feature-Snapshot.")
-    prepared = prepare_indicators(frame)
+    prepared = prepared_frame if prepared_frame is not None else prepare_indicators(frame)
     signal_day = str(feature_snapshot["signal_day"])
     matching = np.flatnonzero(prepared.index == pd.Timestamp(signal_day))
     if len(matching) != 1:
@@ -685,14 +714,30 @@ def build_outcome(
         if prepared.index[position] <= stage_end
     ]
     if not available_positions:
-        return {
+        outcome = {
             "outcome_version": OUTCOME_VERSION,
+            "contract_version": feature_snapshot.get("contract_version")
+            or DISCOVERY_VERSION,
             "case_id": feature_snapshot["case_id"],
             "feature_fingerprint": feature_snapshot["feature_fingerprint"],
+            "asset_id": feature_snapshot["asset_id"],
+            "symbol": feature_snapshot["symbol"],
+            "asset_class": feature_snapshot["asset_class"],
+            "listing_id": feature_snapshot.get("listing_id"),
+            "issuer_id": feature_snapshot.get("issuer_id"),
+            "mapping_status": feature_snapshot.get("mapping_status"),
+            "dependency_status": feature_snapshot.get("dependency_status"),
             "status": "CENSORED_AT_STAGE_BOUNDARY",
             "reason": "NEXT_OPEN_OUTSIDE_STAGE",
             "research_split": feature_snapshot["research_split"],
+            "signal_day": signal_day,
+            "observations_available": 0,
+            "requested_observations": 252,
+            "future_features_written_to_feature_store": False,
+            "no_intrabar_order_invented": True,
         }
+        outcome["outcome_fingerprint"] = fingerprint(outcome)
+        return outcome
     horizon_positions = available_positions[:252]
     entry_position = horizon_positions[0]
     future = prepared.iloc[horizon_positions]
@@ -756,7 +801,8 @@ def build_outcome(
     final_close = float(future.iloc[-1]["Close"])
     outcome: dict[str, object] = {
         "outcome_version": OUTCOME_VERSION,
-        "contract_version": DISCOVERY_VERSION,
+        "contract_version": feature_snapshot.get("contract_version")
+        or DISCOVERY_VERSION,
         "case_id": feature_snapshot["case_id"],
         "feature_fingerprint": feature_snapshot["feature_fingerprint"],
         "asset_id": feature_snapshot["asset_id"],
@@ -801,7 +847,12 @@ def build_outcome(
         "safe_zone_breaches": safe_breaches,
         "sell_zone_measurements": sell_measurements,
         "checkpoints": checkpoints,
-        "protective_ratchet": _ratchet_path(prepared, signal_position, horizon_positions[-1]),
+        "protective_ratchet": _ratchet_path(
+            prepared,
+            signal_position,
+            horizon_positions[-1],
+            safe_zone_history=safe_zone_history,
+        ),
         "path_quality": {
             "mfe_to_mae_ratio": ((max_high - entry) / max(entry - min_low, 1e-12)),
             "positive_close_fraction": float((closes >= entry).mean()),

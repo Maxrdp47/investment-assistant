@@ -1,0 +1,75 @@
+{
+  "development_contract_version": "multi-asset-opportunity-discovery-development-2026.09.01-v1",
+  "parent_contract_path": "config/multi_asset_discovery_v1.json",
+  "parent_contract_version": "multi-asset-opportunity-discovery-2026.08.31-v1",
+  "parent_contract_fingerprint": "68994e462f90e2a4f1ad4adbdc858cc43fb0ddb85b0c2662d0f647e1dfa6c05a",
+  "parent_freeze_fingerprint": "a93f68ee3eec1fddb37ea7a19d5616cccba7d43ece6146b01f8789a9d98b4a8e",
+  "references": {
+    "dataset_fingerprint": "e2310023e5c83fc19ce8316b55514e9694c882e546277487ed75319e560be1ed",
+    "dataset_manifest_sha256": "7eb27d92bd3995ace9ca80e6a77eaeee0e492575363a9cc29f6638c0d1de725f",
+    "stage_split_fingerprint": "e86c880c7800f1864387316a9229103615c5d80ee7be2bc92d3c17b1362d2c9e",
+    "feature_contract_fingerprint": "0d254c019063631e9bab5098b9211597ef78d1ad3287bd110bf5777311adc854",
+    "outcome_contract_fingerprint": "8078297c9a8ebe62ecd7a0ae5f1f65b27f3e22df9ba8214c044b8356e5be020c",
+    "safe_zone_fingerprint": "6293908689d98a5f8c5c310315c6a26d2c02ede322356468244d8092ab2b16ed",
+    "identity_registry_fingerprint": "d8bd34a3bac724f6ff15f4d33a03efe7b517518b2a71208046be11bc1530387e",
+    "identity_store_sha256": "3e09c776f23b690b4c7a52600bbb67e01fad91c29243ea4d31f2a8263f051067",
+    "historical_dependency_policy_version": "multi-asset-historical-dependency-policy-2026.09.01-v1",
+    "historical_dependency_policy_fingerprint": "706b0b9e438464405f18d0972d49d34c553538c1236c3e7adb8fe37157214393",
+    "fx_dataset_version": "fx-historical-pit-2026.09.01-v2",
+    "fx_dataset_fingerprint": "a3c41cddd06d7b24596bac5f1e375868a86784ea5a6feeacd9b44f49598c5c91"
+  },
+  "execution_overrides": {
+    "research_role": "development",
+    "candidate_generation": {
+      "mode": "full_eligibility_universe",
+      "full_development_scan_allowed": true
+    },
+    "pilot_contract": {
+      "large_scan_allowed": true
+    },
+    "store_contract": {
+      "feature_store": "runtime/multi_asset_discovery_v1_development_features.sqlite3",
+      "outcome_store": "runtime/multi_asset_discovery_v1_development_outcomes.sqlite3",
+      "control_store": "runtime/multi_asset_discovery_v1_development_control.sqlite3",
+      "schema_version": "multi-asset-discovery-development-store-2026.09.01-v1",
+      "payload_encoding": "canonical_json_zlib",
+      "append_only": true,
+      "serial_sqlite_writes_main_process_only": true,
+      "resume_must_not_duplicate": true
+    }
+  },
+  "development_execution": {
+    "research_epoch": "multi-asset-discovery-development-2026.09.01-v1",
+    "universe_mode": "full_eligibility_universe",
+    "work_unit_partition": "asset_by_calendar_quarter",
+    "development_start": "2016-01-01",
+    "development_end": "2021-12-31",
+    "minimum_history_observations": 220,
+    "worker_count": 1,
+    "sqlite_writer_count": 1,
+    "maximum_attempts_per_work_unit": 3,
+    "checkpoint_after_each_work_unit": true,
+    "process_lock": "runtime/multi_asset_discovery_v1_development.lock",
+    "run_manifest": "runtime/research_exports/multi_asset_discovery_v1_development_run_manifest_2026-09-01-v1.json",
+    "contract_artifact": "runtime/research_exports/multi_asset_discovery_v1_development_contract_2026-09-01-v1.json",
+    "contract_diff_artifact": "runtime/research_exports/multi_asset_discovery_v1_development_contract_diff_2026-09-01-v1.json",
+    "readiness_artifact": "runtime/research_exports/multi_asset_final_development_readiness_2026-09-01-v2.json",
+    "log_path": "runtime/logs/multi_asset_discovery_v1_development.log",
+    "scheduler_task_name": "InvestmentAssistant-MultiAssetDiscoveryV1-Development",
+    "scheduler_repeat_minutes": 5,
+    "scheduler_start_when_available": true,
+    "scheduler_multiple_instances": "IgnoreNew",
+    "scheduler_restart_count": 3,
+    "scheduler_restart_interval_minutes": 10,
+    "production_protection_config": "config/swing_walk_forward_campaign.json",
+    "validation_access_allowed": false,
+    "holdout_access_allowed": false,
+    "external_access_allowed": false,
+    "true_forward_access_allowed": false,
+    "paper_output_allowed": false,
+    "shadow_output_allowed": false,
+    "broker_output_allowed": false,
+    "automatic_orders_allowed": false,
+    "automatic_strategy_optimization_allowed": false
+  }
+}

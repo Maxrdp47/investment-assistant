@@ -54,7 +54,7 @@ from swing_walk_forward_campaign import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 BERLIN = ZoneInfo("Europe/Berlin")
-RUNNER_VERSION = "multi-asset-discovery-development-runner-2026.09.01-v2"
+RUNNER_VERSION = "multi-asset-discovery-development-runner-2026.09.01-v3"
 RUNNING_STATUS = "MULTI_ASSET_DISCOVERY_V1_DEVELOPMENT_RUNNING"
 COMPLETE_STATUS = "MULTI_ASSET_DISCOVERY_V1_DEVELOPMENT_COMPLETE_AWAITING_REVIEW"
 
@@ -166,7 +166,7 @@ def build_run_manifest(
     }
     run_id = f"mad1-development-{fingerprint(basis)[:24]}"
     payload: dict[str, object] = {
-        "version": "multi-asset-discovery-development-run-manifest-2026.09.01-v2",
+        "version": "multi-asset-discovery-development-run-manifest-2026.09.01-v3",
         "run_id": run_id,
         "research_epoch": execution["research_epoch"],
         "development_contract_version": contract["contract_version"],
@@ -265,16 +265,39 @@ def _configure_logger(path: Path) -> logging.Logger:
     return logger
 
 
-def _production_clear(contract: Mapping[str, object]) -> tuple[bool, str]:
+def development_time_guard(
+    contract: Mapping[str, object], *, now: datetime
+) -> tuple[bool, str]:
+    """Apply only Development-owned time gates, never Forward-only windows."""
+
     execution = dict(contract["development_execution"])
+    not_before = datetime.fromisoformat(str(execution["development_not_before"]))
+    if not_before.tzinfo is None or now.tzinfo is None:
+        raise RuntimeError("Development-Startgrenze benötigt Zeitzonen.")
+    if now.astimezone(not_before.tzinfo) < not_before:
+        return False, "DEVELOPMENT_NOT_BEFORE:" + not_before.isoformat()
+    if execution.get("forward_only_time_windows_apply_to_development") is True:
+        config_path = PROJECT_ROOT / str(execution["production_protection_config"])
+        config = load_campaign_config(config_path)
+        if campaign_is_protected_time(now, config):
+            return False, "FORWARD_ONLY_PROTECTED_WINDOW"
+    return True, "CLEAR"
+
+
+def _production_clear(
+    contract: Mapping[str, object], *, now: datetime | None = None
+) -> tuple[bool, str]:
+    execution = dict(contract["development_execution"])
+    effective_now = now or datetime.now(BERLIN)
+    clear, reason = development_time_guard(contract, now=effective_now)
+    if not clear:
+        return False, reason
     config_path = PROJECT_ROOT / str(execution["production_protection_config"])
     config = load_campaign_config(config_path)
-    now = datetime.now(BERLIN)
-    if campaign_is_protected_time(now, config):
-        return False, "PROTECTED_PRODUCTION_WINDOW"
-    active = campaign_active_production_jobs(config, root=PROJECT_ROOT)
-    if active:
-        return False, "ACTIVE_PRODUCTION_LOCK:" + ",".join(active)
+    if execution.get("active_production_locks_apply_to_development") is True:
+        active = campaign_active_production_jobs(config, root=PROJECT_ROOT)
+        if active:
+            return False, "ACTIVE_PRODUCTION_LOCK:" + ",".join(active)
     return True, "CLEAR"
 
 

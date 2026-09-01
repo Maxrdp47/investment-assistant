@@ -19,7 +19,7 @@ from multi_asset_development_readiness import (
 
 
 FINAL_DEVELOPMENT_READINESS_V2 = (
-    "multi-asset-final-development-readiness-2026.09.01-v3"
+    "multi-asset-final-development-readiness-2026.09.01-v4"
 )
 
 
@@ -127,6 +127,18 @@ def evaluate_multi_asset_development_readiness_v2(
         )
         == execution.get("scheduler_logon_type")
         == "Interactive",
+        "development_start_boundary_is_explicit": execution.get(
+            "development_not_before"
+        )
+        == "2026-09-02T00:00:00+02:00",
+        "forward_only_windows_do_not_apply_to_development": execution.get(
+            "forward_only_time_windows_apply_to_development"
+        )
+        is False,
+        "active_production_locks_still_apply": execution.get(
+            "active_production_locks_apply_to_development"
+        )
+        is True,
         "no_strategy_or_trade_outputs": all(
             execution.get(key) is False
             for key in (

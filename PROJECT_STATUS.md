@@ -1,9 +1,20 @@
 # Investment Assistant – Projektstatus
 
-Stand: 2026-08-31
+Stand: 2026-09-02
 Konsolidierungs-Start: Branch `codex/swing-forward-diagnostics-status`, HEAD `31ff30eeefd46c7f42993802864687eda0c6e47b`. Der bereits geprüfte Buyer-Validation-Stand bis `e51880b28a681b4bddb7a3c4c770f0468e2bbc09` wurde per Fast-Forward integriert.
 
 Diese Datei fasst den technisch nachweisbaren Projektstand zusammen. Sie ist als kompakte Schnittstelle zwischen Planungs-Chat und Work-Chat gedacht und soll nach relevanten Änderungen fortgeführt werden. Private Portfolio-, Such-, Trade-, Entscheidungs-, Prognose- und Testdaten gehören nicht in dieses Dokument.
+
+## Multi-Asset Discovery v1 Development – RUNNING seit 2026-09-02
+
+- Der technisch getrennte Development-Contract `multi-asset-opportunity-discovery-development-2026.09.01-v5` ist nach grünem GitHub-CI und finalem 8/8-Readiness-Gate freigegeben. Contract-Fingerprint `8394fc3b784086e7f2b7521862841179bcf82f57b3fd634a1b233602b8379e35`, Gate-Fingerprint `262073815424b001f2602d18a411da8275c41a287b4c5eefe72f648f98efa124`, Research-Semantik-Diff 0.
+- Der kanonische Run `mad1-development-a073df9096023f1da079a494` startete am 2. September 2026 um 16:22:39 CEST. Er umfasst 60.504 deterministische Work-Units für 2.521 Assets und ausschließlich den eingefrorenen Development-Zeitraum 2016-01-01 bis 2021-12-31. Snapshot 16:32 CEST: 545 abgeschlossen, 371 ohne zulässige Fälle übersprungen, 96 nach drei Versuchen fail-closed fehlgeschlagen, eine aktiv und 59.491 offen; Fortschritt rund 1,51 %, je 40.860 eindeutige Feature-/Outcome-Cases.
+- Die 96 Fehler im genannten Snapshot sind transparent abgegrenzt: AAVE-USD, ICP-USD und SHIB-USD verletzen in je 24 Quartalseinheiten das harte Positivitätsgate für OHLC; für APT21794-USD existieren in allen 24 Quartalen keine Development-Balken. Während des laufenden Universumsscans können weitere assetspezifische Datenqualitätsausfälle sichtbar werden und werden unverändert fail-closed protokolliert. Es gibt weder Clipping, Imputation noch Ersatzdaten. Der Runner meldet deshalb ehrlich `DEGRADED`, arbeitet aber checkpoint-/resume-fähig an den übrigen Units weiter.
+- Alle drei v5-Stores melden `PRAGMA quick_check=ok` und 0 Foreign-Key-Verstöße. Feature- und Outcome-Store besitzen identische Case-Zahl, ausschließlich `research_split=development`, genau eine Run-ID und keine doppelten Case-IDs. Der Control-Store enthält exakt 60.504 eindeutige Work-Unit-IDs; SQLite schreibt seriell über einen Writer, der Prozess-Lock und Scheduler `IgnoreNew` verhindern Doppelstarts.
+- Reine Forward-/Paper-/Shadow-/Live-Uhrzeitfenster sind im Historical-Development-Kontext ab der expliziten Grenze 2026-09-02 00:00 CEST entkoppelt. Die bestehenden Forward-Schutzfenster selbst bleiben unverändert erhalten. Tatsächlich aktive Produktions-Locks, PIT-/Leakage-/Stage-/Datenqualitäts-/FX-/Dependency-Gates, Checkpoint/Resume, Provider-/Ressourcenschutz sowie alle Broker-/Order-Sperren bleiben wirksam.
+- Validation, Holdout, External, True Forward, Paper, Shadow, Broker und automatische Orders sind weiterhin geschlossen. Legacy Forward v1 bleibt eingefroren. Die v1-/v2-Development-Konfigurationen, Stores und Manifeste wurden nach dem v5-Start erneut bytegenau als unverändert bestätigt.
+- v3 wurde durch den bereits vorhandenen Scheduler lediglich als append-only Contract-Artefakt exportiert, aber nie vorbereitet oder gestartet. v4 erhielt bei einer fail-closed Readiness-Prüfung ein unverändertes `NOT_READY`-Artefakt und wurde ebenfalls nie vorbereitet oder gestartet. Es existieren keine v3-/v4-Run-Manifeste oder -Stores; nur v5 ist der laufende kanonische Run.
+- Abnahme des ausführbaren Stands: 52 gezielte Schutz-/Contract-/Readiness-Tests und 901/901 vollständige Tests bestanden; Python-Kompilierung, Repository-Sicherheitscheck, Offline-Smoke einschließlich Streamlit-Start und `git diff --check` waren grün. GitHub Actions `Smoke Test` für Code-/Gate-Commit `6da91b5c4d298b67bbd82b53f871cbe30c0f821e` ist erfolgreich (Run 33640819952).
 
 ## Current Truth – 2026-08-31
 

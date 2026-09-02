@@ -1,5 +1,14 @@
 # Investment-Assistent Master-Roadmap
 
+## Multi-Asset Discovery v1 Development – aktiver Lauf 2026-09-02
+
+- Der ausschließlich operative Contract `multi-asset-opportunity-discovery-development-2026.09.01-v5` besitzt gegenüber der eingefrorenen Discovery-v1-Fachsemantik exakt 0 Research-Abweichungen. Das finale Readiness-Gate besteht alle 8/8 Gruppen; Validation, Holdout, External, True Forward, Paper, Shadow, Broker und Orders bleiben geschlossen.
+- Historical Development darf seit der eigenen Startgrenze 2. September 2026, 00:00 CEST laufen, ohne durch reine Forward-/Paper-/Shadow-/Live-Schutzzeiten verzögert zu werden. Die Forward-Schutzfenster bleiben für ihre vorgesehenen Kontexte unverändert. Reale aktive Produktions-Locks, PIT, Leakage, Stage Separation, Datenqualität, FX-OHLC, Dependencies/Effective N, Prozess-/SQLite-Locks, Duplicate-Schutz und Checkpoint/Resume bleiben zwingend aktiv.
+- Der kanonische v5-Run `mad1-development-a073df9096023f1da079a494` läuft seit 16:22:39 CEST persistent über den einzigen Windows-Task `InvestmentAssistant-MultiAssetDiscoveryV1-Development` im 5-Minuten-Raster mit `IgnoreNew`, `StartWhenAvailable` und `WakeToRun`. Geplant sind 60.504 Work-Units für 2.521 Assets im Development-Zeitraum 2016-2021.
+- Früher Betriebssnapshot: rund 1,51 % verarbeitet, 40.860 eindeutige Feature-/Outcome-Cases, alle drei Stores `quick_check=ok`, 0 Foreign-Key-Verstöße und keine Duplicate-IDs. Zu diesem Zeitpunkt waren 96 Quartalseinheiten von vier Krypto-Symbolen durch unveränderte harte Datenqualitätsregeln fail-closed; weitere assetspezifische Ausfälle können im noch laufenden Universum sichtbar werden. Es wird nichts imputiert, geklippt oder ersetzt. Der Lauf bleibt deshalb transparent `DEGRADED`, verarbeitet aber die übrigen Units weiter.
+- v1/v2 bleiben bytegenau unverändert. v3 und v4 wurden nicht gestartet und besitzen weder Run-Manifest noch Stores; ihre fail-closed Vorartefakte bleiben als unveränderte Provenienz erhalten. Legacy Forward v1 bleibt eingefroren und ein Future Forward v2 existiert weiterhin nicht.
+- Nächster zulässiger Schritt ist ausschließlich: Development v5 vollständig checkpoint-/resume-fähig abschließen, Datenqualitätsausfälle separat ausweisen und erst danach die vorab festgelegte Development-Auswertung durchführen. Keine automatische Regelwahl, keine ungesehene Stufe und keine Produktionswirkung.
+
 ## Buyer-Confirmation-Challenger v1 – Gate abgeschlossen 2026-08-27
 
 - Die eingefrorene Version `buyer-confirmation-objective-pullback-v1` hat ihre vollständige ungesehene Validation mit 2.520/2.520 Assets und 181.473 rohen Pullback-Fällen beendet. Freeze-Fingerprint: `6c41572e2619e9123c8219d2d51fa61f542c5666fe8304519797caa6a06b9293`; Review-Fingerprint: `64c4b78dbda9fb0d5cc9e828df3338b9cebc24e05bdb22f7578f8073f6833d12`.

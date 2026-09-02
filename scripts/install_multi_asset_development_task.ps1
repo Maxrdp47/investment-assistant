@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$contractPath = Join-Path $projectRoot "config\multi_asset_discovery_development_v4.json"
+$contractPath = Join-Path $projectRoot "config\multi_asset_discovery_development_v5.json"
 $runnerPath = Join-Path $projectRoot "scripts\run_multi_asset_development.cmd"
 $runnerScriptPath = Join-Path $projectRoot "scripts\run_multi_asset_development.py"
 $pythonPath = Join-Path $projectRoot ".venv\Scripts\python.exe"

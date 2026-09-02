@@ -7,6 +7,9 @@ from multi_asset_development_readiness_v2 import (
 )
 from multi_asset_development_runner import RUNNER_VERSION
 from multi_asset_discovery_v1 import load_discovery_contract
+from scripts.run_multi_asset_development_readiness_v2 import (
+    EXPECTED_PROTECTED_HASHES,
+)
 
 
 def _base() -> dict[str, object]:
@@ -102,3 +105,8 @@ def test_any_semantic_diff_blocks_full_development() -> None:
     assert result["status"] != READY_STATUS
     assert result["gate_status"]["H_DEVELOPMENT_EXECUTION_CONTRACT"] == "FAIL"
     assert result["full_development_scan_started"] is False
+
+
+def test_mutable_forward_observer_store_is_not_pinned_as_immutable_source() -> None:
+    assert "runtime/fx_forward_pit.sqlite3" not in EXPECTED_PROTECTED_HASHES
+    assert "runtime/fx_historical_pit.sqlite3" in EXPECTED_PROTECTED_HASHES

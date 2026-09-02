@@ -33,10 +33,13 @@ from multi_asset_discovery_v1 import (  # noqa: E402
 EXPORTS = PROJECT_ROOT / "runtime" / "research_exports"
 EXPECTED_PROTECTED_HASHES = {
     "runtime/fx_historical_pit.sqlite3": "f0b7af71cbf9d527027a7a095cc562116e68aed7a0bdc37465d818b3259ca73f",
-    "runtime/fx_forward_pit.sqlite3": "1f97a80bd6376036ebe5e3dcbd6ecc3500f1139937d81da8088efbde0a85c5c7",
     "runtime/research_identity_registry.sqlite3": "3e09c776f23b690b4c7a52600bbb67e01fad91c29243ea4d31f2a8263f051067",
     "config/multi_asset_discovery_v1.json": "a34aca9c5b11679d133b264bf69983953bde8f4e5f666c18535f02f52203cecc",
 }
+
+# The Forward FX observer store is append-only operational state and therefore
+# intentionally mutable. Its integrity and broker prohibition are checked by
+# database_integrity and fx_observer instead of pinning an obsolete byte hash.
 
 
 def _json(path: Path) -> dict[str, object]:

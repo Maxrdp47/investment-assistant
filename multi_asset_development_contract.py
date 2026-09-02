@@ -22,16 +22,16 @@ from multi_asset_discovery_v1 import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_DEVELOPMENT_OVERLAY = (
-    PROJECT_ROOT / "config" / "multi_asset_discovery_development_v4.json"
+    PROJECT_ROOT / "config" / "multi_asset_discovery_development_v5.json"
 )
 DEVELOPMENT_CONTRACT_VERSION = (
-    "multi-asset-opportunity-discovery-development-2026.09.01-v4"
+    "multi-asset-opportunity-discovery-development-2026.09.01-v5"
 )
 DEVELOPMENT_CONTRACT_ARTIFACT_VERSION = (
-    "multi-asset-development-contract-artifact-2026.09.01-v4"
+    "multi-asset-development-contract-artifact-2026.09.01-v5"
 )
 DEVELOPMENT_CONTRACT_DIFF_VERSION = (
-    "multi-asset-development-contract-diff-2026.09.01-v4"
+    "multi-asset-development-contract-diff-2026.09.01-v5"
 )
 
 
@@ -41,7 +41,7 @@ class MultiAssetDevelopmentContractError(ValueError):
 
 def development_code_fingerprint() -> str:
     files = (
-        PROJECT_ROOT / "config" / "multi_asset_discovery_development_v4.json",
+        PROJECT_ROOT / "config" / "multi_asset_discovery_development_v5.json",
         PROJECT_ROOT / "multi_asset_discovery_v1.py",
         PROJECT_ROOT / "multi_asset_development_contract.py",
         PROJECT_ROOT / "multi_asset_development_execution.py",

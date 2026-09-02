@@ -295,7 +295,7 @@ def _production_clear(
     config_path = PROJECT_ROOT / str(execution["production_protection_config"])
     config = load_campaign_config(config_path)
     if execution.get("active_production_locks_apply_to_development") is True:
-        active = campaign_active_production_jobs(config, root=PROJECT_ROOT)
+        active = campaign_active_production_jobs(config, project_root=PROJECT_ROOT)
         if active:
             return False, "ACTIVE_PRODUCTION_LOCK:" + ",".join(active)
     return True, "CLEAR"

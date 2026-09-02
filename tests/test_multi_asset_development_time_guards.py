@@ -62,10 +62,15 @@ def test_active_production_process_lock_still_blocks_development(
     monkeypatch,
 ) -> None:
     contract = load_development_contract()
+
+    def _active_jobs(config, *, project_root):
+        assert project_root == runner.PROJECT_ROOT
+        return ["Swing-Live-/Forward-Scan"]
+
     monkeypatch.setattr(
         runner,
         "campaign_active_production_jobs",
-        lambda config, root: ["Swing-Live-/Forward-Scan"],
+        _active_jobs,
     )
 
     assert runner._production_clear(

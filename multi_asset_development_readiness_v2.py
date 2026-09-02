@@ -19,7 +19,7 @@ from multi_asset_development_readiness import (
 
 
 FINAL_DEVELOPMENT_READINESS_V2 = (
-    "multi-asset-final-development-readiness-2026.09.01-v4"
+    "multi-asset-final-development-readiness-2026.09.01-v5"
 )
 
 

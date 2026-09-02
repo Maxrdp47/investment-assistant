@@ -54,7 +54,7 @@ from swing_walk_forward_campaign import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 BERLIN = ZoneInfo("Europe/Berlin")
-RUNNER_VERSION = "multi-asset-discovery-development-runner-2026.09.01-v3"
+RUNNER_VERSION = "multi-asset-discovery-development-runner-2026.09.01-v4"
 RUNNING_STATUS = "MULTI_ASSET_DISCOVERY_V1_DEVELOPMENT_RUNNING"
 COMPLETE_STATUS = "MULTI_ASSET_DISCOVERY_V1_DEVELOPMENT_COMPLETE_AWAITING_REVIEW"
 
@@ -166,7 +166,7 @@ def build_run_manifest(
     }
     run_id = f"mad1-development-{fingerprint(basis)[:24]}"
     payload: dict[str, object] = {
-        "version": "multi-asset-discovery-development-run-manifest-2026.09.01-v3",
+        "version": "multi-asset-discovery-development-run-manifest-2026.09.01-v4",
         "run_id": run_id,
         "research_epoch": execution["research_epoch"],
         "development_contract_version": contract["contract_version"],

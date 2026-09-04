@@ -51,10 +51,23 @@ DEFAULT_FX_STORE = (
 STORE_SCHEMA_VERSION = "multi-asset-discovery-development-store-2026.09.01-v5"
 CONTROL_SCHEMA_VERSION = "multi-asset-discovery-development-control-2026.09.01-v5"
 WORK_PLAN_VERSION = "multi-asset-discovery-development-work-plan-2026.09.01-v5"
+TERMINAL_RUN_STATUSES = frozenset(
+    {"COMPLETED", "COMPLETED_WITH_FAILURES", "FAILED", "CANCELLED", "ABORTED"}
+)
 
 
 class MultiAssetDevelopmentExecutionError(RuntimeError):
     """The Development runner cannot proceed without violating its contract."""
+
+
+class MultiAssetDevelopmentNoDataError(MultiAssetDevelopmentExecutionError):
+    """Expected absence of source observations in the frozen Development period."""
+
+
+def is_terminal_run_status(status: object) -> bool:
+    """Return whether an existing canonical run status is terminal."""
+
+    return str(status or "").upper() in TERMINAL_RUN_STATUSES
 
 
 def utc_now() -> str:
@@ -350,7 +363,7 @@ def load_asset_history(
     frame.index = pd.to_datetime(frame.index).tz_localize(None).normalize()
     frame = frame.loc[~frame.index.duplicated(keep="last")]
     if frame.empty:
-        raise MultiAssetDevelopmentExecutionError(
+        raise MultiAssetDevelopmentNoDataError(
             f"Keine Development-Balken für {asset['asset_key']}."
         )
     if frame.index.min() < pd.Timestamp(execution["development_start"]):
@@ -1177,6 +1190,41 @@ def complete_work_unit(
         )
 
 
+def skip_work_unit(
+    *,
+    control_path: Path,
+    run_id: str,
+    unit: Mapping[str, object],
+    reason: str,
+) -> None:
+    """Persist an expected non-applicable unit using the existing SKIPPED status."""
+
+    completed_at = utc_now()
+    with _connect(control_path) as connection:
+        connection.execute(
+            "UPDATE work_units SET status='SKIPPED',feature_rows=0,outcome_rows=0,"
+            "invalid_cases=0,censored_cases=0,completed_at=?,"
+            "last_error_class='EXPECTED_NO_DEVELOPMENT_DATA',last_error_message=? "
+            "WHERE work_unit_id=?",
+            (completed_at, str(reason)[:1000], unit["work_unit_id"]),
+        )
+        connection.execute(
+            "UPDATE runs SET last_checkpoint_at=?,last_completed_work_unit=? WHERE run_id=?",
+            (completed_at, unit["work_unit_id"], run_id),
+        )
+
+
+def is_retryable_work_unit_error(error: BaseException) -> bool:
+    """Retry only failures that can plausibly be transient."""
+
+    if isinstance(error, (TimeoutError, ConnectionError)):
+        return True
+    if isinstance(error, sqlite3.OperationalError):
+        message = str(error).lower()
+        return any(token in message for token in ("locked", "busy", "timeout"))
+    return False
+
+
 def fail_work_unit(
     *,
     control_path: Path,
@@ -1184,8 +1232,9 @@ def fail_work_unit(
     unit: Mapping[str, object],
     error: BaseException,
     maximum_attempts: int,
+    retryable: bool = True,
 ) -> str:
-    retry = int(unit["attempts"]) < maximum_attempts
+    retry = bool(retryable) and int(unit["attempts"]) < maximum_attempts
     status = "PENDING" if retry else "FAILED"
     with _connect(control_path) as connection:
         connection.execute(
@@ -1257,14 +1306,24 @@ def checkpoint_status(*, control_path: Path, run_id: str) -> dict[str, object]:
 
 def mark_run_complete(*, control_path: Path, run_id: str) -> bool:
     status = checkpoint_status(control_path=control_path, run_id=run_id)
+    if is_terminal_run_status(status["status"]):
+        return True
     terminal = status["pending"] == 0 and status["active"] == 0
     if not terminal:
         return False
     final_status = "COMPLETED" if status["failed"] == 0 else "COMPLETED_WITH_FAILURES"
+    terminal_at = utc_now()
     with _connect(control_path) as connection:
         connection.execute(
-            "UPDATE runs SET status=?,completed_at=?,last_checkpoint_at=? WHERE run_id=?",
-            (final_status, utc_now(), utc_now(), run_id),
+            "UPDATE runs SET status=?,completed_at=COALESCE(completed_at,?),"
+            "last_checkpoint_at=? WHERE run_id=? AND status NOT IN (?,?,?,?,?)",
+            (
+                final_status,
+                terminal_at,
+                terminal_at,
+                run_id,
+                *sorted(TERMINAL_RUN_STATUSES),
+            ),
         )
     return True
 

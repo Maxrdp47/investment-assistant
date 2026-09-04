@@ -91,3 +91,72 @@ def test_trade_lifecycle_and_unseen_stages_remain_closed() -> None:
     assert execution["broker_output_allowed"] is False
     assert execution["automatic_orders_allowed"] is False
     assert all(value is False for value in contract["lifecycle"].values())
+
+
+def test_all_canonical_terminal_states_are_never_reported_as_running() -> None:
+    for status in (
+        "COMPLETED",
+        "COMPLETED_WITH_FAILURES",
+        "FAILED",
+        "CANCELLED",
+        "ABORTED",
+    ):
+        assert runner._runner_final_status(status) != runner.RUNNING_STATUS
+
+
+def test_terminal_run_returns_without_new_event_or_heavy_audit(
+    monkeypatch, tmp_path
+) -> None:
+    status = {
+        "run_id": "terminal-run",
+        "status": "COMPLETED_WITH_FAILURES",
+        "pending": 0,
+        "active": 0,
+        "failed": 1,
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text('{"run_id":"terminal-run"}', encoding="utf-8")
+    control_path = tmp_path / "control.sqlite3"
+    control_path.touch()
+    monkeypatch.setattr(runner, "load_development_contract", lambda: {})
+    monkeypatch.setattr(
+        runner,
+        "_paths",
+        lambda contract: {
+            "lock": tmp_path / "terminal.lock",
+            "control": control_path,
+            "log": tmp_path / "terminal.log",
+            "manifest": manifest_path,
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "prepare_canonical_run",
+        lambda: ({"run_id": "terminal-run"}, {"assets": []}, {}),
+    )
+    monkeypatch.setattr(runner, "checkpoint_status", lambda **kwargs: dict(status))
+    monkeypatch.setattr(
+        runner,
+        "resume_interrupted_units",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not resume")),
+    )
+    monkeypatch.setattr(
+        runner,
+        "append_run_event",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not append")),
+    )
+    monkeypatch.setattr(
+        runner,
+        "audit_development_stores",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not audit")),
+    )
+
+    result = runner.run_development()
+
+    assert result["status"] == "COMPLETED_WITH_FAILURES"
+    assert result["final_status"] == runner.COMPLETE_STATUS
+    assert result["processed_this_invocation"] == 0
+    assert result["store_audit"] == {
+        "skipped": True,
+        "reason": "TERMINAL_RUN_IS_IMMUTABLE",
+    }

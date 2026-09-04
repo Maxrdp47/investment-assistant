@@ -23,6 +23,7 @@ from multi_asset_development_execution import (
     DEFAULT_DATASET_MANIFEST,
     DEFAULT_FX_STORE,
     DEFAULT_IDENTITY_STORE,
+    MultiAssetDevelopmentNoDataError,
     append_run_event,
     audit_development_stores,
     build_development_universe,
@@ -33,10 +34,13 @@ from multi_asset_development_execution import (
     execute_work_unit,
     fail_work_unit,
     initialize_run,
+    is_retryable_work_unit_error,
+    is_terminal_run_status,
     load_asset_history,
     mark_run_complete,
     precompute_structure_history,
     resume_interrupted_units,
+    skip_work_unit,
     utc_now,
 )
 from multi_asset_discovery_v1 import (
@@ -57,6 +61,41 @@ BERLIN = ZoneInfo("Europe/Berlin")
 RUNNER_VERSION = "multi-asset-discovery-development-runner-2026.09.01-v5"
 RUNNING_STATUS = "MULTI_ASSET_DISCOVERY_V1_DEVELOPMENT_RUNNING"
 COMPLETE_STATUS = "MULTI_ASSET_DISCOVERY_V1_DEVELOPMENT_COMPLETE_AWAITING_REVIEW"
+
+
+def _runner_final_status(status: object) -> str:
+    canonical = str(status or "")
+    if canonical in {"COMPLETED", "COMPLETED_WITH_FAILURES"}:
+        return COMPLETE_STATUS
+    if is_terminal_run_status(canonical):
+        return canonical
+    return RUNNING_STATUS
+
+
+def _terminal_run_snapshot_if_present(
+    paths: Mapping[str, Path],
+) -> dict[str, object] | None:
+    """Read an immutable terminal run without reopening its frozen contract."""
+
+    manifest_path = paths["manifest"]
+    control_path = paths["control"]
+    if not manifest_path.exists() or not control_path.exists():
+        return None
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    status = checkpoint_status(
+        control_path=control_path,
+        run_id=str(manifest["run_id"]),
+    )
+    if not is_terminal_run_status(status["status"]):
+        return None
+    status["processed_this_invocation"] = 0
+    status["duplicate_start_rejected"] = False
+    status["store_audit"] = {
+        "skipped": True,
+        "reason": "TERMINAL_RUN_IS_IMMUTABLE",
+    }
+    status["final_status"] = _runner_final_status(status["status"])
+    return status
 
 
 def _git(*args: str) -> str:
@@ -314,6 +353,9 @@ def run_development(
 ) -> dict[str, object]:
     contract = load_development_contract()
     paths = _paths(contract)
+    terminal_snapshot = _terminal_run_snapshot_if_present(paths)
+    if terminal_snapshot is not None:
+        return terminal_snapshot
     manifest, universe, _ = prepare_canonical_run()
     run_id = str(manifest["run_id"])
     logger = _configure_logger(paths["log"])
@@ -341,6 +383,7 @@ def run_development(
         cached_fingerprint = ""
         cached_safe = None
         cached_sell = None
+        cached_no_data_reason = None
         processed = 0
         maximum_attempts = int(
             dict(contract["development_execution"])["maximum_attempts_per_work_unit"]
@@ -368,16 +411,51 @@ def run_development(
             try:
                 asset = assets[str(unit["asset_key"])]
                 if cached_key != unit["asset_key"]:
-                    cached_frame, cached_availability, cached_fingerprint = load_asset_history(
-                        asset,
-                        manifest_path=DEFAULT_DATASET_MANIFEST,
-                        fx_store=DEFAULT_FX_STORE,
+                    cached_no_data_reason = None
+                    try:
+                        cached_frame, cached_availability, cached_fingerprint = load_asset_history(
+                            asset,
+                            manifest_path=DEFAULT_DATASET_MANIFEST,
+                            fx_store=DEFAULT_FX_STORE,
+                        )
+                    except MultiAssetDevelopmentNoDataError as exc:
+                        cached_frame = None
+                        cached_prepared = None
+                        cached_safe = None
+                        cached_sell = None
+                        cached_no_data_reason = str(exc)
+                        cached_key = unit["asset_key"]
+                    if cached_no_data_reason is None:
+                        cached_prepared = prepare_indicators(cached_frame)
+                        if cached_prepared.index.max() > pd.Timestamp("2021-12-31"):
+                            raise RuntimeError("Nicht-Development-Daten im Runner-Frame.")
+                        cached_safe, cached_sell = precompute_structure_history(cached_prepared)
+                        cached_key = unit["asset_key"]
+                if cached_no_data_reason is not None:
+                    skip_work_unit(
+                        control_path=paths["control"],
+                        run_id=run_id,
+                        unit=unit,
+                        reason=cached_no_data_reason,
                     )
-                    cached_prepared = prepare_indicators(cached_frame)
-                    if cached_prepared.index.max() > pd.Timestamp("2021-12-31"):
-                        raise RuntimeError("Nicht-Development-Daten im Runner-Frame.")
-                    cached_safe, cached_sell = precompute_structure_history(cached_prepared)
-                    cached_key = unit["asset_key"]
+                    append_run_event(
+                        control_path=paths["control"],
+                        run_id=run_id,
+                        work_unit_id=str(unit["work_unit_id"]),
+                        event_type="WORK_UNIT_SKIPPED",
+                        details={
+                            "reason": "EXPECTED_NO_DEVELOPMENT_DATA",
+                            "message": cached_no_data_reason,
+                        },
+                    )
+                    logger.info(
+                        "Work unit skipped | unit=%s asset=%s reason=%s",
+                        unit["work_unit_id"],
+                        unit["asset_key"],
+                        cached_no_data_reason,
+                    )
+                    processed += 1
+                    continue
                 result = execute_work_unit(
                     asset=asset,
                     unit=unit,
@@ -433,6 +511,7 @@ def run_development(
                     unit=unit,
                     error=exc,
                     maximum_attempts=maximum_attempts,
+                    retryable=is_retryable_work_unit_error(exc),
                 )
                 append_run_event(
                     control_path=paths["control"],
@@ -452,9 +531,7 @@ def run_development(
             control_path=paths["control"],
             run_id=run_id,
         )
-        status["final_status"] = (
-            COMPLETE_STATUS if status["status"] == "COMPLETED" else RUNNING_STATUS
-        )
+        status["final_status"] = _runner_final_status(status["status"])
         return status
     finally:
         lock.release()

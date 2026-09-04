@@ -11,6 +11,7 @@ from multi_asset_development_contract import load_development_contract
 from multi_asset_development_execution import (
     _load_fx_history,
     MultiAssetDevelopmentExecutionError,
+    MultiAssetDevelopmentNoDataError,
     audit_development_stores,
     build_work_plan,
     checkpoint_status,
@@ -19,12 +20,17 @@ from multi_asset_development_execution import (
     decode_payload,
     execute_work_unit,
     initialize_run,
+    is_retryable_work_unit_error,
+    is_terminal_run_status,
     load_asset_history,
+    mark_run_complete,
     persist_work_unit_evidence,
     precompute_structure_history,
     resume_interrupted_units,
+    skip_work_unit,
 )
 from multi_asset_discovery_v1 import (
+    MultiAssetDiscoveryContractError,
     build_feature_snapshot,
     build_outcome,
     build_safe_zones,
@@ -192,6 +198,27 @@ def test_history_loader_uses_only_modern_development_rows(
     assert loaded.index.max() <= pd.Timestamp("2021-12-31")
     assert availability == {}
     assert source_fingerprint.endswith(":modern-history")
+
+
+def test_history_loader_classifies_empty_development_period_as_expected_no_data(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        "multi_asset_development_execution.pd.read_parquet",
+        lambda *args, **kwargs: pd.DataFrame(),
+    )
+    with pytest.raises(MultiAssetDevelopmentNoDataError, match="Keine Development-Balken"):
+        load_asset_history(
+            {
+                "asset_key": "EQUITIES:NEW",
+                "symbol": "NEW",
+                "asset_class": "EQUITIES",
+                "source_type": "FROZEN_PARQUET",
+                "modern_file": "modern.parquet",
+                "modern_history_fingerprint": "modern-history",
+            },
+            manifest_path=tmp_path / "manifest.json",
+        )
 
 
 def test_fx_loader_excludes_legacy_validation_and_holdout_rows(
@@ -420,6 +447,94 @@ def test_control_resume_does_not_create_a_second_run(tmp_path: Path) -> None:
     assert status["skipped"] == 1
     with sqlite3.connect(control_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 1
+
+
+def test_expected_no_data_uses_existing_skipped_status(tmp_path: Path) -> None:
+    feature_path = tmp_path / "features.sqlite3"
+    outcome_path = tmp_path / "outcomes.sqlite3"
+    control_path = tmp_path / "control.sqlite3"
+    initialize_run(
+        run_manifest=_manifest(),
+        universe={"universe_fingerprint": "universe"},
+        work_plan={
+            "work_plan_fingerprint": "plan",
+            "total_planned_work_units": 1,
+            "units": [
+                {
+                    "work_unit_id": "unit",
+                    "asset_key": "EQUITIES:NEW",
+                    "asset_class": "EQUITIES",
+                    "symbol": "NEW",
+                    "period_start": "2020-01-01",
+                    "period_end": "2020-03-31",
+                }
+            ],
+        },
+        feature_path=feature_path,
+        outcome_path=outcome_path,
+        control_path=control_path,
+    )
+    unit = claim_next_work_unit(control_path=control_path, run_id="run-test")
+    skip_work_unit(
+        control_path=control_path,
+        run_id="run-test",
+        unit=unit,
+        reason="Keine Development-Balken.",
+    )
+    with sqlite3.connect(control_path) as connection:
+        assert connection.execute(
+            "SELECT status,attempts,last_error_class FROM work_units"
+        ).fetchone() == ("SKIPPED", 1, "EXPECTED_NO_DEVELOPMENT_DATA")
+
+
+def test_retry_classifier_retries_only_plausibly_transient_errors() -> None:
+    assert is_retryable_work_unit_error(sqlite3.OperationalError("database is locked"))
+    assert is_retryable_work_unit_error(TimeoutError("temporary timeout"))
+    assert not is_retryable_work_unit_error(
+        MultiAssetDiscoveryContractError("OHLC muss positiv sein.")
+    )
+    assert not is_retryable_work_unit_error(
+        MultiAssetDevelopmentNoDataError("Keine Development-Balken.")
+    )
+
+
+@pytest.mark.parametrize(
+    "status",
+    ["COMPLETED", "COMPLETED_WITH_FAILURES", "FAILED", "CANCELLED", "ABORTED"],
+)
+def test_existing_terminal_status_and_completion_timestamp_are_immutable(
+    tmp_path: Path, status: str
+) -> None:
+    feature_path = tmp_path / "features.sqlite3"
+    outcome_path = tmp_path / "outcomes.sqlite3"
+    control_path = tmp_path / "control.sqlite3"
+    initialize_run(
+        run_manifest=_manifest(),
+        universe={"universe_fingerprint": "universe"},
+        work_plan={
+            "work_plan_fingerprint": "plan",
+            "total_planned_work_units": 0,
+            "units": [],
+        },
+        feature_path=feature_path,
+        outcome_path=outcome_path,
+        control_path=control_path,
+    )
+    historical = "2026-09-03T00:44:03+00:00"
+    with sqlite3.connect(control_path) as connection:
+        connection.execute(
+            "UPDATE runs SET status=?,completed_at=?,last_checkpoint_at=? WHERE run_id=?",
+            (status, historical, historical, "run-test"),
+        )
+
+    assert is_terminal_run_status(status) is True
+    assert mark_run_complete(control_path=control_path, run_id="run-test") is True
+    with sqlite3.connect(control_path) as connection:
+        row = connection.execute(
+            "SELECT status,completed_at,last_checkpoint_at FROM runs WHERE run_id=?",
+            ("run-test",),
+        ).fetchone()
+    assert row == (status, historical, historical)
 
 
 def test_process_lock_rejects_duplicate_runner(tmp_path: Path) -> None:

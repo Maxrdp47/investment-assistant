@@ -24,6 +24,7 @@ from multi_asset_development_v6_reporting import PLAN_VERSION
 from multi_asset_development_v6_preflight import (
     DevelopmentV6PreflightError,
     REQUIRED_LOCAL_GATES,
+    REQUIRED_SCHEDULER_CONTRACT_CHECKS,
     START_GATE_VERSION,
     build_start_gate,
 )
@@ -471,18 +472,48 @@ def _fixture(root: Path) -> dict[str, object]:
         "status": "INSTALLED",
         "task_exists": True,
         "task_count": 1,
+        "state": "Ready",
         "enabled": True,
         "repetition_interval_minutes": 5,
         "repetition_duration_days": 3650,
         "task_name": "InvestmentAssistant-MultiAssetDiscoveryV1-Development-v6-Chain",
+        "task_path": "\\",
         "wrapper": "scripts/run_multi_asset_development_v6_chain.cmd",
+        "wrapper_absolute": str(
+            (root / "scripts/run_multi_asset_development_v6_chain.cmd").resolve()
+        ),
+        "action_execute": "cmd.exe",
+        "action_arguments": (
+            f'/d /c ""{(root / "scripts/run_multi_asset_development_v6_chain.cmd").resolve()}""'
+        ),
+        "action_working_directory": str(root.resolve()),
+        "action": (
+            f'cmd.exe /d /c ""{(root / "scripts/run_multi_asset_development_v6_chain.cmd").resolve()}""'
+        ),
+        "automatic_start_boundary": "2026-09-05T20:20:00+02:00",
+        "automatic_anchor_delay_minutes": 20.0,
+        "next_run_time": "2026-09-05T20:20:00+02:00",
         "multiple_instances": "IgnoreNew",
         "start_when_available": True,
         "wake_to_run": True,
         "run_level": "Limited",
         "logon_type": "Interactive",
+        "restart_count": 3,
+        "restart_interval_minutes": 10,
+        "execution_time_limit_seconds": 0,
+        "allow_start_if_on_batteries": True,
+        "dont_stop_if_going_on_batteries": True,
         "user_context": "MACHINE\\test-user",
+        "user_context_matches_current_user": True,
+        "user_context_sid": "S-1-5-21-1000",
+        "current_user_sid": "S-1-5-21-1000",
+        "contract_checks": {
+            name: True for name in REQUIRED_SCHEDULER_CONTRACT_CHECKS
+        },
         "observed_at": "2026-09-05T20:00:00+02:00",
+        "start_requested": False,
+        "start_gate_verified": False,
+        "start_gate_path": str((root / "runtime/start-gate.json").resolve()),
     }
     return {
         "root": root,
@@ -625,6 +656,114 @@ def test_scheduler_must_be_installed_enabled_and_repeat_every_five_minutes(
     assert result["checks"]["SCHEDULER_CONTRACT"][
         "five_minute_repetition"
     ] is False
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda evidence: evidence.__setitem__(
+            "user_context_matches_current_user", False
+        ),
+        lambda evidence: evidence.__setitem__(
+            "user_context_sid", "S-1-5-21-9999"
+        ),
+        lambda evidence: evidence["contract_checks"].pop(
+            REQUIRED_SCHEDULER_CONTRACT_CHECKS[-1]
+        ),
+        lambda evidence: evidence["contract_checks"].__setitem__(
+            "action_arguments_exact", False
+        ),
+    ),
+)
+def test_scheduler_evidence_requires_same_sid_and_every_exact_contract_check(
+    tmp_path: Path, mutation
+) -> None:
+    fixture = _fixture(tmp_path)
+    scheduler = {
+        **dict(fixture["scheduler"]),
+        "contract_checks": dict(fixture["scheduler"]["contract_checks"]),
+    }
+    mutation(scheduler)
+
+    result = _build(fixture, scheduler_evidence=scheduler)
+
+    assert result["status"] == "FAIL"
+    assert result["gates"]["SCHEDULER_CONTRACT"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    (
+        ("task_path", "\\Foreign"),
+        ("wrapper_absolute", "C:/foreign/wrapper.cmd"),
+        ("action_execute", "evil.exe"),
+        ("action_arguments", "/d /c evil.cmd"),
+        ("action_working_directory", "C:/foreign"),
+        ("action", "cmd.exe /d /c evil.cmd"),
+        ("state", "Running"),
+        ("automatic_start_boundary", "2026-09-05T19:59:00+02:00"),
+        ("automatic_start_boundary", "2026-09-05T20:20:00"),
+        ("automatic_anchor_delay_minutes", 0.0),
+        ("automatic_anchor_delay_minutes", 19.0),
+        ("next_run_time", "2026-09-05T20:25:00+02:00"),
+        ("task_count", True),
+        ("restart_count", 2),
+        ("restart_interval_minutes", 9),
+        ("execution_time_limit_seconds", 3600),
+        ("allow_start_if_on_batteries", False),
+        ("dont_stop_if_going_on_batteries", False),
+        ("start_requested", True),
+        ("start_gate_verified", True),
+        ("start_gate_path", "C:/foreign/gate.json"),
+    ),
+)
+def test_scheduler_evidence_cross_checks_observed_os_fields_even_when_claimed_checks_pass(
+    tmp_path: Path, field: str, invalid_value: object
+) -> None:
+    fixture = _fixture(tmp_path)
+    scheduler = {
+        **dict(fixture["scheduler"]),
+        "contract_checks": dict(fixture["scheduler"]["contract_checks"]),
+        field: invalid_value,
+    }
+
+    result = _build(fixture, scheduler_evidence=scheduler)
+
+    assert result["status"] == "FAIL"
+    assert result["gates"]["SCHEDULER_CONTRACT"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "timestamp_fields",
+    (
+        {
+            "observed_at": "2000-01-01T00:00:00+00:00",
+            "automatic_start_boundary": "2000-01-01T00:20:00+00:00",
+            "next_run_time": "2000-01-01T00:20:00+00:00",
+            "automatic_anchor_delay_minutes": 20.0,
+        },
+        {
+            "observed_at": "2026-09-05T20:06:00+02:00",
+            "automatic_start_boundary": "2026-09-05T20:26:00+02:00",
+            "next_run_time": "2026-09-05T20:26:00+02:00",
+            "automatic_anchor_delay_minutes": 20.0,
+        },
+    ),
+)
+def test_scheduler_evidence_must_be_fresh_and_not_from_the_future(
+    tmp_path: Path, timestamp_fields: dict[str, object]
+) -> None:
+    fixture = _fixture(tmp_path)
+    scheduler = {
+        **dict(fixture["scheduler"]),
+        "contract_checks": dict(fixture["scheduler"]["contract_checks"]),
+        **timestamp_fields,
+    }
+
+    result = _build(fixture, scheduler_evidence=scheduler)
+
+    assert result["status"] == "FAIL"
+    assert result["gates"]["SCHEDULER_CONTRACT"] == "FAIL"
 
 
 def test_existing_run_store_blocks_start(tmp_path: Path) -> None:

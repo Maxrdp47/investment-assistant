@@ -9,7 +9,9 @@ when every blocking check passes.
 """
 
 import json
+import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -49,13 +51,13 @@ DEFAULT_CONTRACT_ARTIFACT = (
     PROJECT_ROOT
     / "runtime"
     / "research_exports"
-    / "multi_asset_discovery_v1_development_contract_2026-09-05-v6.json"
+    / "multi_asset_discovery_v1_development_contract_2026-09-05-v6-r2.json"
 )
 DEFAULT_CONTRACT_DIFF = (
     PROJECT_ROOT
     / "runtime"
     / "research_exports"
-    / "multi_asset_discovery_v1_development_contract_diff_2026-09-05-v6.json"
+    / "multi_asset_discovery_v1_development_contract_diff_2026-09-05-v6-r2.json"
 )
 
 MINIMUM_DISK_RESERVE_BYTES = 30 * 1024**3
@@ -85,6 +87,33 @@ TOP_LEVEL_GATES = (
     "CI_VERIFICATION",
     "SCHEDULER_CONTRACT",
     "RUN_ABSENT",
+)
+REQUIRED_SCHEDULER_CONTRACT_CHECKS = (
+    "exact_task_count",
+    "task_enabled",
+    "exactly_one_action",
+    "action_execute_exact",
+    "action_arguments_exact",
+    "action_working_directory_exact",
+    "exactly_one_trigger",
+    "five_minute_repetition",
+    "repetition_duration_at_least_3650_days",
+    "automatic_anchor_safely_in_future",
+    "multiple_instances_ignore_new",
+    "start_when_available",
+    "wake_to_run",
+    "limited_run_level",
+    "interactive_logon",
+    "current_user_context",
+    "task_path_exact",
+    "task_ready",
+    "next_run_matches_automatic_boundary",
+    "restart_count_three",
+    "restart_interval_ten_minutes",
+    "unlimited_execution_time",
+    "allow_start_on_batteries",
+    "dont_stop_on_batteries",
+    "start_now_gate_verified",
 )
 
 
@@ -646,13 +675,76 @@ def _validate_ci(
 
 def _validate_scheduler(
     scheduler_evidence: Mapping[str, object],
-    *, contract: Mapping[str, object],
+    *,
+    contract: Mapping[str, object],
+    project_root: Path,
+    gate_created_at: datetime | None,
 ) -> tuple[dict[str, bool], list[str]]:
     execution = dict(contract.get("development_execution") or {})
     expected_name = str(execution.get("scheduler_task_name") or "")
     expected_wrapper = str(execution.get("scheduler_wrapper") or "").replace("\\", "/")
+    expected_wrapper_absolute = _resolve_project_path(
+        project_root,
+        expected_wrapper,
+        label="v6 scheduler wrapper",
+    )
+    expected_readiness_absolute = _resolve_project_path(
+        project_root,
+        execution.get("readiness_artifact"),
+        label="v6 scheduler start gate",
+    )
+
+    def exact_ci(value: object, expected: object) -> bool:
+        return str(value or "").casefold() == str(expected or "").casefold()
+
+    expected_action_arguments = f'/d /c ""{expected_wrapper_absolute}""'
     status = str(scheduler_evidence.get("status") or "")
     task_exists = scheduler_evidence.get("task_exists") is True
+    task_sid = str(scheduler_evidence.get("user_context_sid") or "").strip()
+    current_sid = str(scheduler_evidence.get("current_user_sid") or "").strip()
+    sid_pattern = re.compile(r"^S-\d+(?:-\d+)+$", re.IGNORECASE)
+    raw_contract_checks = scheduler_evidence.get("contract_checks")
+    contract_checks = (
+        dict(raw_contract_checks) if isinstance(raw_contract_checks, Mapping) else {}
+    )
+    contract_check_set_exact = set(contract_checks) == set(
+        REQUIRED_SCHEDULER_CONTRACT_CHECKS
+    )
+    observed_at = _aware_artifact_timestamp(scheduler_evidence.get("observed_at"))
+    automatic_start_boundary = _aware_artifact_timestamp(
+        scheduler_evidence.get("automatic_start_boundary")
+    )
+    next_run_time = _aware_artifact_timestamp(scheduler_evidence.get("next_run_time"))
+    anchor_delay = scheduler_evidence.get("automatic_anchor_delay_minutes")
+    anchor_delay_valid = (
+        isinstance(anchor_delay, (int, float))
+        and not isinstance(anchor_delay, bool)
+        and math.isfinite(float(anchor_delay))
+        and float(anchor_delay) >= 14.0
+    )
+    boundary_delay_minutes = (
+        (automatic_start_boundary - observed_at).total_seconds() / 60.0
+        if observed_at is not None and automatic_start_boundary is not None
+        else None
+    )
+    boundary_delay_valid = bool(
+        boundary_delay_minutes is not None and boundary_delay_minutes >= 14.0
+    )
+    anchor_fields_consistent = bool(
+        boundary_delay_minutes is not None
+        and anchor_delay_valid
+        and abs(float(anchor_delay) - boundary_delay_minutes) <= 0.001
+    )
+    next_run_matches_boundary = bool(
+        next_run_time is not None
+        and automatic_start_boundary is not None
+        and abs((next_run_time - automatic_start_boundary).total_seconds()) <= 1.0
+    )
+    evidence_age_seconds = (
+        (gate_created_at - observed_at).total_seconds()
+        if gate_created_at is not None and observed_at is not None
+        else None
+    )
     common = {
         "installed_status_exact": status == "INSTALLED",
         "task_installed": task_exists,
@@ -660,20 +752,46 @@ def _validate_scheduler(
         "unique_v6_name": str(scheduler_evidence.get("task_name") or "")
         == expected_name
         and expected_name.endswith("-v6-Chain"),
-        "exact_task_count": scheduler_evidence.get("task_count") == 1,
-        "five_minute_repetition": scheduler_evidence.get(
-            "repetition_interval_minutes"
+        "root_task_path_exact": exact_ci(scheduler_evidence.get("task_path"), "\\"),
+        "exact_task_count": type(scheduler_evidence.get("task_count")) is int
+        and scheduler_evidence.get("task_count") == 1,
+        "five_minute_repetition": type(
+            scheduler_evidence.get("repetition_interval_minutes")
         )
-        == 5,
-        "long_lived_repetition": isinstance(
-            scheduler_evidence.get("repetition_duration_days"), int
+        is int
+        and scheduler_evidence.get("repetition_interval_minutes") == 5,
+        "long_lived_repetition": type(
+            scheduler_evidence.get("repetition_duration_days")
         )
-        and not isinstance(scheduler_evidence.get("repetition_duration_days"), bool)
+        is int
         and int(scheduler_evidence.get("repetition_duration_days") or 0) >= 3650,
         "wrapper_matches": str(scheduler_evidence.get("wrapper") or "").replace(
             "\\", "/"
         )
         == expected_wrapper,
+        "wrapper_absolute_matches": exact_ci(
+            scheduler_evidence.get("wrapper_absolute"), expected_wrapper_absolute
+        ),
+        "action_execute_exact": exact_ci(
+            scheduler_evidence.get("action_execute"), "cmd.exe"
+        ),
+        "action_arguments_exact": exact_ci(
+            scheduler_evidence.get("action_arguments"), expected_action_arguments
+        ),
+        "action_working_directory_exact": exact_ci(
+            scheduler_evidence.get("action_working_directory"),
+            Path(project_root).resolve(),
+        ),
+        "action_summary_consistent": exact_ci(
+            scheduler_evidence.get("action"),
+            f'cmd.exe {expected_action_arguments}',
+        ),
+        "task_ready": str(scheduler_evidence.get("state") or "").upper()
+        == "READY",
+        "automatic_anchor_delay_safe": anchor_delay_valid,
+        "automatic_start_boundary_safe": boundary_delay_valid,
+        "automatic_anchor_fields_consistent": anchor_fields_consistent,
+        "next_run_matches_automatic_boundary": next_run_matches_boundary,
         "multiple_instances_ignore_new": str(
             scheduler_evidence.get("multiple_instances") or ""
         ).upper()
@@ -686,11 +804,56 @@ def _validate_scheduler(
             scheduler_evidence.get("logon_type") or ""
         ).upper()
         == "INTERACTIVE",
+        "restart_count_exact": type(scheduler_evidence.get("restart_count")) is int
+        and scheduler_evidence.get("restart_count") == 3,
+        "restart_interval_exact": type(
+            scheduler_evidence.get("restart_interval_minutes")
+        )
+        is int
+        and scheduler_evidence.get("restart_interval_minutes") == 10,
+        "execution_time_unlimited": type(
+            scheduler_evidence.get("execution_time_limit_seconds")
+        )
+        in {int, float}
+        and scheduler_evidence.get("execution_time_limit_seconds") == 0,
+        "start_on_batteries_allowed": scheduler_evidence.get(
+            "allow_start_if_on_batteries"
+        )
+        is True,
+        "continue_on_batteries": scheduler_evidence.get(
+            "dont_stop_if_going_on_batteries"
+        )
+        is True,
         "user_context_recorded": bool(
             str(scheduler_evidence.get("user_context") or "").strip()
         ),
-        "observed_at_recorded": bool(
-            str(scheduler_evidence.get("observed_at") or "").strip()
+        "user_context_matches_current_user": scheduler_evidence.get(
+            "user_context_matches_current_user"
+        )
+        is True,
+        "user_sid_evidence_valid_and_equal": bool(
+            sid_pattern.fullmatch(task_sid)
+            and sid_pattern.fullmatch(current_sid)
+            and task_sid.casefold() == current_sid.casefold()
+        ),
+        "scheduler_contract_check_set_exact": contract_check_set_exact,
+        "scheduler_contract_checks_all_pass": contract_check_set_exact
+        and all(value is True for value in contract_checks.values()),
+        "observed_at_recorded": observed_at is not None,
+        "scheduler_evidence_not_from_future": evidence_age_seconds is not None
+        and evidence_age_seconds >= 0,
+        "scheduler_evidence_at_most_ten_minutes_old": evidence_age_seconds is not None
+        and evidence_age_seconds <= 10.0 * 60.0,
+        "gate_evaluated_before_automatic_anchor": gate_created_at is not None
+        and automatic_start_boundary is not None
+        and gate_created_at < automatic_start_boundary,
+        "evidence_is_prestart_installation": scheduler_evidence.get(
+            "start_requested"
+        )
+        is False
+        and scheduler_evidence.get("start_gate_verified") is False,
+        "canonical_start_gate_path_exact": exact_ci(
+            scheduler_evidence.get("start_gate_path"), expected_readiness_absolute
         ),
     }
     blockers = [
@@ -816,6 +979,8 @@ def build_start_gate(
     """
 
     project_root = Path(project_root).resolve()
+    gate_created_at_text = created_at or datetime.now(timezone.utc).isoformat()
+    gate_created_at = _aware_artifact_timestamp(gate_created_at_text)
     config = _read_json(Path(config_path), label="v6 config")
     contract_artifact = _read_json(Path(contract_artifact_path), label="v6 contract artifact")
     contract_diff = _read_json(Path(contract_diff_path), label="v6 contract diff")
@@ -1316,7 +1481,10 @@ def build_start_gate(
         ci_evidence, expected_commit=str(expected_git.get("commit") or "")
     )
     scheduler_checks, scheduler_blockers = _validate_scheduler(
-        scheduler_evidence, contract=contract
+        scheduler_evidence,
+        contract=contract,
+        project_root=project_root,
+        gate_created_at=gate_created_at,
     )
     absence_observed, absence_checks, absence_blockers = _run_absence(
         contract=contract, project_root=project_root
@@ -1368,7 +1536,7 @@ def build_start_gate(
     )
     payload: dict[str, object] = {
         "version": START_GATE_VERSION,
-        "created_at": created_at or datetime.now(timezone.utc).isoformat(),
+        "created_at": gate_created_at_text,
         "status": status,
         "start_authorized": status == "PASS",
         "development_contract_version": contract.get("contract_version"),
@@ -1422,6 +1590,7 @@ __all__ = [
     "MINIMUM_DISK_RESERVE_BYTES",
     "PROJECT_ROOT",
     "REQUIRED_LOCAL_GATES",
+    "REQUIRED_SCHEDULER_CONTRACT_CHECKS",
     "START_GATE_VERSION",
     "TOP_LEVEL_GATES",
     "build_start_gate",

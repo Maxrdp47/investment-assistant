@@ -208,6 +208,10 @@ def _fixture(root: Path) -> dict[str, object]:
             "version": BENCHMARK_VERSION,
             "status": "PASS",
             "input_precheck_fingerprint": input_payload["artifact_fingerprint"],
+            "worker_input_precheck_artifact": {
+                "path": "runtime/input.json",
+                "artifact_fingerprint": input_payload["artifact_fingerprint"],
+            },
             "combined_input_fingerprint": input_payload["contract_inputs"][
                 "combined_input_fingerprint"
             ],

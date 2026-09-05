@@ -17,17 +17,17 @@
   },
   "required_runtime_artifacts": {
     "input_precheck": {
-      "path": "runtime/research_exports/multi_asset_development_v6_input_precheck_2026-09-05-v1.json",
+      "path": "runtime/research_exports/multi_asset_development_v6_input_precheck_2026-09-05-v1-r2.json",
       "version": "multi-asset-development-v6-input-precheck-2026.09.05-v1",
       "status": "PASS"
     },
     "worker_benchmark": {
-      "path": "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1.json",
+      "path": "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1-r2.json",
       "version": "multi-asset-development-v6-worker-benchmark-2026.09.05-v1",
       "status": "PASS"
     },
     "descriptive_plan": {
-      "path": "runtime/research_exports/multi_asset_development_v6_descriptive_plan_2026-09-05-v1.json",
+      "path": "runtime/research_exports/multi_asset_development_v6_descriptive_plan_2026-09-05-v1-r2.json",
       "version": "multi-asset-development-v6-descriptive-plan-2026.09.05-v1",
       "status": "FROZEN"
     }

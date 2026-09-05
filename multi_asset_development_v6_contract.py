@@ -765,6 +765,14 @@ def _runtime_sources(
     inputs = _validated_input_contract(input_precheck)
 
     benchmark_selection = _validated_worker_benchmark_selection(worker_benchmark)
+    raw_worker_input_precheck = worker_benchmark.get(
+        "worker_input_precheck_artifact"
+    )
+    worker_input_precheck = (
+        dict(raw_worker_input_precheck)
+        if isinstance(raw_worker_input_precheck, Mapping)
+        else {}
+    )
     plan_created_at = str(descriptive_plan.get("created_at") or "")
     benchmark_created_at = str(worker_benchmark.get("created_at") or "")
     plan_time = _aware_artifact_timestamp(
@@ -781,6 +789,14 @@ def _runtime_sources(
             "input_precheck_fingerprint"
         )
         == input_precheck.get("artifact_fingerprint"),
+        "worker_input_precheck_fingerprint": worker_input_precheck.get(
+            "artifact_fingerprint"
+        )
+        == input_precheck.get("artifact_fingerprint"),
+        "worker_input_precheck_path": worker_input_precheck.get("path")
+        == dict(dict(config["required_runtime_artifacts"])["input_precheck"])[
+            "path"
+        ],
         "combined_input_fingerprint": worker_benchmark.get(
             "combined_input_fingerprint"
         )

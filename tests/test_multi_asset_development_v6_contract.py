@@ -8,10 +8,17 @@ import pytest
 
 from multi_asset_development_contract import load_development_contract
 from multi_asset_development_v6_benchmark import (
+    BENCHMARK_VERSION,
+    DEFAULT_BENCHMARK_ARTIFACT,
     REQUIRED_TECHNICAL_COVERAGE_GATES,
     classify_worker_configurations,
     configuration_evidence_checks,
 )
+from multi_asset_development_v6_inputs import (
+    DEFAULT_INPUT_PRECHECK_ARTIFACT,
+    INPUT_PRECHECK_VERSION,
+)
+from multi_asset_development_v6_reporting import DEFAULT_PLAN_ARTIFACT, PLAN_VERSION
 from multi_asset_development_v6_contract import (
     ALLOWED_REPAIR_CATEGORIES,
     DEFAULT_V6_CONFIG_PATH,
@@ -75,6 +82,25 @@ def _benchmark_configuration(worker_count: int) -> dict[str, object]:
     }
 
 
+def test_superseding_prerequisite_instances_preserve_v1_schemas() -> None:
+    config = json.loads(DEFAULT_V6_CONFIG_PATH.read_text(encoding="utf-8"))
+    required = dict(config["required_runtime_artifacts"])
+
+    assert required["input_precheck"]["version"] == INPUT_PRECHECK_VERSION
+    assert required["worker_benchmark"]["version"] == BENCHMARK_VERSION
+    assert required["descriptive_plan"]["version"] == PLAN_VERSION
+    for name in ("input_precheck", "worker_benchmark", "descriptive_plan"):
+        assert str(required[name]["path"]).endswith("-v1-r2.json")
+    assert str(DEFAULT_INPUT_PRECHECK_ARTIFACT).endswith(
+        "multi_asset_development_v6_input_precheck_2026-09-05-v1.json"
+    )
+    assert DEFAULT_BENCHMARK_ARTIFACT.as_posix().endswith("-v1-r2.json")
+    assert DEFAULT_PLAN_ARTIFACT.as_posix().endswith("-v1-r2.json")
+    assert str(config["runtime"]["execution"]["start_gate_artifact"]).endswith(
+        "multi_asset_development_v6_start_gate_2026-09-05-v1.json"
+    )
+
+
 @pytest.fixture()
 def v6_fixture(tmp_path: Path) -> dict[str, object]:
     parent_contract = load_development_contract()
@@ -135,6 +161,10 @@ def v6_fixture(tmp_path: Path) -> dict[str, object]:
         version="multi-asset-development-v6-worker-benchmark-2026.09.05-v1",
         status="PASS",
         input_precheck_fingerprint=input_precheck["artifact_fingerprint"],
+        worker_input_precheck_artifact={
+            "path": "runtime/input_precheck.json",
+            "artifact_fingerprint": input_precheck["artifact_fingerprint"],
+        },
         combined_input_fingerprint=input_contract["combined_input_fingerprint"],
         scientific_parent_contract_fingerprint=parent_contract[
             "contract_fingerprint"

@@ -9,6 +9,23 @@ import multi_asset_development_v6_benchmark as benchmark
 from multi_asset_discovery_v1 import fingerprint
 
 
+_TEST_INPUT_PRECHECK: dict[str, object] = {
+    "version": "test-v6-input-precheck",
+    "status": "PASS",
+}
+_TEST_INPUT_PRECHECK["artifact_fingerprint"] = fingerprint(_TEST_INPUT_PRECHECK)
+
+
+def _input_compute_paths(tmp_path: Path) -> dict[str, Path]:
+    precheck_path = tmp_path / "runtime" / "input-precheck-v1-r2.json"
+    precheck_path.parent.mkdir(parents=True, exist_ok=True)
+    precheck_path.write_text(
+        json.dumps(_TEST_INPUT_PRECHECK, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return {"input_precheck_artifact": precheck_path}
+
+
 def _contract() -> dict[str, object]:
     return {
         "contract_version": "v6",
@@ -42,6 +59,7 @@ def _safe_runtime(
     )
     return {
         "descriptive_plan": _descriptive_plan(),
+        "compute_paths": _input_compute_paths(tmp_path),
         "process_lock_path": tmp_path / "benchmark.lock",
         "global_research_lock_path": tmp_path / "research.lock",
         "fx_observer_lock_path": tmp_path / "fx.lock",
@@ -303,7 +321,9 @@ def test_artifact_falls_back_to_reference_when_worker_payloads_differ(
     artifact = benchmark.run_v6_worker_benchmark(
         contract=_contract(),
         universe={},
-        input_precheck_fingerprint="precheck-fp",
+        input_precheck_fingerprint=str(
+            _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+        ),
         output_path=output,
         created_at="2026-09-05T00:00:00+00:00",
         **runtime,
@@ -313,6 +333,10 @@ def test_artifact_falls_back_to_reference_when_worker_payloads_differ(
     assert artifact["deterministic_payloads_equal"] is False
     assert artifact["fallback_to_one_worker"] is True
     assert artifact["selection_candidate_worker_counts"] == [1]
+    assert artifact["worker_input_precheck_artifact"] == {
+        "path": "runtime/input-precheck-v1-r2.json",
+        "artifact_fingerprint": _TEST_INPUT_PRECHECK["artifact_fingerprint"],
+    }
     assert artifact["excluded_multi_worker_configurations"][0]["worker_count"] == 2
     assert "SCIENTIFIC_DIGEST_DIFFERS_FROM_ONE_WORKER_REFERENCE" in artifact[
         "excluded_multi_worker_configurations"
@@ -354,7 +378,9 @@ def test_artifact_falls_back_to_reference_when_multi_worker_fails(
     artifact = benchmark.run_v6_worker_benchmark(
         contract=_contract(),
         universe={},
-        input_precheck_fingerprint="precheck-fp",
+        input_precheck_fingerprint=str(
+            _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+        ),
         output_path=tmp_path / "benchmark-fallback.json",
         **runtime,
     )
@@ -398,7 +424,9 @@ def test_artifact_fails_when_mandatory_reference_fails(
     artifact = benchmark.run_v6_worker_benchmark(
         contract=_contract(),
         universe={},
-        input_precheck_fingerprint="precheck-fp",
+        input_precheck_fingerprint=str(
+            _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+        ),
         output_path=tmp_path / "benchmark-reference-fail.json",
         **runtime,
     )
@@ -433,7 +461,9 @@ def test_artifact_records_identical_payload_and_single_writer(
     artifact = benchmark.run_v6_worker_benchmark(
         contract=_contract(),
         universe={},
-        input_precheck_fingerprint="precheck-fp",
+        input_precheck_fingerprint=str(
+            _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+        ),
         output_path=tmp_path / "benchmark.json",
         **runtime,
     )
@@ -485,6 +515,83 @@ def test_skipped_asset_must_return_exact_unique_work_unit_set() -> None:
             benchmark._validated_skipped_unit_ids(invalid, ["u1", "u2"])
 
 
+def test_receipt_connection_closes_before_temporary_directory_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class Cursor:
+        def fetchone(self) -> tuple[int]:
+            return (7,)
+
+    class Connection:
+        def execute(self, statement: str) -> Cursor:
+            assert statement == "SELECT COUNT(*) FROM unit_receipts"
+            events.append("receipt_query")
+            return Cursor()
+
+        def close(self) -> None:
+            events.append("connection_closed")
+
+    monkeypatch.setattr(
+        benchmark.sqlite3,
+        "connect",
+        lambda path: Connection(),
+    )
+
+    assert benchmark._read_receipt_count(Path("control.sqlite3")) == 7
+    events.append("temporary_directory_cleanup")
+
+    assert events == [
+        "receipt_query",
+        "connection_closed",
+        "temporary_directory_cleanup",
+    ]
+
+
+def test_benchmark_requires_explicit_worker_input_precheck_binding(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        benchmark.DevelopmentV6BenchmarkError,
+        match="explicitly bind input_precheck_artifact",
+    ):
+        benchmark.run_v6_worker_benchmark(
+            contract=_contract(),
+            universe={},
+            input_precheck_fingerprint=str(
+                _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+            ),
+            descriptive_plan=_descriptive_plan(),
+            output_path=tmp_path / "never.json",
+            process_lock_path=tmp_path / "benchmark.lock",
+            global_research_lock_path=tmp_path / "research.lock",
+            project_root=tmp_path,
+        )
+    assert not (tmp_path / "never.json").exists()
+
+
+def test_benchmark_rejects_worker_input_precheck_fingerprint_mismatch(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        benchmark.DevelopmentV6BenchmarkError,
+        match="does not match the declared PASS artifact fingerprint",
+    ):
+        benchmark.run_v6_worker_benchmark(
+            contract=_contract(),
+            universe={},
+            input_precheck_fingerprint="f" * 64,
+            descriptive_plan=_descriptive_plan(),
+            compute_paths=_input_compute_paths(tmp_path),
+            output_path=tmp_path / "never.json",
+            process_lock_path=tmp_path / "benchmark.lock",
+            global_research_lock_path=tmp_path / "research.lock",
+            project_root=tmp_path,
+        )
+    assert not (tmp_path / "never.json").exists()
+
+
 def test_benchmark_refuses_compute_when_protected_runtime_is_active(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -522,8 +629,11 @@ def test_benchmark_refuses_compute_when_protected_runtime_is_active(
         benchmark.run_v6_worker_benchmark(
             contract=_contract(),
             universe={},
-            input_precheck_fingerprint="precheck-fp",
+            input_precheck_fingerprint=str(
+                _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+            ),
             descriptive_plan=_descriptive_plan(),
+            compute_paths=_input_compute_paths(tmp_path),
             created_at="2026-09-05T00:00:00+00:00",
             output_path=output,
             process_lock_path=tmp_path / "benchmark.lock",
@@ -546,11 +656,15 @@ def test_global_lock_collision_releases_process_lock(
             benchmark.run_v6_worker_benchmark(
                 contract=_contract(),
                 universe={},
-                input_precheck_fingerprint="precheck-fp",
+                input_precheck_fingerprint=str(
+                    _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+                ),
                 descriptive_plan=_descriptive_plan(),
+                compute_paths=_input_compute_paths(tmp_path),
                 output_path=tmp_path / "never.json",
                 process_lock_path=tmp_path / "benchmark.lock",
                 global_research_lock_path=tmp_path / "research.lock",
+                project_root=tmp_path,
             )
         process_probe = benchmark.SwingRunLock(tmp_path / "benchmark.lock")
         process_probe.acquire()

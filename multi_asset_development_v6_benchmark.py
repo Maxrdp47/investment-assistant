@@ -10,6 +10,7 @@ import tempfile
 import time
 import uuid
 from collections import Counter
+from contextlib import closing
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,7 +36,7 @@ from swing_walk_forward_campaign import (
 PROJECT_ROOT = Path(__file__).resolve().parent
 BENCHMARK_VERSION = "multi-asset-development-v6-worker-benchmark-2026.09.05-v1"
 DEFAULT_BENCHMARK_ARTIFACT = Path(
-    "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1.json"
+    "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1-r2.json"
 )
 DEFAULT_BENCHMARK_PROCESS_LOCK = (
     PROJECT_ROOT / "runtime" / "multi_asset_development_v6_worker_benchmark.lock"
@@ -133,6 +134,61 @@ def _descriptive_plan_reference(
     return {
         "artifact_fingerprint": stated,
         "created_at": plan_created_at,
+    }
+
+
+def _validated_benchmark_compute_paths(
+    compute_paths: Mapping[str, Path] | None,
+    *,
+    input_precheck_fingerprint: str,
+    project_root: Path,
+) -> tuple[dict[str, Path], dict[str, str]]:
+    raw_paths = dict(compute_paths or {})
+    if "input_precheck_artifact" not in raw_paths:
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark compute_paths must explicitly bind input_precheck_artifact."
+        )
+    root = Path(project_root).resolve()
+    normalized = {
+        str(name): (
+            Path(value).resolve()
+            if Path(value).is_absolute()
+            else (root / Path(value)).resolve()
+        )
+        for name, value in raw_paths.items()
+    }
+    precheck_path = normalized["input_precheck_artifact"]
+    try:
+        relative_path = precheck_path.relative_to(root).as_posix()
+    except ValueError as exc:
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark input precheck must remain inside the project root."
+        ) from exc
+    try:
+        precheck = json.loads(precheck_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark input precheck is not readable JSON."
+        ) from exc
+    if not isinstance(precheck, dict):
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark input precheck must be a JSON object."
+        )
+    basis = dict(precheck)
+    stated = str(basis.pop("artifact_fingerprint", ""))
+    if (
+        len(stated) != 64
+        or fingerprint(basis) != stated
+        or stated != str(input_precheck_fingerprint)
+        or precheck.get("status") != "PASS"
+    ):
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark worker input precheck does not match the declared PASS "
+            "artifact fingerprint."
+        )
+    return normalized, {
+        "path": relative_path,
+        "artifact_fingerprint": stated,
     }
 
 
@@ -602,6 +658,15 @@ def _validated_skipped_unit_ids(
     return returned
 
 
+def _read_receipt_count(control_path: Path) -> int:
+    """Read the benchmark receipt count without leaking a Windows DB handle."""
+
+    with closing(sqlite3.connect(Path(control_path))) as connection:
+        return int(
+            connection.execute("SELECT COUNT(*) FROM unit_receipts").fetchone()[0]
+        )
+
+
 def run_worker_configuration(
     *,
     worker_count: int,
@@ -714,10 +779,7 @@ def run_worker_configuration(
                     errors.append(
                         {"error_class": type(exc).__name__, "error": str(exc)[:1000]}
                     )
-        with sqlite3.connect(control_path) as connection:
-            receipt_count = int(
-                connection.execute("SELECT COUNT(*) FROM unit_receipts").fetchone()[0]
-            )
+        receipt_count = _read_receipt_count(control_path)
     wall = time.perf_counter() - started
     case_count = sum(
         len(unit["features"])
@@ -883,6 +945,7 @@ def _run_v6_worker_benchmark_with_locks_held(
     descriptive_plan: Mapping[str, object],
     output_path: Path = DEFAULT_BENCHMARK_ARTIFACT,
     compute_paths: Mapping[str, Path] | None = None,
+    worker_input_precheck: Mapping[str, str] | None = None,
     created_at: str | None = None,
     production_protection_config: Path = DEFAULT_PRODUCTION_PROTECTION_CONFIG,
     fx_observer_lock_path: Path = DEFAULT_FX_OBSERVER_LOCK,
@@ -983,6 +1046,7 @@ def _run_v6_worker_benchmark_with_locks_held(
         "created_at": benchmark_created_at,
         "status": "PASS" if benchmark_pass else "FAIL",
         "input_precheck_fingerprint": input_precheck_fingerprint,
+        "worker_input_precheck_artifact": dict(worker_input_precheck or {}),
         "combined_input_fingerprint": combined_input_fingerprint,
         "descriptive_plan_artifact_fingerprint": plan_reference[
             "artifact_fingerprint"
@@ -1059,6 +1123,13 @@ def run_v6_worker_benchmark(
 ) -> dict[str, object]:
     """Run the benchmark under its own and the global research lock."""
 
+    verified_compute_paths, worker_input_precheck = (
+        _validated_benchmark_compute_paths(
+            compute_paths,
+            input_precheck_fingerprint=input_precheck_fingerprint,
+            project_root=Path(project_root),
+        )
+    )
     process_lock = SwingRunLock(Path(process_lock_path))
     research_lock = SwingRunLock(Path(global_research_lock_path))
     try:
@@ -1081,7 +1152,8 @@ def run_v6_worker_benchmark(
                 input_precheck_fingerprint=input_precheck_fingerprint,
                 descriptive_plan=descriptive_plan,
                 output_path=Path(output_path),
-                compute_paths=compute_paths,
+                compute_paths=verified_compute_paths,
+                worker_input_precheck=worker_input_precheck,
                 created_at=created_at,
                 production_protection_config=Path(production_protection_config),
                 fx_observer_lock_path=Path(fx_observer_lock_path),

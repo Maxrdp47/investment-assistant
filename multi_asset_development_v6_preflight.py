@@ -944,6 +944,12 @@ def build_start_gate(
     input_payload = _read_json(input_path, label="input precheck")
     benchmark = _read_json(benchmark_path, label="worker benchmark")
     plan = _read_json(plan_path, label="descriptive plan")
+    raw_worker_input_precheck = benchmark.get("worker_input_precheck_artifact")
+    worker_input_precheck = (
+        dict(raw_worker_input_precheck)
+        if isinstance(raw_worker_input_precheck, Mapping)
+        else {}
+    )
     benchmark_created_at = _aware_artifact_timestamp(benchmark.get("created_at"))
     plan_created_at = _aware_artifact_timestamp(plan.get("created_at"))
     input_source_audit, input_source_checks = _audit_current_input_sources(
@@ -1087,6 +1093,12 @@ def build_start_gate(
         == references.get("worker_benchmark_artifact_fingerprint"),
         "input_precheck_binding": benchmark.get("input_precheck_fingerprint")
         == input_payload.get("artifact_fingerprint"),
+        "worker_input_precheck_fingerprint_binding": worker_input_precheck.get(
+            "artifact_fingerprint"
+        )
+        == input_payload.get("artifact_fingerprint"),
+        "worker_input_precheck_path_binding": worker_input_precheck.get("path")
+        == dict(runtime_specs.get("input_precheck") or {}).get("path"),
         "combined_input_binding": benchmark.get("combined_input_fingerprint")
         == inputs.get("combined_input_fingerprint"),
         "parent_contract_binding": benchmark.get(

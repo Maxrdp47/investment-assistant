@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -184,12 +185,129 @@ def test_fixed_sample_is_not_selected_from_outcomes() -> None:
         {"universe_fingerprint": "u", "assets": assets}
     )
     assert sample["selection"] == "fixed_technical_not_outcome_selected"
-    assert len(sample["units"]) == len(benchmark.FIXED_SYMBOLS) * len(
+    assert len(sample["units"]) == (
+        len(benchmark.FIXED_SYMBOLS) * len(benchmark.FIXED_PERIODS)
+        + len(benchmark.FIXED_TECHNICAL_PROBES)
+    )
+    sw_units = sample["units_by_asset"]["EQUITIES:SW"]
+    assert [(unit["period_start"], unit["period_end"]) for unit in sw_units] == [
+        *benchmark.FIXED_PERIODS,
+        ("2018-01-01", "2018-03-31"),
+    ]
+    assert len(sample["units_by_asset"]["EQUITIES:AAPL"]) == len(
         benchmark.FIXED_PERIODS
     )
+    probe = benchmark.FIXED_TECHNICAL_PROBES[0]
+    assert probe["purpose"] == "INPUT_GAP_CENSORING"
+    assert probe["selection_used_outcomes"] is False
+    assert probe["continuity_segment"] == {
+        "start": "2016-11-14",
+        "end": "2018-01-22",
+        "active_observations": 298,
+        "minimum_required_observations": 220,
+    }
+    assert probe["expected_technical_coverage"] == {
+        "eligible_probe_signals": 13,
+        "required_forward_horizon_bars": 252,
+        "outcome_status": "CENSORED_AT_INPUT_GAP",
+    }
     with pytest.raises(benchmark.DevelopmentV6BenchmarkError):
         benchmark.fixed_benchmark_sample(
             {"universe_fingerprint": "u", "assets": assets[:-1]}
+        )
+
+
+def test_fixed_technical_probe_declaration_is_bound_into_sample_fingerprint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assets = [
+        {
+            "asset_class": asset_class,
+            "symbol": symbol,
+            "asset_key": f"{asset_class}:{symbol}",
+        }
+        for asset_class, symbol in benchmark.FIXED_SYMBOLS
+    ]
+    universe = {"universe_fingerprint": "u", "assets": assets}
+    baseline = benchmark.fixed_benchmark_sample(universe)
+    probe = dict(benchmark.FIXED_TECHNICAL_PROBES[0])
+    probe["purpose"] = "DIFFERENT_TECHNICAL_PURPOSE"
+    monkeypatch.setattr(
+        benchmark,
+        "FIXED_TECHNICAL_PROBES",
+        (probe,),
+    )
+
+    changed = benchmark.fixed_benchmark_sample(universe)
+
+    assert changed["sample_fingerprint"] != baseline["sample_fingerprint"]
+    assert changed["units"] == baseline["units"]
+
+
+def test_fixed_technical_probe_cannot_duplicate_a_base_work_unit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assets = [
+        {
+            "asset_class": asset_class,
+            "symbol": symbol,
+            "asset_key": f"{asset_class}:{symbol}",
+        }
+        for asset_class, symbol in benchmark.FIXED_SYMBOLS
+    ]
+    monkeypatch.setattr(
+        benchmark,
+        "FIXED_TECHNICAL_PROBES",
+        (
+            {
+                **benchmark.FIXED_TECHNICAL_PROBES[0],
+                "period_start": benchmark.FIXED_PERIODS[0][0],
+                "period_end": benchmark.FIXED_PERIODS[0][1],
+            },
+        ),
+    )
+
+    with pytest.raises(benchmark.DevelopmentV6BenchmarkError, match="Duplicate"):
+        benchmark.fixed_benchmark_sample(
+            {"universe_fingerprint": "u", "assets": assets}
+        )
+
+
+def test_fixed_technical_probe_must_target_a_fixed_sample_asset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assets = [
+        {
+            "asset_class": asset_class,
+            "symbol": symbol,
+            "asset_key": f"{asset_class}:{symbol}",
+        }
+        for asset_class, symbol in benchmark.FIXED_SYMBOLS
+    ]
+    assets.append(
+        {
+            "asset_class": "EQUITIES",
+            "symbol": "OUTSIDE",
+            "asset_key": "EQUITIES:OUTSIDE",
+        }
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "FIXED_TECHNICAL_PROBES",
+        (
+            {
+                **benchmark.FIXED_TECHNICAL_PROBES[0],
+                "symbol": "OUTSIDE",
+            },
+        ),
+    )
+
+    with pytest.raises(
+        benchmark.DevelopmentV6BenchmarkError,
+        match="Fixed technical-probe assets missing",
+    ):
+        benchmark.fixed_benchmark_sample(
+            {"universe_fingerprint": "u", "assets": assets}
         )
 
 
@@ -333,6 +451,14 @@ def test_configuration_evidence_requires_cpu_ram_writer_and_technical_gates() ->
     checks = benchmark.configuration_evidence_checks(malformed)
     assert checks["worker_count_positive"] is False
     assert checks["all_technical_gates_present"] is False
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows process-memory API regression")
+def test_windows_memory_snapshot_reports_real_process_memory() -> None:
+    snapshot = benchmark._memory_snapshot()
+
+    assert snapshot["working_set_bytes"] > 0
+    assert snapshot["peak_working_set_bytes"] >= snapshot["working_set_bytes"]
 
 
 def test_worker_configuration_releases_temp_store_handles_without_gc() -> None:

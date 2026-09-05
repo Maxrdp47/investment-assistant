@@ -28,7 +28,7 @@ DEFAULT_PLAN_ARTIFACT = (
     PROJECT_ROOT
     / "runtime"
     / "research_exports"
-    / "multi_asset_development_v6_descriptive_plan_2026-09-05-v1-r3.json"
+    / "multi_asset_development_v6_descriptive_plan_2026-09-05-v1-r4.json"
 )
 DEFAULT_REPORT_ARTIFACT = (
     PROJECT_ROOT

@@ -41,7 +41,7 @@ from swing_walk_forward_campaign import (
 PROJECT_ROOT = Path(__file__).resolve().parent
 BENCHMARK_VERSION = "multi-asset-development-v6-worker-benchmark-2026.09.05-v1"
 DEFAULT_BENCHMARK_ARTIFACT = Path(
-    "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1-r3.json"
+    "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1-r4.json"
 )
 DEFAULT_BENCHMARK_PROCESS_LOCK = (
     PROJECT_ROOT / "runtime" / "multi_asset_development_v6_worker_benchmark.lock"
@@ -78,6 +78,51 @@ FIXED_PERIODS = (
     ("2018-10-01", "2018-12-31"),
     ("2020-10-01", "2020-12-31"),
     ("2021-10-01", "2021-12-31"),
+)
+# This probe is selected only from the immutable input-continuity topology, not
+# from returns or outcomes.  In the fixed benchmark sample, SW is the asset with
+# an at-least-220-observation segment that ends at a peer-observed missing
+# session in Q1 2018.  The targeted quarter therefore exercises the existing
+# no-cross-boundary censoring contract without expanding every asset/period
+# combination.  Peer observation is technical evidence, not an assertion that
+# the peer consensus is an official exchange calendar.
+FIXED_TECHNICAL_PROBES = (
+    {
+        "asset_class": "EQUITIES",
+        "symbol": "SW",
+        "period_start": "2018-01-01",
+        "period_end": "2018-03-31",
+        "purpose": "INPUT_GAP_CENSORING",
+        "selection_basis": "immutable_input_continuity_topology",
+        "selection_used_outcomes": False,
+        "calendar_semantics": "peer_observed_sessions_not_official_calendar",
+        "continuity_segment": {
+            "start": "2016-11-14",
+            "end": "2018-01-22",
+            "active_observations": 298,
+            "minimum_required_observations": 220,
+        },
+        "input_gap_boundary": {
+            "after": "2018-01-22",
+            "next_valid_observation": "2018-01-26",
+            "archived_invalid_sessions": [
+                "2018-01-23",
+                "2018-01-24",
+                "2018-01-25",
+            ],
+            "peer_observed_missing_sessions": [
+                "2018-01-23",
+                "2018-01-24",
+                "2018-01-25",
+            ],
+            "peer_group": "MIC:US-CONSOLIDATED",
+        },
+        "expected_technical_coverage": {
+            "eligible_probe_signals": 13,
+            "required_forward_horizon_bars": 252,
+            "outcome_status": "CENSORED_AT_INPUT_GAP",
+        },
+    },
 )
 REQUIRED_TECHNICAL_COVERAGE_GATES = (
     "all_four_asset_classes_exercised_and_classified",
@@ -369,13 +414,37 @@ def _memory_snapshot() -> dict[str, int]:
             ("PeakPagefileUsage", ctypes.c_size_t),
         ]
 
+    # ctypes defaults an undeclared function result to a 32-bit C ``int``.
+    # On 64-bit Windows that truncates the -1 pseudo handle returned by
+    # GetCurrentProcess to 0x00000000ffffffff, so GetProcessMemoryInfo fails
+    # with ERROR_INVALID_HANDLE and silently produced zero-byte evidence.
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    psapi = ctypes.WinDLL("psapi", use_last_error=True)
+    get_current_process = kernel32.GetCurrentProcess
+    get_current_process.argtypes = []
+    get_current_process.restype = wintypes.HANDLE
+    get_process_memory_info = psapi.GetProcessMemoryInfo
+    get_process_memory_info.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(PROCESS_MEMORY_COUNTERS),
+        wintypes.DWORD,
+    ]
+    get_process_memory_info.restype = wintypes.BOOL
+
     counters = PROCESS_MEMORY_COUNTERS()
     counters.cb = ctypes.sizeof(counters)
-    process = ctypes.windll.kernel32.GetCurrentProcess()
-    if not ctypes.windll.psapi.GetProcessMemoryInfo(
-        process, ctypes.byref(counters), counters.cb
+    if not get_process_memory_info(
+        get_current_process(), ctypes.byref(counters), counters.cb
     ):
-        return {"working_set_bytes": 0, "peak_working_set_bytes": 0}
+        error_code = ctypes.get_last_error()
+        raise DevelopmentV6BenchmarkError(
+            "Windows process-memory measurement failed "
+            f"with error code {error_code}."
+        )
+    if counters.WorkingSetSize <= 0 or counters.PeakWorkingSetSize <= 0:
+        raise DevelopmentV6BenchmarkError(
+            "Windows process-memory measurement returned non-positive evidence."
+        )
     return {
         "working_set_bytes": int(counters.WorkingSetSize),
         "peak_working_set_bytes": int(counters.PeakWorkingSetSize),
@@ -432,12 +501,38 @@ def fixed_benchmark_sample(universe: Mapping[str, object]) -> dict[str, object]:
     missing = [item for item in FIXED_SYMBOLS if item not in lookup]
     if missing:
         raise DevelopmentV6BenchmarkError(f"Fixed benchmark assets missing: {missing}")
+    invalid_probes = [
+        probe
+        for probe in FIXED_TECHNICAL_PROBES
+        if (
+            str(probe["asset_class"]),
+            str(probe["symbol"]),
+        )
+        not in FIXED_SYMBOLS
+        or (str(probe["asset_class"]), str(probe["symbol"])) not in lookup
+    ]
+    if invalid_probes:
+        raise DevelopmentV6BenchmarkError(
+            f"Fixed technical-probe assets missing: {invalid_probes}"
+        )
     assets = [lookup[item] for item in FIXED_SYMBOLS]
     units_by_asset: dict[str, list[dict[str, object]]] = {}
     units: list[dict[str, object]] = []
     for asset in assets:
         asset_units = []
-        for period_start, period_end in FIXED_PERIODS:
+        asset_identity = (str(asset["asset_class"]), str(asset["symbol"]))
+        probe_periods = [
+            (str(probe["period_start"]), str(probe["period_end"]))
+            for probe in FIXED_TECHNICAL_PROBES
+            if (str(probe["asset_class"]), str(probe["symbol"]))
+            == asset_identity
+        ]
+        periods = (*FIXED_PERIODS, *probe_periods)
+        if len(periods) != len(set(periods)):
+            raise DevelopmentV6BenchmarkError(
+                f"Duplicate fixed benchmark period for {asset_identity}: {periods}"
+            )
+        for period_start, period_end in periods:
             identity = {
                 "version": BENCHMARK_VERSION,
                 "asset_key": asset["asset_key"],
@@ -465,6 +560,7 @@ def fixed_benchmark_sample(universe: Mapping[str, object]) -> dict[str, object]:
             {
                 "symbols": FIXED_SYMBOLS,
                 "periods": FIXED_PERIODS,
+                "technical_probes": FIXED_TECHNICAL_PROBES,
                 "universe_fingerprint": universe["universe_fingerprint"],
             }
         ),
@@ -1151,6 +1247,7 @@ def _run_v6_worker_benchmark_with_locks_held(
             {"asset_class": item[0], "symbol": item[1]} for item in FIXED_SYMBOLS
         ],
         "sample_periods": [list(item) for item in FIXED_PERIODS],
+        "sample_technical_probes": [dict(item) for item in FIXED_TECHNICAL_PROBES],
         "selection_used_outcomes": False,
         "resources": resources,
         "protected_runtime_checks_before_each_configuration": readiness_checks,
@@ -1286,6 +1383,7 @@ __all__ = [
     "DevelopmentV6BenchmarkError",
     "FIXED_PERIODS",
     "FIXED_SYMBOLS",
+    "FIXED_TECHNICAL_PROBES",
     "REQUIRED_TECHNICAL_COVERAGE_GATES",
     "configuration_evidence_checks",
     "classify_worker_configurations",

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
 import pytest
 
+import multi_asset_discovery_v1 as discovery
 from fx_carry_pit import fx_pair_contract, normalize_fx_ohlc
 from multi_asset_discovery_v1 import (
     MultiAssetDiscoveryContractError,
@@ -14,10 +16,14 @@ from multi_asset_discovery_v1 import (
     build_contract_freeze,
     build_feature_snapshot,
     build_outcome,
+    build_safe_zones,
+    build_sell_zones,
     canonical_json,
     evaluate_integrity_pilot,
     fingerprint,
     load_discovery_contract,
+    prepare_feature_snapshot_context,
+    prepare_indicators,
     record_freeze_and_features,
     record_outcomes_and_dependency,
     temporal_dependency_report,
@@ -155,6 +161,108 @@ def test_feature_snapshot_is_causal_deterministic_and_has_no_score() -> None:
         "confirmed_swing_low_count",
         "original_zone_immutable",
     }
+
+
+def test_feature_context_fastpath_is_exactly_equal_to_default_snapshot() -> None:
+    frame = _history()
+    prepared = prepare_indicators(frame)
+    prepared.iloc[
+        10, prepared.columns.get_loc("OHLC_ENVELOPE_VALID")
+    ] = False
+    position = 300
+    day = prepared.index[position].date().isoformat()
+    safe = build_safe_zones(prepared, position)
+    sell = build_sell_zones(prepared, position, safe)
+    common = {
+        "asset": _asset(),
+        "frame": prepared,
+        "prepared_frame": prepared,
+        "decision_position": position,
+        "decision_time": f"{day}T23:59:59+00:00",
+        "dataset_fingerprint": "dataset-test-v1",
+        "safe_zones_override": safe,
+        "sell_zones_override": sell,
+    }
+
+    reference = build_feature_snapshot(**common)
+    context = prepare_feature_snapshot_context(
+        frame=prepared,
+        prepared_frame=prepared,
+    )
+    fast = build_feature_snapshot(**common, prepared_context=context)
+
+    assert fast == reference
+    assert fast["feature_fingerprint"] == reference["feature_fingerprint"]
+    assert fast["source_integrity"]["ohlc_envelope_anomaly_count_to_decision"] == 1
+
+
+def test_feature_context_loads_contract_once_and_reuses_prefix_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = _history()
+    prepared = prepare_indicators(frame)
+    calls = 0
+    original = discovery.load_discovery_contract
+
+    def counted_load(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(discovery, "load_discovery_contract", counted_load)
+    context = prepare_feature_snapshot_context(
+        frame=prepared,
+        prepared_frame=prepared,
+    )
+    assert calls == 1
+    assert context.ohlc_anomaly_prefix_counts[-1] == 0
+    for position in (300, 301, 302):
+        day = prepared.index[position].date().isoformat()
+        safe = build_safe_zones(prepared, position)
+        sell = build_sell_zones(prepared, position, safe)
+        build_feature_snapshot(
+            asset=_asset(),
+            frame=prepared,
+            prepared_frame=prepared,
+            decision_position=position,
+            decision_time=f"{day}T23:59:59+00:00",
+            dataset_fingerprint="dataset-test-v1",
+            safe_zones_override=safe,
+            sell_zones_override=sell,
+            prepared_context=context,
+        )
+    assert calls == 1
+
+
+def test_feature_context_fails_closed_for_fabricated_or_wrong_frame() -> None:
+    frame = _history()
+    prepared = prepare_indicators(frame)
+    position = 300
+    day = prepared.index[position].date().isoformat()
+    context = prepare_feature_snapshot_context(
+        frame=prepared,
+        prepared_frame=prepared,
+    )
+    kwargs = {
+        "asset": _asset(),
+        "frame": prepared,
+        "prepared_frame": prepared,
+        "decision_position": position,
+        "decision_time": f"{day}T23:59:59+00:00",
+        "dataset_fingerprint": "dataset-test-v1",
+    }
+    with pytest.raises(MultiAssetDiscoveryContractError, match="nicht validiert"):
+        build_feature_snapshot(
+            **kwargs,
+            prepared_context=replace(context, _validation_token=object()),
+        )
+
+    other = prepared.copy()
+    with pytest.raises(MultiAssetDiscoveryContractError, match="gehört nicht"):
+        build_feature_snapshot(
+            **{**kwargs, "frame": other, "prepared_frame": other},
+            prepared_context=context,
+        )
 
 
 def test_event_fact_after_decision_is_rejected() -> None:

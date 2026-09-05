@@ -7,8 +7,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from historical_dependency_policy import build_historical_dependency_policy
 from multi_asset_development_contract import load_development_contract
 from multi_asset_development_execution import (
+    _historical_asset,
     _load_fx_history,
     MultiAssetDevelopmentExecutionError,
     MultiAssetDevelopmentNoDataError,
@@ -89,6 +91,18 @@ def _outcome_ready_position(prepared: pd.DataFrame) -> int:
         ):
             return position
     raise AssertionError("Testhistorie enthält keinen auswertbaren strukturellen-R-Fall")
+
+
+def test_prevalidated_dependency_policy_preserves_historical_asset_payload() -> None:
+    asset = _asset()
+    reference = _historical_asset(asset, signal_day="2020-01-02")
+    reused = _historical_asset(
+        asset,
+        signal_day="2020-01-02",
+        dependency_policy=build_historical_dependency_policy(),
+    )
+
+    assert reused == reference
 
 
 def test_precomputed_structure_is_exactly_equal_to_pilot_formulas() -> None:

@@ -11,8 +11,10 @@ import json
 import math
 import sqlite3
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from types import MappingProxyType
 from typing import Iterable, Mapping, Sequence
 
 import numpy as np
@@ -45,6 +47,9 @@ ALLOWED_MISSINGNESS = {
 
 class MultiAssetDiscoveryContractError(ValueError):
     """A value or operation violates the immutable v1 research contract."""
+
+
+_FEATURE_CONTEXT_TOKEN = object()
 
 
 def _clean(value: object) -> object:
@@ -287,6 +292,69 @@ def prepare_indicators(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def _freeze_contract_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {str(key): _freeze_contract_value(item) for key, item in value.items()}
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_contract_value(item) for item in value)
+    return value
+
+
+@dataclass(frozen=True)
+class PreparedFeatureSnapshotContext:
+    """Validated immutable-by-contract inputs reused for many signal rows."""
+
+    prepared_frame: pd.DataFrame
+    discovery_contract: Mapping[str, object]
+    ohlc_anomaly_prefix_counts: tuple[int, ...]
+    frame_length: int
+    first_timestamp: pd.Timestamp | None
+    last_timestamp: pd.Timestamp | None
+    _validation_token: object
+
+
+def prepare_feature_snapshot_context(
+    *,
+    frame: pd.DataFrame,
+    prepared_frame: pd.DataFrame | None = None,
+    contract_path: Path = DEFAULT_CONTRACT_PATH,
+) -> PreparedFeatureSnapshotContext:
+    """Load/validate the frozen contract and OHLC prefix evidence exactly once.
+
+    The returned context is tied to the exact prepared-frame object.  Callers
+    must finish constructing that frame before this step and may not mutate it
+    afterwards.
+    """
+
+    prepared = (
+        prepared_frame if prepared_frame is not None else prepare_indicators(frame)
+    )
+    if "OHLC_ENVELOPE_VALID" not in prepared.columns:
+        raise MultiAssetDiscoveryContractError(
+            "Prepared Feature-Frame enthält keine OHLC-Integritätsspalte."
+        )
+    if not pd.api.types.is_bool_dtype(prepared["OHLC_ENVELOPE_VALID"].dtype):
+        raise MultiAssetDiscoveryContractError(
+            "OHLC-Integritätsspalte im Feature-Kontext ist nicht boolesch."
+        )
+    contract = load_discovery_contract(Path(contract_path))
+    invalid_flags = (~prepared["OHLC_ENVELOPE_VALID"]).fillna(False).astype(np.int64)
+    prefix_counts = tuple(
+        int(value) for value in invalid_flags.cumsum().to_numpy(dtype=np.int64)
+    )
+    return PreparedFeatureSnapshotContext(
+        prepared_frame=prepared,
+        discovery_contract=_freeze_contract_value(contract),
+        ohlc_anomaly_prefix_counts=prefix_counts,
+        frame_length=len(prepared),
+        first_timestamp=(pd.Timestamp(prepared.index[0]) if len(prepared) else None),
+        last_timestamp=(pd.Timestamp(prepared.index[-1]) if len(prepared) else None),
+        _validation_token=_FEATURE_CONTEXT_TOKEN,
+    )
+
+
 def _confirmed_swings(
     prepared: pd.DataFrame,
     end_position: int,
@@ -471,9 +539,55 @@ def build_feature_snapshot(
     safe_zones_override: Mapping[str, object] | None = None,
     sell_zones_override: Mapping[str, object] | None = None,
     execution_contract_version: str = DISCOVERY_VERSION,
+    prepared_context: PreparedFeatureSnapshotContext | None = None,
 ) -> dict[str, object]:
     prepared = prepared_frame if prepared_frame is not None else prepare_indicators(frame)
-    minimum = int(load_discovery_contract()["point_in_time"]["minimum_history_observations"])
+    if prepared_context is None:
+        minimum = int(
+            load_discovery_contract()["point_in_time"][
+                "minimum_history_observations"
+            ]
+        )
+        ohlc_anomaly_count: int | None = None
+    else:
+        if prepared_context._validation_token is not _FEATURE_CONTEXT_TOKEN:
+            raise MultiAssetDiscoveryContractError(
+                "Feature-Fastpath-Kontext wurde nicht validiert."
+            )
+        if prepared is not prepared_context.prepared_frame:
+            raise MultiAssetDiscoveryContractError(
+                "Feature-Fastpath-Kontext gehört nicht zum Prepared Frame."
+            )
+        if (
+            len(prepared) != prepared_context.frame_length
+            or (
+                len(prepared)
+                and pd.Timestamp(prepared.index[0])
+                != prepared_context.first_timestamp
+            )
+            or (
+                len(prepared)
+                and pd.Timestamp(prepared.index[-1])
+                != prepared_context.last_timestamp
+            )
+        ):
+            raise MultiAssetDiscoveryContractError(
+                "Prepared Frame wurde nach Validierung strukturell verändert."
+            )
+        minimum = int(
+            prepared_context.discovery_contract["point_in_time"][
+                "minimum_history_observations"
+            ]
+        )
+        if decision_position < 0 or decision_position >= len(
+            prepared_context.ohlc_anomaly_prefix_counts
+        ):
+            raise MultiAssetDiscoveryContractError(
+                "Feature-Position liegt außerhalb des validierten Kontexts."
+            )
+        ohlc_anomaly_count = prepared_context.ohlc_anomaly_prefix_counts[
+            decision_position
+        ]
     if decision_position < minimum - 1:
         raise MultiAssetDiscoveryContractError("Der Entscheidungspunkt besitzt zu wenig Historie.")
     if decision_position >= len(prepared) - 1:
@@ -541,6 +655,10 @@ def build_feature_snapshot(
         if allowed_events
         else _missing("UNKNOWN", "NO_PIT_EVENT_FACT_AVAILABLE_FOR_PILOT_SNAPSHOT")
     )
+    if ohlc_anomaly_count is None:
+        ohlc_anomaly_count = int(
+            (~prepared.iloc[: decision_position + 1]["OHLC_ENVELOPE_VALID"]).sum()
+        )
     snapshot: dict[str, object] = {
         "feature_version": FEATURE_VERSION,
         "contract_version": execution_contract_version,
@@ -567,9 +685,7 @@ def build_feature_snapshot(
         "history_end_day": signal_day,
         "history_observations": decision_position + 1,
         "source_integrity": {
-            "ohlc_envelope_anomaly_count_to_decision": int(
-                (~prepared.iloc[: decision_position + 1]["OHLC_ENVELOPE_VALID"]).sum()
-            ),
+            "ohlc_envelope_anomaly_count_to_decision": ohlc_anomaly_count,
             "provider_values_repaired": False,
             "fail_closed_for_development_readiness": True,
         },

@@ -613,7 +613,10 @@ def _fx_asset(pair: str) -> dict[str, object]:
 
 
 def _historical_asset(
-    asset: Mapping[str, object], *, signal_day: str
+    asset: Mapping[str, object],
+    *,
+    signal_day: str,
+    dependency_policy: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     if asset["asset_class"] == "FX":
         return _fx_asset(str(asset["symbol"]))
@@ -621,7 +624,11 @@ def _historical_asset(
     historical = classify_historical_dependency(
         identity,
         as_of=signal_day,
-        policy=build_historical_dependency_policy(),
+        policy=(
+            dependency_policy
+            if dependency_policy is not None
+            else build_historical_dependency_policy()
+        ),
     )
     return {
         "ticker": asset["symbol"],

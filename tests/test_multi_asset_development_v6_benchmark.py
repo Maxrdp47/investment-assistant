@@ -9,9 +9,18 @@ import multi_asset_development_v6_benchmark as benchmark
 from multi_asset_discovery_v1 import fingerprint
 
 
+_TEST_IMPLEMENTATION_SHA256 = {"implementation.py": "a" * 64}
+_TEST_IMPLEMENTATION_FINGERPRINT = fingerprint(_TEST_IMPLEMENTATION_SHA256)
+_TEST_SOURCE_SHA256 = {"source.sqlite3": "b" * 64}
 _TEST_INPUT_PRECHECK: dict[str, object] = {
     "version": "test-v6-input-precheck",
     "status": "PASS",
+    "contract_inputs": {
+        "implementation_fingerprint": _TEST_IMPLEMENTATION_FINGERPRINT,
+    },
+    "implementation_sha256": _TEST_IMPLEMENTATION_SHA256,
+    "source_sha256_before": _TEST_SOURCE_SHA256,
+    "source_sha256_after": _TEST_SOURCE_SHA256,
 }
 _TEST_INPUT_PRECHECK["artifact_fingerprint"] = fingerprint(_TEST_INPUT_PRECHECK)
 
@@ -30,23 +39,57 @@ def _contract() -> dict[str, object]:
     return {
         "contract_version": "v6",
         "parent_contract_fingerprint": "parent-fp",
-        "reference_fingerprints": {"combined_input_fingerprint": "input-fp"},
+        "development_execution": {
+            "input_precheck_artifact": "runtime/input-precheck-v1-r2.json",
+            "input_precheck_version": _TEST_INPUT_PRECHECK["version"],
+        },
+        "reference_fingerprints": {
+            "combined_input_fingerprint": "input-fp",
+            "development_code_fingerprint": _TEST_IMPLEMENTATION_FINGERPRINT,
+            "input_precheck_artifact_fingerprint": _TEST_INPUT_PRECHECK[
+                "artifact_fingerprint"
+            ],
+        },
     }
 
 
 def _descriptive_plan(
-    *, created_at: str = "2026-09-04T00:00:00+00:00"
+    *,
+    contract: dict[str, object] | None = None,
+    created_at: str = "2026-09-04T00:00:00+00:00",
 ) -> dict[str, object]:
+    benchmark_contract = contract or _contract()
     payload: dict[str, object] = {
         "version": benchmark.DESCRIPTIVE_PLAN_VERSION,
         "status": "FROZEN",
         "created_at": created_at,
+        "contract_basis_fingerprint": fingerprint(benchmark_contract),
         "combined_input_fingerprint": "input-fp",
         "inferential_claims_allowed": False,
         "selection_or_optimization_allowed": False,
     }
     payload["artifact_fingerprint"] = fingerprint(payload)
     return payload
+
+
+def _allow_current_provenance(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        benchmark,
+        "verify_v6_current_sources",
+        lambda **kwargs: {
+            "status": "PASS",
+            "source_set_fingerprint": fingerprint(_TEST_SOURCE_SHA256),
+        },
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "build_v6_implementation_provenance",
+        lambda **kwargs: {
+            "complete": True,
+            "implementation_sha256": _TEST_IMPLEMENTATION_SHA256,
+            "implementation_fingerprint": _TEST_IMPLEMENTATION_FINGERPRINT,
+        },
+    )
 
 
 def _safe_runtime(
@@ -57,6 +100,7 @@ def _safe_runtime(
         "benchmark_dispatch_readiness",
         lambda **kwargs: (True, "CLEAR", {"synthetic_test": True}),
     )
+    _allow_current_provenance(monkeypatch)
     return {
         "descriptive_plan": _descriptive_plan(),
         "compute_paths": _input_compute_paths(tmp_path),
@@ -336,6 +380,10 @@ def test_artifact_falls_back_to_reference_when_worker_payloads_differ(
     assert artifact["worker_input_precheck_artifact"] == {
         "path": "runtime/input-precheck-v1-r2.json",
         "artifact_fingerprint": _TEST_INPUT_PRECHECK["artifact_fingerprint"],
+        "version": _TEST_INPUT_PRECHECK["version"],
+        "current_sources_verified_before_compute": True,
+        "current_source_set_fingerprint": fingerprint(_TEST_SOURCE_SHA256),
+        "implementation_fingerprint": _TEST_IMPLEMENTATION_FINGERPRINT,
     }
     assert artifact["excluded_multi_worker_configurations"][0]["worker_count"] == 2
     assert "SCIENTIFIC_DIGEST_DIFFERS_FROM_ONE_WORKER_REFERENCE" in artifact[
@@ -592,9 +640,227 @@ def test_benchmark_rejects_worker_input_precheck_fingerprint_mismatch(
     assert not (tmp_path / "never.json").exists()
 
 
+def test_benchmark_rejects_precheck_not_bound_to_contract_before_compute(
+    tmp_path: Path,
+) -> None:
+    contract = _contract()
+    contract["reference_fingerprints"][
+        "input_precheck_artifact_fingerprint"
+    ] = "f" * 64
+    output = tmp_path / "never.json"
+
+    with pytest.raises(
+        benchmark.DevelopmentV6BenchmarkError,
+        match="does not match the benchmark contract reference fingerprint",
+    ):
+        benchmark.run_v6_worker_benchmark(
+            contract=contract,
+            universe={},
+            input_precheck_fingerprint=str(
+                _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+            ),
+            descriptive_plan=_descriptive_plan(contract=contract),
+            compute_paths=_input_compute_paths(tmp_path),
+            output_path=output,
+            process_lock_path=tmp_path / "benchmark.lock",
+            global_research_lock_path=tmp_path / "research.lock",
+            project_root=tmp_path,
+        )
+    assert not output.exists()
+
+
+def test_benchmark_rejects_precheck_path_not_bound_to_contract(
+    tmp_path: Path,
+) -> None:
+    wrong_path = tmp_path / "runtime" / "legacy-input-precheck.json"
+    wrong_path.parent.mkdir(parents=True, exist_ok=True)
+    wrong_path.write_text(
+        json.dumps(_TEST_INPUT_PRECHECK, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "never.json"
+
+    with pytest.raises(
+        benchmark.DevelopmentV6BenchmarkError,
+        match="path does not match the benchmark contract",
+    ):
+        benchmark.run_v6_worker_benchmark(
+            contract=_contract(),
+            universe={},
+            input_precheck_fingerprint=str(
+                _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+            ),
+            descriptive_plan=_descriptive_plan(),
+            compute_paths={"input_precheck_artifact": wrong_path},
+            output_path=output,
+            process_lock_path=tmp_path / "benchmark.lock",
+            global_research_lock_path=tmp_path / "research.lock",
+            project_root=tmp_path,
+        )
+    assert not output.exists()
+
+
+def test_benchmark_rejects_precheck_schema_not_bound_to_contract(
+    tmp_path: Path,
+) -> None:
+    precheck = dict(_TEST_INPUT_PRECHECK)
+    precheck["version"] = "stale-schema"
+    precheck.pop("artifact_fingerprint")
+    precheck["artifact_fingerprint"] = fingerprint(precheck)
+    paths = _input_compute_paths(tmp_path)
+    paths["input_precheck_artifact"].write_text(
+        json.dumps(precheck, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    contract = _contract()
+    contract["reference_fingerprints"][
+        "input_precheck_artifact_fingerprint"
+    ] = precheck["artifact_fingerprint"]
+    output = tmp_path / "never.json"
+
+    with pytest.raises(
+        benchmark.DevelopmentV6BenchmarkError,
+        match="schema version does not match the benchmark contract",
+    ):
+        benchmark.run_v6_worker_benchmark(
+            contract=contract,
+            universe={},
+            input_precheck_fingerprint=str(precheck["artifact_fingerprint"]),
+            descriptive_plan=_descriptive_plan(contract=contract),
+            compute_paths=paths,
+            output_path=output,
+            process_lock_path=tmp_path / "benchmark.lock",
+            global_research_lock_path=tmp_path / "research.lock",
+            project_root=tmp_path,
+        )
+    assert not output.exists()
+
+
+def test_benchmark_rejects_current_source_drift_before_compute(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def reject_current_sources(**kwargs: object) -> dict[str, object]:
+        raise benchmark.MultiAssetV6InputError("source drift")
+
+    monkeypatch.setattr(
+        benchmark,
+        "verify_v6_current_sources",
+        reject_current_sources,
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "run_worker_configuration",
+        lambda **kwargs: pytest.fail("compute must not run after source drift"),
+    )
+    output = tmp_path / "never.json"
+
+    with pytest.raises(
+        benchmark.DevelopmentV6BenchmarkError,
+        match="current-source verification failed",
+    ):
+        benchmark.run_v6_worker_benchmark(
+            contract=_contract(),
+            universe={},
+            input_precheck_fingerprint=str(
+                _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+            ),
+            descriptive_plan=_descriptive_plan(),
+            compute_paths=_input_compute_paths(tmp_path),
+            output_path=output,
+            process_lock_path=tmp_path / "benchmark.lock",
+            global_research_lock_path=tmp_path / "research.lock",
+            project_root=tmp_path,
+        )
+    assert not output.exists()
+
+
+def test_benchmark_rejects_current_implementation_drift_before_compute(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    changed_hashes = {"implementation.py": "c" * 64}
+    monkeypatch.setattr(
+        benchmark,
+        "verify_v6_current_sources",
+        lambda **kwargs: {
+            "status": "PASS",
+            "source_set_fingerprint": fingerprint(_TEST_SOURCE_SHA256),
+        },
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "build_v6_implementation_provenance",
+        lambda **kwargs: {
+            "complete": True,
+            "implementation_sha256": changed_hashes,
+            "implementation_fingerprint": fingerprint(changed_hashes),
+        },
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "run_worker_configuration",
+        lambda **kwargs: pytest.fail(
+            "compute must not run after implementation drift"
+        ),
+    )
+    output = tmp_path / "never.json"
+
+    with pytest.raises(
+        benchmark.DevelopmentV6BenchmarkError,
+        match="implementation provenance does not match",
+    ):
+        benchmark.run_v6_worker_benchmark(
+            contract=_contract(),
+            universe={},
+            input_precheck_fingerprint=str(
+                _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+            ),
+            descriptive_plan=_descriptive_plan(),
+            compute_paths=_input_compute_paths(tmp_path),
+            output_path=output,
+            process_lock_path=tmp_path / "benchmark.lock",
+            global_research_lock_path=tmp_path / "research.lock",
+            project_root=tmp_path,
+        )
+    assert not output.exists()
+
+
+def test_benchmark_rejects_plan_from_another_contract_before_compute(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    contract = _contract()
+    plan = _descriptive_plan(contract=contract)
+    plan["contract_basis_fingerprint"] = fingerprint({"different": "contract"})
+    plan.pop("artifact_fingerprint")
+    plan["artifact_fingerprint"] = fingerprint(plan)
+    runtime = _safe_runtime(monkeypatch, tmp_path)
+    runtime["descriptive_plan"] = plan
+    output = tmp_path / "never.json"
+    monkeypatch.setattr(
+        benchmark,
+        "run_worker_configuration",
+        lambda **kwargs: pytest.fail("compute must not run for a mismatched plan"),
+    )
+
+    with pytest.raises(
+        benchmark.DevelopmentV6BenchmarkError,
+        match="Descriptive plan contract basis does not match",
+    ):
+        benchmark.run_v6_worker_benchmark(
+            contract=contract,
+            universe={},
+            input_precheck_fingerprint=str(
+                _TEST_INPUT_PRECHECK["artifact_fingerprint"]
+            ),
+            output_path=output,
+            **runtime,
+        )
+    assert not output.exists()
+
+
 def test_benchmark_refuses_compute_when_protected_runtime_is_active(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    _allow_current_provenance(monkeypatch)
     monkeypatch.setattr(
         benchmark,
         "system_resources",
@@ -647,8 +913,10 @@ def test_benchmark_refuses_compute_when_protected_runtime_is_active(
 
 
 def test_global_lock_collision_releases_process_lock(
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    _allow_current_provenance(monkeypatch)
     global_lock = benchmark.SwingRunLock(tmp_path / "research.lock")
     global_lock.acquire()
     try:

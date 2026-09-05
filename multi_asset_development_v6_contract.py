@@ -993,6 +993,12 @@ def build_development_v6_benchmark_contract(
             "benchmark_pre_freeze": True,
             "full_development_run_allowed": False,
             "sqlite_writer_count": 1,
+            "input_precheck_artifact": dict(
+                dict(config["required_runtime_artifacts"])["input_precheck"]
+            )["path"],
+            "input_precheck_version": dict(
+                dict(config["required_runtime_artifacts"])["input_precheck"]
+            )["version"],
         }
     )
     benchmark_contract["development_execution"] = benchmark_execution

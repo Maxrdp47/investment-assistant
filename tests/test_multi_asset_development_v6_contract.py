@@ -328,6 +328,12 @@ def test_pre_freeze_benchmark_contract_has_no_run_or_store_authority(
         "BENCHMARK_ONLY"
     )
     assert contract["development_execution"]["full_development_run_allowed"] is False
+    assert contract["development_execution"]["input_precheck_artifact"] == dict(
+        v6_fixture["config"]["required_runtime_artifacts"]
+    )["input_precheck"]["path"]
+    assert contract["development_execution"]["input_precheck_version"] == dict(
+        v6_fixture["config"]["required_runtime_artifacts"]
+    )["input_precheck"]["version"]
     assert "worker_benchmark_artifact_fingerprint" not in contract[
         "reference_fingerprints"
     ]

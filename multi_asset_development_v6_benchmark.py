@@ -20,6 +20,11 @@ from multi_asset_development_v6_execution import (
     compute_v6_asset_batch,
     result_scientific_digest,
 )
+from multi_asset_development_v6_inputs import (
+    MultiAssetV6InputError,
+    build_v6_implementation_provenance,
+    verify_v6_current_sources,
+)
 from multi_asset_development_v6_store import (
     initialize_v6_run,
     persist_and_complete_work_unit,
@@ -108,7 +113,10 @@ def _aware_timestamp(value: object, *, label: str) -> datetime:
 
 
 def _descriptive_plan_reference(
-    plan: Mapping[str, object], *, benchmark_created_at: str
+    plan: Mapping[str, object],
+    *,
+    benchmark_created_at: str,
+    expected_contract_basis_fingerprint: str,
 ) -> dict[str, str]:
     payload = dict(plan)
     stated = str(payload.pop("artifact_fingerprint", ""))
@@ -123,6 +131,13 @@ def _descriptive_plan_reference(
         raise DevelopmentV6BenchmarkError(
             "Descriptive plan must be self-valid, frozen and non-inferential "
             "before the benchmark."
+        )
+    if (
+        payload.get("contract_basis_fingerprint")
+        != expected_contract_basis_fingerprint
+    ):
+        raise DevelopmentV6BenchmarkError(
+            "Descriptive plan contract basis does not match the benchmark contract."
         )
     plan_created_at = str(payload.get("created_at") or "")
     if _aware_timestamp(plan_created_at, label="descriptive-plan.created_at") > (
@@ -141,8 +156,12 @@ def _validated_benchmark_compute_paths(
     compute_paths: Mapping[str, Path] | None,
     *,
     input_precheck_fingerprint: str,
+    contract_input_precheck_fingerprint: str,
+    contract_input_precheck_path: str,
+    contract_input_precheck_version: str,
+    contract_development_code_fingerprint: str,
     project_root: Path,
-) -> tuple[dict[str, Path], dict[str, str]]:
+) -> tuple[dict[str, Path], dict[str, object]]:
     raw_paths = dict(compute_paths or {})
     if "input_precheck_artifact" not in raw_paths:
         raise DevelopmentV6BenchmarkError(
@@ -158,6 +177,23 @@ def _validated_benchmark_compute_paths(
         for name, value in raw_paths.items()
     }
     precheck_path = normalized["input_precheck_artifact"]
+    expected_relative = Path(str(contract_input_precheck_path))
+    if expected_relative.is_absolute():
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark contract input precheck path must be project-relative."
+        )
+    expected_path = (root / expected_relative).resolve()
+    try:
+        expected_path.relative_to(root)
+    except ValueError as exc:
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark contract input precheck path leaves the project root."
+        ) from exc
+    if precheck_path != expected_path:
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark worker input precheck path does not match the benchmark "
+            "contract."
+        )
     try:
         relative_path = precheck_path.relative_to(root).as_posix()
     except ValueError as exc:
@@ -186,9 +222,62 @@ def _validated_benchmark_compute_paths(
             "Benchmark worker input precheck does not match the declared PASS "
             "artifact fingerprint."
         )
+    if precheck.get("version") != str(contract_input_precheck_version):
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark worker input precheck schema version does not match the "
+            "benchmark contract."
+        )
+    if stated != str(contract_input_precheck_fingerprint):
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark worker input precheck does not match the benchmark "
+            "contract reference fingerprint."
+        )
+    try:
+        source_audit = verify_v6_current_sources(
+            input_precheck_artifact=precheck_path,
+            input_precheck=precheck,
+            project_root=root,
+        )
+        implementation = build_v6_implementation_provenance(project_root=root)
+    except (MultiAssetV6InputError, OSError, TypeError, ValueError) as exc:
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark worker input precheck current-source verification failed."
+        ) from exc
+    stored_implementation_hashes = dict(precheck.get("implementation_sha256") or {})
+    stored_implementation_fingerprint = str(
+        dict(precheck.get("contract_inputs") or {}).get(
+            "implementation_fingerprint"
+        )
+        or ""
+    )
+    current_implementation_hashes = dict(
+        implementation.get("implementation_sha256") or {}
+    )
+    current_implementation_fingerprint = str(
+        implementation.get("implementation_fingerprint") or ""
+    )
+    if (
+        source_audit.get("status") != "PASS"
+        or implementation.get("complete") is not True
+        or not stored_implementation_hashes
+        or current_implementation_hashes != stored_implementation_hashes
+        or current_implementation_fingerprint != stored_implementation_fingerprint
+        or current_implementation_fingerprint
+        != str(contract_development_code_fingerprint)
+    ):
+        raise DevelopmentV6BenchmarkError(
+            "Benchmark worker input precheck implementation provenance does not "
+            "match current code and the benchmark contract."
+        )
     return normalized, {
         "path": relative_path,
         "artifact_fingerprint": stated,
+        "version": str(precheck["version"]),
+        "current_sources_verified_before_compute": True,
+        "current_source_set_fingerprint": str(
+            source_audit.get("source_set_fingerprint") or ""
+        ),
+        "implementation_fingerprint": current_implementation_fingerprint,
     }
 
 
@@ -953,7 +1042,9 @@ def _run_v6_worker_benchmark_with_locks_held(
 ) -> dict[str, object]:
     benchmark_created_at = created_at or datetime.now(timezone.utc).isoformat()
     plan_reference = _descriptive_plan_reference(
-        descriptive_plan, benchmark_created_at=benchmark_created_at
+        descriptive_plan,
+        benchmark_created_at=benchmark_created_at,
+        expected_contract_basis_fingerprint=fingerprint(contract),
     )
     combined_input_fingerprint = str(
         dict(contract["reference_fingerprints"])["combined_input_fingerprint"]
@@ -1127,6 +1218,30 @@ def run_v6_worker_benchmark(
         _validated_benchmark_compute_paths(
             compute_paths,
             input_precheck_fingerprint=input_precheck_fingerprint,
+            contract_input_precheck_fingerprint=str(
+                dict(contract.get("reference_fingerprints") or {}).get(
+                    "input_precheck_artifact_fingerprint"
+                )
+                or ""
+            ),
+            contract_input_precheck_path=str(
+                dict(contract.get("development_execution") or {}).get(
+                    "input_precheck_artifact"
+                )
+                or ""
+            ),
+            contract_input_precheck_version=str(
+                dict(contract.get("development_execution") or {}).get(
+                    "input_precheck_version"
+                )
+                or ""
+            ),
+            contract_development_code_fingerprint=str(
+                dict(contract.get("reference_fingerprints") or {}).get(
+                    "development_code_fingerprint"
+                )
+                or ""
+            ),
             project_root=Path(project_root),
         )
     )

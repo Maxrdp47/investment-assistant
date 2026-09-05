@@ -14,9 +14,10 @@ import json
 import os
 import sqlite3
 import zlib
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Iterator, Mapping, Sequence
 
 from multi_asset_discovery_v1 import canonical_json, fingerprint
 
@@ -37,7 +38,12 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _connect(path: Path, *, readonly: bool = False) -> sqlite3.Connection:
+@contextmanager
+def _connect(
+    path: Path, *, readonly: bool = False
+) -> Iterator[sqlite3.Connection]:
+    """Open one transaction and always release its Windows file handle."""
+
     path = Path(path)
     if readonly:
         connection = sqlite3.connect(
@@ -46,10 +52,15 @@ def _connect(path: Path, *, readonly: bool = False) -> sqlite3.Connection:
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(path, timeout=60)
-        connection.execute("PRAGMA journal_mode=WAL")
-        connection.execute("PRAGMA synchronous=FULL")
-    connection.execute("PRAGMA foreign_keys=ON")
-    return connection
+    try:
+        if not readonly:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("PRAGMA synchronous=FULL")
+        connection.execute("PRAGMA foreign_keys=ON")
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 
 def _compress(payload: Mapping[str, object]) -> bytes:

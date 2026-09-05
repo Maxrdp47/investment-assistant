@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import json
 from pathlib import Path
 
@@ -332,6 +333,28 @@ def test_configuration_evidence_requires_cpu_ram_writer_and_technical_gates() ->
     checks = benchmark.configuration_evidence_checks(malformed)
     assert checks["worker_count_positive"] is False
     assert checks["all_technical_gates_present"] is False
+
+
+def test_worker_configuration_releases_temp_store_handles_without_gc() -> None:
+    gc_was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        result = benchmark.run_worker_configuration(
+            worker_count=1,
+            contract=_contract(),
+            sample={
+                "sample_fingerprint": "empty-handle-regression",
+                "assets": [],
+                "units": [],
+                "units_by_asset": {},
+            },
+        )
+    finally:
+        if gc_was_enabled:
+            gc.enable()
+        gc.collect()
+
+    assert result["receipt_count"] == 0
 
 
 def test_artifact_falls_back_to_reference_when_worker_payloads_differ(

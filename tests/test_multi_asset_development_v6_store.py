@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import gc
 import os
 import sqlite3
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -93,6 +95,75 @@ def _initialize(root: Path) -> tuple[Path, Path, Path]:
         control_path=control_path,
     )
     return feature_path, outcome_path, control_path
+
+
+def test_store_connections_close_before_windows_temp_cleanup_without_gc() -> None:
+    gc_was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        with tempfile.TemporaryDirectory(prefix="madv6-store-handle-test-") as root:
+            feature_path, outcome_path, control_path = _initialize(Path(root))
+            first, second = store.claim_next_asset_batch(
+                control_path=control_path, run_id="madv6-test-run"
+            )
+            feature = _feature("case-handle-regression")
+            store.persist_and_complete_work_unit(
+                writer_pid=os.getpid(),
+                run_id="madv6-test-run",
+                unit=first,
+                features=[feature],
+                outcomes=[_outcome(feature)],
+                summary={},
+                feature_path=feature_path,
+                outcome_path=outcome_path,
+                control_path=control_path,
+            )
+            store.skip_work_unit(
+                writer_pid=os.getpid(),
+                run_id="madv6-test-run",
+                unit=second,
+                reason_code="EXPECTED_NO_DEVELOPMENT_DATA",
+                reason="handle regression",
+                feature_path=feature_path,
+                outcome_path=outcome_path,
+                control_path=control_path,
+            )
+            assert store.mark_run_complete(
+                control_path=control_path, run_id="madv6-test-run"
+            )
+    finally:
+        if gc_was_enabled:
+            gc.enable()
+        gc.collect()
+
+
+def test_store_connection_closes_after_transaction_exception(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[str] = []
+
+    class Connection:
+        def execute(self, statement: str) -> "Connection":
+            events.append(statement)
+            return self
+
+        def __enter__(self) -> "Connection":
+            events.append("transaction_enter")
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            events.append("transaction_exit")
+
+        def close(self) -> None:
+            events.append("connection_close")
+
+    monkeypatch.setattr(store.sqlite3, "connect", lambda *args, **kwargs: Connection())
+
+    with pytest.raises(RuntimeError, match="synthetic"):
+        with store._connect(tmp_path / "control.sqlite3"):
+            raise RuntimeError("synthetic")
+
+    assert events[-2:] == ["transaction_exit", "connection_close"]
 
 
 def test_cross_store_receipt_is_idempotent_and_completes_once(tmp_path: Path) -> None:

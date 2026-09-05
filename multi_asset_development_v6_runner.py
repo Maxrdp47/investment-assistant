@@ -25,6 +25,7 @@ from multi_asset_development_v6_execution import (
     compute_v6_asset_batch,
     is_retryable_compute_error,
 )
+from multi_asset_development_v6_preflight import START_GATE_VERSION, TOP_LEVEL_GATES
 from multi_asset_development_v6_store import (
     DevelopmentV6StoreError,
     append_run_event,
@@ -54,7 +55,6 @@ RUNNER_VERSION = "multi-asset-development-runner-2026.09.05-v6"
 CHAIN_VERSION = "multi-asset-development-chain-2026.09.05-v6"
 OPERATOR_REQUEST_VERSION = "multi-asset-development-operator-request-2026.09.05-v1"
 RUN_MANIFEST_VERSION = "multi-asset-discovery-development-run-manifest-2026.09.05-v6"
-START_GATE_VERSION = "multi-asset-development-v6-start-gate-2026.09.05-v1"
 GLOBAL_RESEARCH_LOCK = PROJECT_ROOT / "runtime" / "swing_walk_forward_research.lock"
 FX_OBSERVER_LOCK = PROJECT_ROOT / "runtime" / "fx_forward_pit.collector.lock"
 MINIMUM_DISK_FREE_BYTES = 30 * 1024**3
@@ -296,9 +296,18 @@ def _load_required_start_gate(
         raise DevelopmentV6RunnerError("v6 start-gate fingerprint is invalid.")
     if gate.get("version") != START_GATE_VERSION or gate.get("status") != "PASS":
         raise DevelopmentV6RunnerError("v6 start gate is not PASS.")
+    if gate.get("start_authorized") is not True:
+        raise DevelopmentV6RunnerError("v6 start gate does not authorize a start.")
+    if gate.get("blockers") != []:
+        raise DevelopmentV6RunnerError("v6 start gate contains blockers.")
     if gate.get("development_contract_fingerprint") != contract_fingerprint:
         raise DevelopmentV6RunnerError("v6 start gate belongs to another contract.")
-    if any(value != "PASS" for value in dict(gate.get("gates") or {}).values()):
+    raw_gates = gate.get("gates")
+    if not isinstance(raw_gates, Mapping) or set(raw_gates) != set(TOP_LEVEL_GATES):
+        raise DevelopmentV6RunnerError(
+            "v6 start gate does not contain the exact required gate groups."
+        )
+    if any(value != "PASS" for value in raw_gates.values()):
         raise DevelopmentV6RunnerError("At least one v6 start-gate group is not PASS.")
     return gate
 

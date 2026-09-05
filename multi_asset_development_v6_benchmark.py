@@ -41,7 +41,7 @@ from swing_walk_forward_campaign import (
 PROJECT_ROOT = Path(__file__).resolve().parent
 BENCHMARK_VERSION = "multi-asset-development-v6-worker-benchmark-2026.09.05-v1"
 DEFAULT_BENCHMARK_ARTIFACT = Path(
-    "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1-r4.json"
+    "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1-r5.json"
 )
 DEFAULT_BENCHMARK_PROCESS_LOCK = (
     PROJECT_ROOT / "runtime" / "multi_asset_development_v6_worker_benchmark.lock"

@@ -112,20 +112,57 @@ def test_start_gate_must_be_self_valid_pass_and_match_contract(tmp_path: Path) -
     gate = {
         "version": runner.START_GATE_VERSION,
         "status": "PASS",
+        "start_authorized": True,
+        "blockers": [],
         "development_contract_fingerprint": "contract-fp",
-        "gates": {"DATA": "PASS", "TESTS": "PASS"},
+        "gates": {name: "PASS" for name in runner.TOP_LEVEL_GATES},
     }
     gate["artifact_fingerprint"] = fingerprint(gate)
     path.write_text(json.dumps(gate), encoding="utf-8")
     assert runner._load_required_start_gate(
         path, contract_fingerprint="contract-fp"
     )["status"] == "PASS"
-    gate["gates"]["TESTS"] = "FAIL"
+    gate["gates"][runner.TOP_LEVEL_GATES[0]] = "FAIL"
     gate["artifact_fingerprint"] = fingerprint(
         {key: value for key, value in gate.items() if key != "artifact_fingerprint"}
     )
     path.write_text(json.dumps(gate), encoding="utf-8")
     with pytest.raises(runner.DevelopmentV6RunnerError, match="not PASS"):
+        runner._load_required_start_gate(path, contract_fingerprint="contract-fp")
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        (lambda gate: gate.__setitem__("start_authorized", False), "authorize"),
+        (lambda gate: gate.__setitem__("blockers", ["BLOCKED"]), "blockers"),
+        (
+            lambda gate: gate["gates"].pop(runner.TOP_LEVEL_GATES[-1]),
+            "exact required gate groups",
+        ),
+        (
+            lambda gate: gate["gates"].__setitem__("UNEXPECTED", "PASS"),
+            "exact required gate groups",
+        ),
+    ),
+)
+def test_start_gate_requires_explicit_authorization_no_blockers_and_exact_groups(
+    tmp_path: Path, mutation, message: str
+) -> None:
+    path = tmp_path / "gate.json"
+    gate = {
+        "version": runner.START_GATE_VERSION,
+        "status": "PASS",
+        "start_authorized": True,
+        "blockers": [],
+        "development_contract_fingerprint": "contract-fp",
+        "gates": {name: "PASS" for name in runner.TOP_LEVEL_GATES},
+    }
+    mutation(gate)
+    gate["artifact_fingerprint"] = fingerprint(gate)
+    path.write_text(json.dumps(gate), encoding="utf-8")
+
+    with pytest.raises(runner.DevelopmentV6RunnerError, match=message):
         runner._load_required_start_gate(path, contract_fingerprint="contract-fp")
 
 
@@ -234,8 +271,10 @@ def test_runtime_code_provenance_rehashes_frozen_files_and_detects_drift(
     gate: dict[str, object] = {
         "version": runner.START_GATE_VERSION,
         "status": "PASS",
+        "start_authorized": True,
+        "blockers": [],
         "development_contract_fingerprint": "contract-fp",
-        "gates": {"CODE": "PASS"},
+        "gates": {name: "PASS" for name in runner.TOP_LEVEL_GATES},
         "git_provenance": {"head": "abc123"},
         "implementation_code_audit": {
             "current_implementation_fingerprint": frozen[

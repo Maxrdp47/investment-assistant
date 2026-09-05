@@ -12,6 +12,7 @@ from multi_asset_development_v6_contract import (
     DEVELOPMENT_V6_CONTRACT_DIFF_VERSION,
     DEVELOPMENT_V6_CONTRACT_VERSION,
     build_development_v6_benchmark_contract,
+    reprocessing_parent_reference,
 )
 from multi_asset_development_v6_benchmark import (
     BENCHMARK_VERSION,
@@ -279,6 +280,7 @@ def _fixture(root: Path) -> dict[str, object]:
     )
     config_path = root / "config/v6.json"
     _write(config_path, config)
+    parent_reference = reprocessing_parent_reference(config)
     expected_contract_basis = fingerprint(
         build_development_v6_benchmark_contract(
             config_path=config_path,
@@ -316,7 +318,7 @@ def _fixture(root: Path) -> dict[str, object]:
 
     contract = {
         "contract_version": DEVELOPMENT_V6_CONTRACT_VERSION,
-        "reprocessing_parent": parent_spec,
+        "reprocessing_parent": parent_reference,
         "reference_fingerprints": {
             "combined_input_fingerprint": input_payload["contract_inputs"][
                 "combined_input_fingerprint"
@@ -372,6 +374,7 @@ def _fixture(root: Path) -> dict[str, object]:
             "version": DEVELOPMENT_V6_CONTRACT_ARTIFACT_VERSION,
             "contract": contract,
             "contract_fingerprint": contract["contract_fingerprint"],
+            "reprocessing_parent": parent_reference,
             "parent_diff_fingerprint": diff["diff_fingerprint"],
             "runtime_input_artifacts": {
                 "input_precheck": {
@@ -585,6 +588,53 @@ def test_complete_pass_is_self_fingerprinted_and_written_once(tmp_path: Path) ->
     assert expected == fingerprint(stored)
     replay = _build(fixture)
     assert replay["artifact_fingerprint"] == expected
+
+
+def test_parent_binding_uses_the_canonical_normalized_reference(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    artifact = json.loads(Path(fixture["contract_path"]).read_text(encoding="utf-8"))
+    parent = dict(artifact["contract"]["reprocessing_parent"])
+
+    assert parent == artifact["reprocessing_parent"]
+    assert parent["immutable"] is True
+    assert parent["reprocessing_parent_only"] is True
+    assert "artifact_path" not in parent
+    assert "run_manifest_path" not in parent
+    assert set(parent) == {
+        "contract_version",
+        "contract_fingerprint",
+        "artifact_version",
+        "artifact_fingerprint",
+        "artifact_sha256",
+        "run_id",
+        "run_manifest_version",
+        "run_manifest_fingerprint",
+        "run_manifest_sha256",
+        "immutable",
+        "reprocessing_parent_only",
+    }
+    assert _build(fixture)["checks"]["IMMUTABLE_V5_PARENT"][
+        "contract_parent_matches_config"
+    ] is True
+
+
+def test_artifact_parent_binding_must_match_nested_contract(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    contract_path = Path(fixture["contract_path"])
+    artifact = json.loads(contract_path.read_text(encoding="utf-8"))
+    artifact.pop("artifact_fingerprint")
+    artifact["reprocessing_parent"]["immutable"] = False
+    artifact["artifact_fingerprint"] = fingerprint(artifact)
+    _write(contract_path, artifact)
+
+    result = _build(fixture)
+
+    assert result["status"] == "FAIL"
+    assert result["gates"]["IMMUTABLE_V5_PARENT"] == "FAIL"
+    assert result["checks"]["IMMUTABLE_V5_PARENT"][
+        "artifact_parent_matches_contract"
+    ] is False
+    assert not Path(fixture["output"]).exists()
 
 
 def test_failed_local_gate_is_not_persisted(tmp_path: Path) -> None:

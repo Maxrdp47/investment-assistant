@@ -17,17 +17,17 @@
   },
   "required_runtime_artifacts": {
     "input_precheck": {
-      "path": "runtime/research_exports/multi_asset_development_v6_input_precheck_2026-09-05-v1-r6.json",
+      "path": "runtime/research_exports/multi_asset_development_v6_input_precheck_2026-09-05-v1-r7.json",
       "version": "multi-asset-development-v6-input-precheck-2026.09.05-v1",
       "status": "PASS"
     },
     "worker_benchmark": {
-      "path": "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1-r6.json",
+      "path": "runtime/research_exports/multi_asset_development_v6_worker_benchmark_2026-09-05-v1-r7.json",
       "version": "multi-asset-development-v6-worker-benchmark-2026.09.05-v1",
       "status": "PASS"
     },
     "descriptive_plan": {
-      "path": "runtime/research_exports/multi_asset_development_v6_descriptive_plan_2026-09-05-v1-r6.json",
+      "path": "runtime/research_exports/multi_asset_development_v6_descriptive_plan_2026-09-05-v1-r7.json",
       "version": "multi-asset-development-v6-descriptive-plan-2026.09.05-v1",
       "status": "FROZEN"
     }
@@ -52,8 +52,8 @@
       "process_lock": "runtime/multi_asset_discovery_v1_development_v6.lock",
       "chain_state": "runtime/multi_asset_discovery_v1_development_v6_chain_state.json",
       "run_manifest": "runtime/research_exports/multi_asset_discovery_v1_development_run_manifest_2026-09-05-v6.json",
-      "contract_artifact": "runtime/research_exports/multi_asset_discovery_v1_development_contract_2026-09-05-v6-r2.json",
-      "contract_diff_artifact": "runtime/research_exports/multi_asset_discovery_v1_development_contract_diff_2026-09-05-v6-r2.json",
+      "contract_artifact": "runtime/research_exports/multi_asset_discovery_v1_development_contract_2026-09-05-v6-r3.json",
+      "contract_diff_artifact": "runtime/research_exports/multi_asset_discovery_v1_development_contract_diff_2026-09-05-v6-r3.json",
       "start_gate_artifact": "runtime/research_exports/multi_asset_development_v6_start_gate_2026-09-05-v1.json",
       "final_audit_artifact": "runtime/research_exports/multi_asset_development_v6_final_integrity_audit_2026-09-05-v1.json",
       "descriptive_report_artifact": "runtime/research_exports/multi_asset_development_v6_descriptive_report_2026-09-05-v1.json",

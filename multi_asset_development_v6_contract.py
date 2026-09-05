@@ -864,9 +864,11 @@ def _validated_input_contract(
     return inputs
 
 
-def _reprocessing_parent_reference(
+def reprocessing_parent_reference(
     config: Mapping[str, object],
 ) -> dict[str, object]:
+    """Return the canonical path-free binding to the immutable v5 parent."""
+
     parent_spec = dict(config["parent_reprocessing"])
     return {
         "contract_version": parent_spec["contract_version"],
@@ -953,7 +955,7 @@ def build_development_v6_benchmark_contract(
     benchmark_contract["parent_contract_fingerprint"] = dict(
         config["parent_reprocessing"]
     )["contract_fingerprint"]
-    benchmark_contract["reprocessing_parent"] = _reprocessing_parent_reference(config)
+    benchmark_contract["reprocessing_parent"] = reprocessing_parent_reference(config)
     benchmark_contract["reference_fingerprints"] = _apply_input_references(
         dict(benchmark_contract.get("reference_fingerprints") or {}),
         inputs=inputs,
@@ -1038,7 +1040,7 @@ def _derive_contract(
     derived = copy.deepcopy(parent)
     derived["contract_version"] = DEVELOPMENT_V6_CONTRACT_VERSION
 
-    derived["reprocessing_parent"] = _reprocessing_parent_reference(config)
+    derived["reprocessing_parent"] = reprocessing_parent_reference(config)
 
     inputs = dict(input_precheck["contract_inputs"])
     references = _apply_input_references(
@@ -1575,5 +1577,6 @@ __all__ = [
     "build_development_v6_contract_artifact",
     "build_development_v6_contract_diff",
     "load_development_v6_contract",
+    "reprocessing_parent_reference",
     "verify_development_v6_contract_artifact",
 ]

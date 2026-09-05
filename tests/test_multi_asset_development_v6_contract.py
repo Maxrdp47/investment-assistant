@@ -90,17 +90,17 @@ def test_superseding_prerequisite_instances_preserve_v1_schemas() -> None:
     assert required["worker_benchmark"]["version"] == BENCHMARK_VERSION
     assert required["descriptive_plan"]["version"] == PLAN_VERSION
     for name in ("input_precheck", "worker_benchmark", "descriptive_plan"):
-        assert str(required[name]["path"]).endswith("-v1-r6.json")
+        assert str(required[name]["path"]).endswith("-v1-r7.json")
     assert str(DEFAULT_INPUT_PRECHECK_ARTIFACT).endswith(
         "multi_asset_development_v6_input_precheck_2026-09-05-v1.json"
     )
-    assert DEFAULT_BENCHMARK_ARTIFACT.as_posix().endswith("-v1-r6.json")
-    assert DEFAULT_PLAN_ARTIFACT.as_posix().endswith("-v1-r6.json")
+    assert DEFAULT_BENCHMARK_ARTIFACT.as_posix().endswith("-v1-r7.json")
+    assert DEFAULT_PLAN_ARTIFACT.as_posix().endswith("-v1-r7.json")
     assert str(config["runtime"]["execution"]["contract_artifact"]).endswith(
-        "multi_asset_discovery_v1_development_contract_2026-09-05-v6-r2.json"
+        "multi_asset_discovery_v1_development_contract_2026-09-05-v6-r3.json"
     )
     assert str(config["runtime"]["execution"]["contract_diff_artifact"]).endswith(
-        "multi_asset_discovery_v1_development_contract_diff_2026-09-05-v6-r2.json"
+        "multi_asset_discovery_v1_development_contract_diff_2026-09-05-v6-r3.json"
     )
     assert str(config["runtime"]["execution"]["start_gate_artifact"]).endswith(
         "multi_asset_development_v6_start_gate_2026-09-05-v1.json"

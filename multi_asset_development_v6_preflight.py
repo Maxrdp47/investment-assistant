@@ -32,6 +32,7 @@ from multi_asset_development_v6_contract import (
     DEVELOPMENT_V6_CONTRACT_DIFF_VERSION,
     DEVELOPMENT_V6_CONTRACT_VERSION,
     build_development_v6_benchmark_contract,
+    reprocessing_parent_reference,
     verify_development_v6_contract_artifact,
 )
 from multi_asset_development_v6_inputs import (
@@ -51,13 +52,13 @@ DEFAULT_CONTRACT_ARTIFACT = (
     PROJECT_ROOT
     / "runtime"
     / "research_exports"
-    / "multi_asset_discovery_v1_development_contract_2026-09-05-v6-r2.json"
+    / "multi_asset_discovery_v1_development_contract_2026-09-05-v6-r3.json"
 )
 DEFAULT_CONTRACT_DIFF = (
     PROJECT_ROOT
     / "runtime"
     / "research_exports"
-    / "multi_asset_discovery_v1_development_contract_diff_2026-09-05-v6-r2.json"
+    / "multi_asset_discovery_v1_development_contract_diff_2026-09-05-v6-r3.json"
 )
 
 MINIMUM_DISK_RESERVE_BYTES = 30 * 1024**3
@@ -1060,9 +1061,15 @@ def build_start_gate(
     parent_artifact = _read_json(parent_artifact_path, label="v5 parent artifact")
     parent_manifest = _read_json(parent_manifest_path, label="v5 parent manifest")
     parent_contract = dict(parent_artifact.get("contract") or {})
+    expected_parent_binding = reprocessing_parent_reference(config)
+    artifact_parent_binding = dict(
+        contract_artifact.get("reprocessing_parent") or {}
+    )
     parent_checks = {
         "contract_parent_matches_config": canonical_json(parent_binding)
-        == canonical_json(parent_spec),
+        == canonical_json(expected_parent_binding),
+        "artifact_parent_matches_contract": canonical_json(artifact_parent_binding)
+        == canonical_json(parent_binding),
         "artifact_sha256_unchanged": file_sha256(parent_artifact_path)
         == parent_spec.get("artifact_sha256"),
         "artifact_self_valid": _self_fingerprint_valid(parent_artifact),

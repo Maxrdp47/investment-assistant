@@ -700,6 +700,27 @@ class ResearchWorkflow:
                     (claim_id, claim_id, claim_id, claim_id),
                 )
             ]
+            result["entry_imports"] = [
+                dict(item)
+                for item in connection.execute(
+                    """
+                    SELECT eci.*, ehi.payload_json AS handoff_payload_json
+                    FROM entry_claim_imports eci
+                    JOIN entry_handoff_imports ehi ON ehi.id = eci.handoff_import_id
+                    WHERE eci.claim_id = ?
+                    ORDER BY eci.imported_at, eci.rowid
+                    """,
+                    (claim_id,),
+                )
+            ]
+            result["tags"] = [
+                str(item["tag"])
+                for item in connection.execute(
+                    """SELECT tag FROM source_claim_tags
+                       WHERE claim_id = ? ORDER BY normalized_tag""",
+                    (claim_id,),
+                )
+            ]
         return result
 
     def list_source_claims(self, *, limit: int = 200) -> list[dict[str, Any]]:
@@ -749,7 +770,25 @@ class ResearchWorkflow:
                      ORDER BY cva.assessed_at DESC, cva.rowid DESC LIMIT 1) AS verification_state,
                     (SELECT cva.confidence FROM claim_verification_assessments cva
                      WHERE cva.claim_id = sc.id
-                     ORDER BY cva.assessed_at DESC, cva.rowid DESC LIMIT 1) AS verification_confidence
+                     ORDER BY cva.assessed_at DESC, cva.rowid DESC LIMIT 1) AS verification_confidence,
+                    (SELECT eci.origin_system FROM entry_claim_imports eci
+                     WHERE eci.claim_id = sc.id
+                     ORDER BY eci.imported_at DESC, eci.rowid DESC LIMIT 1) AS origin_system,
+                    (SELECT eci.origin_claim_id FROM entry_claim_imports eci
+                     WHERE eci.claim_id = sc.id
+                     ORDER BY eci.imported_at DESC, eci.rowid DESC LIMIT 1) AS origin_claim_id,
+                    (SELECT eci.source_verification_status FROM entry_claim_imports eci
+                     WHERE eci.claim_id = sc.id
+                     ORDER BY eci.imported_at DESC, eci.rowid DESC LIMIT 1) AS source_verification_status,
+                    (SELECT eci.empirical_test_status FROM entry_claim_imports eci
+                     WHERE eci.claim_id = sc.id
+                     ORDER BY eci.imported_at DESC, eci.rowid DESC LIMIT 1) AS empirical_test_status,
+                    (SELECT eci.research_status FROM entry_claim_imports eci
+                     WHERE eci.claim_id = sc.id
+                     ORDER BY eci.imported_at DESC, eci.rowid DESC LIMIT 1) AS research_status,
+                    (SELECT GROUP_CONCAT(tag, ', ')
+                     FROM (SELECT sct.tag AS tag FROM source_claim_tags sct
+                           WHERE sct.claim_id = sc.id ORDER BY sct.normalized_tag)) AS tags_text
                 FROM source_claims sc
                 JOIN research_sources s ON s.id = sc.source_id
                 ORDER BY sc.created_at DESC, sc.id

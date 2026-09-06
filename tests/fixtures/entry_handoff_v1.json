@@ -1,0 +1,90 @@
+{
+  "schema_version": "trading_handoff_v1",
+  "handoff_id": "handoff-techfeed5-ui-001",
+  "entry_source_id": "entry-source-techfeed5-ui-001",
+  "source_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "title": "Techfeed5 ENTRY Import – Volumenfilter",
+  "platform": "youtube",
+  "creator": "techfeed5",
+  "url": "https://youtu.be/UiTest98765",
+  "published_date": "2026-08-31",
+  "neutral_summary": "Geprüfter Beispiel-Handoff für einen möglichen Volumenfilter bei Pullbacks.",
+  "claims": [
+    {
+      "origin_claim_id": "entry-claim-techfeed5-ui-001",
+      "claim_text": "Ein erhöhtes relatives Volumen kann Pullback-Fortsetzungen verbessern.",
+      "video_timestamps": [
+        {
+          "start": "00:01:12",
+          "end": "00:01:38"
+        }
+      ],
+      "claim_type": "strategy_feature",
+      "trading_relevance": "TRADING_RELEVANT",
+      "market_scope": "US-Aktien, Daily Swing",
+      "verification_status": "MOSTLY_SUPPORTED",
+      "evidence_strength": "medium",
+      "confidence": 72,
+      "rationale": "Die Richtung ist quellenbasiert plausibel; die konkrete Schwelle ist nicht empirisch getestet.",
+      "evidence": [
+        {
+          "title": "Beispiel einer verifizierenden Referenz",
+          "url": "https://example.test/entry-evidence",
+          "publisher": "Example Research",
+          "published_date": "2025-03-01",
+          "notes": "Stützt nur die allgemeine Richtung."
+        }
+      ],
+      "counter_evidence": [
+        {
+          "title": "Beispiel eines Gegenbelegs",
+          "url": "https://example.test/entry-counter",
+          "publisher": "Example Archive",
+          "published_date": "2024-06-15",
+          "notes": "Zeigt mögliche Regimeabhängigkeit."
+        }
+      ],
+      "limitations": [
+        "Die konkrete Schwelle wurde nicht getestet.",
+        "Die Quellenprüfung ist kein Trading-Backtest."
+      ],
+      "risks": [
+        "Overfitting",
+        "Regimewechsel"
+      ],
+      "valid_as_of": "2026-09-01",
+      "tags": [
+        "Pullback",
+        "Volume"
+      ],
+      "suggested_hypothesis": {
+        "title": "Relatives Volumen als Pullback-Filter",
+        "area": "swing_trader",
+        "category": "Pullback",
+        "claim": "Relatives Volumen verbessert netto die unveränderte Pullback-Baseline.",
+        "mechanism": "Zusätzliche Marktteilnahme kann die Fortsetzung bestätigen.",
+        "external_evidence": "medium",
+        "rating": "B",
+        "risks_limitations": "Overfitting, Kosten und Regimeabhängigkeit.",
+        "strategy": "Long Pullback",
+        "asset_class": "EQUITIES"
+      },
+      "suggested_test": {
+        "title": "Relatives-Volumen-PIT-Test",
+        "test_definition": "Inkrementeller Vergleich gegen die unveränderte Baseline.",
+        "data_universe": "Historisches Point-in-Time-US-Aktienuniversum.",
+        "period_start": "2016-01-01",
+        "period_end": "2025-12-31",
+        "point_in_time_rules": "Nur zum Entscheidungszeitpunkt bekannte Daten.",
+        "baseline": "Unveränderte Pullback-Baseline.",
+        "features": [
+          "relative_volume",
+          "pullback"
+        ],
+        "parameters": {
+          "relative_volume": "to_be_preregistered"
+        }
+      }
+    }
+  ]
+}

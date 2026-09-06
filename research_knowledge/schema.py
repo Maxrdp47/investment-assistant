@@ -14,7 +14,7 @@ DEFAULT_DATABASE_PATH = Path(
         PROJECT_ROOT / "runtime" / "research_knowledge.sqlite3",
     )
 )
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 
 ALLOWED_SOURCE_TYPES = (
     "tiktok",
@@ -1521,6 +1521,110 @@ SCHEMA_MIGRATIONS = {
           )
         BEGIN
             SELECT RAISE(ABORT, 'non-trading claim cannot enter trading hypothesis workflow');
+        END;
+    """,
+    8: """
+        CREATE TABLE entry_handoff_imports (
+            id TEXT PRIMARY KEY,
+            handoff_id TEXT NOT NULL,
+            origin_system TEXT NOT NULL CHECK(origin_system = 'ENTRY'),
+            origin_source_id TEXT NOT NULL,
+            source_id TEXT NOT NULL REFERENCES research_sources(id),
+            source_hash TEXT NOT NULL,
+            handoff_fingerprint TEXT NOT NULL,
+            payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
+            imported_at TEXT NOT NULL,
+            UNIQUE(origin_system, handoff_id, handoff_fingerprint)
+        );
+
+        CREATE TABLE entry_claim_imports (
+            id TEXT PRIMARY KEY,
+            handoff_import_id TEXT NOT NULL REFERENCES entry_handoff_imports(id),
+            claim_id TEXT NOT NULL REFERENCES source_claims(id),
+            hypothesis_id TEXT REFERENCES hypotheses(id),
+            experiment_id TEXT REFERENCES experiments(id),
+            origin_system TEXT NOT NULL CHECK(origin_system = 'ENTRY'),
+            origin_source_id TEXT NOT NULL,
+            origin_claim_id TEXT NOT NULL,
+            handoff_id TEXT NOT NULL,
+            handoff_fingerprint TEXT NOT NULL,
+            source_hash TEXT NOT NULL,
+            claim_payload_fingerprint TEXT NOT NULL,
+            managed_state_fingerprint TEXT NOT NULL,
+            source_verification_status TEXT NOT NULL,
+            empirical_test_status TEXT NOT NULL CHECK(empirical_test_status = 'NOT_TESTED'),
+            research_status TEXT NOT NULL CHECK(research_status = 'CANDIDATE'),
+            payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
+            imported_at TEXT NOT NULL,
+            UNIQUE(handoff_import_id, origin_claim_id)
+        );
+
+        CREATE TABLE source_claim_tags (
+            claim_id TEXT NOT NULL REFERENCES source_claims(id),
+            tag TEXT NOT NULL,
+            normalized_tag TEXT NOT NULL,
+            origin_system TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(claim_id, normalized_tag)
+        );
+
+        CREATE TABLE entry_handoff_conflicts (
+            id TEXT PRIMARY KEY,
+            handoff_id TEXT NOT NULL,
+            origin_system TEXT NOT NULL CHECK(origin_system = 'ENTRY'),
+            origin_source_id TEXT NOT NULL,
+            origin_claim_id TEXT NOT NULL DEFAULT '',
+            existing_import_id TEXT REFERENCES entry_handoff_imports(id),
+            incoming_fingerprint TEXT NOT NULL,
+            conflict_type TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            details_json TEXT NOT NULL CHECK(json_valid(details_json)),
+            incoming_payload_json TEXT NOT NULL CHECK(json_valid(incoming_payload_json)),
+            detected_at TEXT NOT NULL,
+            UNIQUE(handoff_id, origin_claim_id, incoming_fingerprint, conflict_type)
+        );
+
+        CREATE INDEX idx_entry_handoffs_identity
+            ON entry_handoff_imports(origin_system, handoff_id, imported_at);
+        CREATE INDEX idx_entry_handoffs_source
+            ON entry_handoff_imports(origin_source_id, imported_at);
+        CREATE INDEX idx_entry_claims_origin
+            ON entry_claim_imports(origin_source_id, origin_claim_id, imported_at);
+        CREATE INDEX idx_entry_claims_claim ON entry_claim_imports(claim_id, imported_at);
+        CREATE INDEX idx_source_claim_tags_tag ON source_claim_tags(normalized_tag, claim_id);
+        CREATE INDEX idx_entry_conflicts_handoff ON entry_handoff_conflicts(handoff_id, detected_at);
+
+        CREATE TRIGGER entry_handoff_imports_no_update
+        BEFORE UPDATE ON entry_handoff_imports BEGIN
+            SELECT RAISE(ABORT, 'entry_handoff_imports is append-only');
+        END;
+        CREATE TRIGGER entry_handoff_imports_no_delete
+        BEFORE DELETE ON entry_handoff_imports BEGIN
+            SELECT RAISE(ABORT, 'entry_handoff_imports is append-only');
+        END;
+        CREATE TRIGGER entry_claim_imports_no_update
+        BEFORE UPDATE ON entry_claim_imports BEGIN
+            SELECT RAISE(ABORT, 'entry_claim_imports is append-only');
+        END;
+        CREATE TRIGGER entry_claim_imports_no_delete
+        BEFORE DELETE ON entry_claim_imports BEGIN
+            SELECT RAISE(ABORT, 'entry_claim_imports is append-only');
+        END;
+        CREATE TRIGGER source_claim_tags_no_update
+        BEFORE UPDATE ON source_claim_tags BEGIN
+            SELECT RAISE(ABORT, 'source_claim_tags is append-only');
+        END;
+        CREATE TRIGGER source_claim_tags_no_delete
+        BEFORE DELETE ON source_claim_tags BEGIN
+            SELECT RAISE(ABORT, 'source_claim_tags is append-only');
+        END;
+        CREATE TRIGGER entry_handoff_conflicts_no_update
+        BEFORE UPDATE ON entry_handoff_conflicts BEGIN
+            SELECT RAISE(ABORT, 'entry_handoff_conflicts is append-only');
+        END;
+        CREATE TRIGGER entry_handoff_conflicts_no_delete
+        BEFORE DELETE ON entry_handoff_conflicts BEGIN
+            SELECT RAISE(ABORT, 'entry_handoff_conflicts is append-only');
         END;
     """,
 }

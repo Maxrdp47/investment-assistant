@@ -453,8 +453,13 @@ def render_research_knowledge_base(
                         "Unterkategorie": item["subcategory"] or "–",
                         "Trading-Relevanz": item["trading_relevance"] or "–",
                         "Verifikation": item["verification_state"] or "UNVERIFIED",
+                        "Herkunft": item["origin_system"] or "Direkt-Intake",
+                        "ENTRY Quellenprüfung": item["source_verification_status"] or "–",
+                        "Empirischer Test": item["empirical_test_status"] or "–",
+                        "Research-Status": item["research_status"] or "–",
+                        "Tags": item["tags_text"] or "–",
                         "Verification-Confidence": (
-                            item["verification_confidence"]
+                            f"{float(item['verification_confidence']):.1f} %"
                             if item["verification_confidence"] is not None
                             else "–"
                         ),

@@ -6,7 +6,17 @@ Die App handelt nicht automatisch, hat keine Broker-Anbindung und gibt keine Fin
 
 Das langfristige SwingTrader-Ziel ist kein klassischer Daily-Trading-Bot. Geplant ist ein transparenter, regelbasierter Multi-Factor Swing-/Investment-Assistent mit getrennten Modulen für Asset-Auswahl, These, Einstieg, unabhängiges Risiko, Positionsüberwachung, dynamischen Exit und Audit. Das kanonische Zielbild mit klarer Trennung zwischen vorhanden und geplant steht in [`SWINGTRADER_PRODUCT_ARCHITECTURE.md`](SWINGTRADER_PRODUCT_ARCHITECTURE.md).
 
-Aktueller Betriebsstand vom 2026-08-28: Der alte automatische Strategy-Forward v1 ist als `LEGACY_RESEARCH_FROZEN` eingefroren. Historische Forward-, Paper- und Shadow-Daten bleiben erhalten; es entstehen daraus keine neuen Strategie-Signale oder Trades. Der tägliche Prognose-Runner bleibt aktiv. `Multi-Asset Opportunity Discovery v1` ist noch nicht gestartet.
+Aktueller Betriebsstand vom 2026-09-06: Der alte automatische Strategy-Forward v1 bleibt als `LEGACY_RESEARCH_FROZEN` eingefroren. Historische Forward-, Paper- und Shadow-Daten bleiben erhalten; es entstehen daraus keine neuen Strategie-Signale oder Trades. Der tägliche Prognose-Runner und der getrennte FX-PIT-Observer bleiben aktiv. Der vorhandene Multi-Asset-Development-v6-Lauf ist bei 36,232315 % wegen eines technischen Schreibfehlers `PAUSED_REQUIRES_REVIEW`; keine spätere Forschungsstufe ist geöffnet.
+
+Kanonische Projektdokumente:
+
+- [`PROJECT_STATUS.md`](PROJECT_STATUS.md): genau ein aktueller, belegter Ist-Stand
+- [`ROADMAP.md`](ROADMAP.md): zukünftige Arbeit, Prioritäten und ausdrückliche Freigaben
+- [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md): dauerhafte Forschungs- und Validierungsregeln
+- [`CHANGELOG.md`](CHANGELOG.md): abgeschlossene Änderungen
+- [`VACATION_WORKQUEUE_RESUME.md`](VACATION_WORKQUEUE_RESUME.md): kompakter Fortsetzungsstand der vorbereiteten Urlaubs-Queue
+
+Die Urlaubs-Queue ist dokumentiert, aber noch nicht gestartet. Vor einem ausdrücklichen neuen Startsignal werden daraus keine Funktionen, Scans, Reprocessing-Läufe, Collector oder Forschungsstufen gestartet.
 
 ## Funktionen
 

@@ -1,8 +1,8 @@
 # SwingTrader – kanonische Produktarchitektur
 
-Stand: 2026-08-30
+Stand des Zielbilds: 2026-09-06
 
-Dieses Dokument ist das verbindliche langfristige Zielbild für den SwingTrader des Investment-Assistenten. Es beschreibt keine neue aktive Handelslogik und erteilt keine Produktions-, Broker- oder Echtgeldfreigabe. Der belegte Ist-Stand bleibt in `PROJECT_STATUS.md`; Prioritäten und offene Arbeit stehen in `ROADMAP.md`.
+Dieses Dokument ist das verbindliche langfristige Zielbild für den SwingTrader des Investment-Assistenten. Es beschreibt keine neue aktive Handelslogik und erteilt keine Produktions-, Broker- oder Echtgeldfreigabe. Der belegte Ist-Stand steht ausschließlich in `PROJECT_STATUS.md`; Prioritäten und Freigaben stehen ausschließlich in `ROADMAP.md`. Die Reifehinweise unten ordnen vorhandene Bausteine architektonisch ein und sind keine laufenden Status- oder Startaussagen.
 
 ## Kernsatz
 
@@ -44,7 +44,7 @@ Aufgaben:
 - Zukunftswissen, rückdatierte heutige Daten und still vermischte Listings verhindern.
 - Unsicherheit und nicht verfügbare Daten sichtbar halten.
 
-Aktueller Stand: Der future-only Research-Identity-Vertrag v3 trennt Asset, Listing und nur über belastbare LEI-/CIK-/FIGI-/ISIN-/Börsen-/ADR-Anker bekannte Issuer; unbekannte Beziehungen werden nicht als unabhängige Evidenz gezählt. Ein zentraler Listing-Bundle-Guard sperrt gemischte OHLCV-, Kurs-, Währungs-, Handelszeit-, Entry-, Stop- und Zieldaten. Das Multi-Source-Registry verifiziert inzwischen 2.180 von 2.490 issuerfähigen Listings (87,550201 %) und löst die bekannten ADR-/Multi-Listing-Gruppen auf; 340 unbekannte Dependencies bleiben sichtbar fail-closed und zählen nicht zum effective N. Der finale Infrastruktur-/Methodik-Precheck ist damit `READY_TO_DEFINE_MULTI_ASSET_DISCOVERY_V1_CONTRACT`, der Scan selbst bleibt jedoch ausdrücklich ungestartet. Die FX-PIT-Grundpipeline modelliert Paarinversion, Session, Verfügbarkeit und Revisionen und hält inzwischen 12.779 tägliche Kursbeobachtungen für EUR/USD, USD/JPY und GBP/USD von 2010 bis 2026. Ein getrennter append-only FX-PIT-Observer sammelt täglich um 21:45 Uhr Kurs-, COT-, Missingness- und Source-Health-Evidenz ohne Strategie- oder Tradepfad; zwei echte geplante Läufe sind nachgewiesen. Fehlende historische Erwartungen, Makro-Vintages, Policy Rates und Bid/Ask bleiben ehrlich nicht verfügbar. Die vollständige historische Coverage für Fundamentals, Erwartungen, Events, Branchen, Handelbarkeit und Mikrostruktur ist weiterhin nicht vorhanden.
+Architektur-Reifehinweis: Research-Identity trennt Asset, Listing und nur über belastbare Anker bekannte Issuer; unbekannte Beziehungen zählen nicht als unabhängige Evidenz. Ein zentraler Listing-Bundle-Guard sperrt gemischte OHLCV-, Kurs-, Währungs-, Handelszeit-, Entry-, Stop- und Zieldaten. Getrennte Equity-/ETF-, Crypto- und FX-Projektionen sowie ein append-only FX-PIT-Observer bilden weitere Grundlagen. Vollständige historische Coverage für Fundamentals, Erwartungen, Events, Branchen, Handelbarkeit und Mikrostruktur ist weiterhin nicht vorhanden. Genaue Versionen, Zahlen und Laufzustände stehen nur in `PROJECT_STATUS.md`.
 
 ### B. Asset Discovery / Opportunity Engine
 
@@ -56,7 +56,7 @@ Aufgaben:
 - Redundanz, Korrelation, Datenqualität und Marktregime berücksichtigen,
 - bewusst keine Idee anzeigen, wenn kein Kandidat ausreichend gut ist.
 
-Aktueller Stand: Das technische Swing-Universum, regionale Scans, Grobfilter und die vollständige Prüfung vorhandener Long-v1-Setups sind vorhanden. Ein validiertes Multi-Factor-Opportunity-Ranking aus Fundamental-, Markt-, Makro-, Event- und Technikschichten existiert noch nicht.
+Architektur-Reifehinweis: Das technische Swing-Universum, regionale Scans, Grobfilter und die vollständige Prüfung vorhandener Long-v1-Setups sind als Bausteine vorhanden. Ein validiertes Multi-Factor-Opportunity-Ranking aus Fundamental-, Markt-, Makro-, Event- und Technikschichten existiert noch nicht.
 
 ### C. Thesis Engine
 
@@ -68,7 +68,7 @@ Aufgaben:
 - Confidence und Unsicherheit aus Quellenlage und Evidenz ableiten,
 - These versioniert neu bewerten, ohne alte Stände umzuschreiben.
 
-Aktueller Stand: Asset-Analyse, Quellen-/Research-Bausteine, Event-Research und eine getrennte langfristige Investment-Verkaufsprüfung liefern Teilgrundlagen. Eine integrierte, validierte Swing-Thesis-Engine ist noch nicht umgesetzt.
+Architektur-Reifehinweis: Asset-Analyse, Quellen-/Research-Bausteine, Event-Research und eine getrennte langfristige Investment-Verkaufsprüfung liefern Teilgrundlagen. Eine integrierte, validierte Swing-Thesis-Engine ist noch nicht umgesetzt.
 
 ### D. Entry Planner
 
@@ -84,7 +84,7 @@ Aufgaben:
 
 Ein attraktives Asset darf auf der Watchlist bleiben, bis Preis und Bedingungen passen. Ein blindes Next-Open-Kaufen ist kein Produktstandard.
 
-Aktueller Stand: Der Swing Trade Finder erzeugt für vorhandene Setups einen versionierten Orderplan mit Einstieg, Aktivierung/Limit, Maximalpreis, Stop, Zielen, Gültigkeit und Nichteinstiegsbedingungen. Next-Bar-/Next-Open-Annahmen bleiben in historischen Tests kontrollierte Ausführungsbaselines. Ein vollständiger Multi-Factor- und Thesen-gesteuerter Entry-/Tranchenplaner ist noch nicht umgesetzt.
+Architektur-Reifehinweis: Der Swing Trade Finder besitzt für vorhandene Setups einen versionierten Orderplan mit Einstieg, Aktivierung/Limit, Maximalpreis, Stop, Zielen, Gültigkeit und Nichteinstiegsbedingungen. Next-Bar-/Next-Open-Annahmen bleiben in historischen Tests kontrollierte Ausführungsbaselines. Ein vollständiger Multi-Factor- und Thesen-gesteuerter Entry-/Tranchenplaner ist noch nicht umgesetzt.
 
 ### E. Independent Risk Engine
 
@@ -96,7 +96,7 @@ Aufgaben:
 - bei widersprüchlichen Daten fail-closed handeln,
 - von Strategy Engine, KI und Research nicht überschreibbar sein.
 
-Aktueller Stand: Eine gemeinsame unabhängige Risk Engine für Analyse, Paper und Shadow ist technisch vorhanden und ausschließlich brokerlos. Ihre heutigen Regeln bleiben durch dieses Zielbild unverändert.
+Architektur-Reifehinweis: Eine gemeinsame unabhängige Risk Engine für Analyse, Paper und Shadow ist technisch vorhanden und ausschließlich brokerlos. Ihre Regeln bleiben durch dieses Zielbild unverändert.
 
 ### F. Position Monitor
 
@@ -107,7 +107,7 @@ Aufgaben:
 - Datenalter, fehlende Quellen und Unsicherheit melden,
 - Handlungszustände wie `HOLD`, `AUFMERKSAMKEIT`, `RISIKO REDUZIEREN` oder `EXIT PRÜFEN` nachvollziehbar ableiten.
 
-Aktueller Stand: Technische Nutzertrade-Begleitung, Stop-/Zielprüfung und einige Struktur-/Volumenhinweise existieren. Eine vollständige fortlaufende Thesis-, Fundamental-, Sektor-, Makro- und Event-Neubewertung ist noch nicht umgesetzt oder validiert.
+Architektur-Reifehinweis: Technische Nutzertrade-Begleitung, Stop-/Zielprüfung und einige Struktur-/Volumenhinweise existieren. Eine vollständige fortlaufende Thesis-, Fundamental-, Sektor-, Makro- und Event-Neubewertung ist noch nicht umgesetzt oder validiert.
 
 ### G. Dynamic Exit Engine
 
@@ -120,7 +120,7 @@ Aufgaben:
 
 Das Ziel ist nicht, jedes lokale Hoch exakt zu treffen. Ziel ist, einen robusten Anteil eines Trends mitzunehmen und bei schlechter gewordenem verbleibendem Chance-Risiko-Verhältnis kontrolliert zu reagieren.
 
-Aktueller Stand: Die bestehende Swing-Logik besitzt feste Stops, Ziele, Teilgewinn-/Restpositionsregeln und getrennte Paper-Auswertung. `investment_exit_policy.py` hält langfristige Investment-Verkaufsgründe ausdrücklich von Swing-Regeln getrennt. Eine validierte dynamische Swing-Exit-Engine ist noch nicht umgesetzt. Teilgewinn-, Trailing- und Protect-Profit-Varianten bleiben Research-Themen.
+Architektur-Reifehinweis: Die bestehende Swing-Logik besitzt feste Stops, Ziele, Teilgewinn-/Restpositionsregeln und getrennte Paper-Auswertung. `investment_exit_policy.py` hält langfristige Investment-Verkaufsgründe ausdrücklich von Swing-Regeln getrennt. Eine validierte dynamische Swing-Exit-Engine ist noch nicht umgesetzt. Teilgewinn-, Trailing- und Protect-Profit-Varianten bleiben Research-Themen.
 
 ### H. Monitoring / Audit
 
@@ -131,7 +131,7 @@ Aufgaben:
 - Idempotenz, Restart, Positionsabgleich und nachvollziehbare Fehlerzustände sichern,
 - Black-Box-Produktionsentscheidungen verhindern.
 
-Aktueller Stand: Append-only Stores, Fingerprints, Research Knowledge Base, Forward-, Paper-, Shadow- und Nutzertrade-Evidenz schaffen wesentliche Grundlagen. Die vollständige durchgängige Auditkette des langfristigen Produkts bleibt geplant.
+Architektur-Reifehinweis: Append-only Stores, Fingerprints, Research Knowledge Base, Forward-, Paper-, Shadow- und Nutzertrade-Evidenz schaffen wesentliche Grundlagen. Die vollständige durchgängige Auditkette des langfristigen Produkts bleibt geplant.
 
 ## Informationsschichten der späteren Asset-Auswahl
 

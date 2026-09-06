@@ -9,6 +9,7 @@ import pytest
 
 import multi_asset_development_v6_benchmark as benchmark
 from multi_asset_discovery_v1 import fingerprint
+from swing_run_lock import SwingRunLock
 
 
 _TEST_IMPLEMENTATION_SHA256 = {"implementation.py": "a" * 64}
@@ -1059,6 +1060,33 @@ def test_benchmark_refuses_compute_when_protected_runtime_is_active(
         )
     assert compute_called is False
     assert not output.exists()
+
+
+def test_benchmark_fx_observer_lock_is_non_blocking(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(benchmark, "load_campaign_config", lambda path: {})
+    monkeypatch.setattr(
+        benchmark,
+        "historical_research_runtime_gate",
+        lambda config, project_root: {
+            "run_allowed": True,
+            "reason": "CLEAR",
+            "active_production": [],
+        },
+    )
+    fx_lock_path = tmp_path / "fx_forward_pit.collector.lock"
+
+    with SwingRunLock(fx_lock_path):
+        clear, reason, detail = benchmark.benchmark_dispatch_readiness(
+            production_protection_config=tmp_path / "campaign.json",
+            fx_observer_lock_path=fx_lock_path,
+            project_root=tmp_path,
+        )
+
+    assert clear is True
+    assert reason == "CLEAR"
+    assert detail["fx_observer"]["blocking"] is False
 
 
 def test_global_lock_collision_releases_process_lock(

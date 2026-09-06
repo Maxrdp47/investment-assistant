@@ -61,11 +61,10 @@ from swing_walk_forward_campaign import (  # noqa: E402
     DEFAULT_CAMPAIGN_CONFIG_PATH,
     DEFAULT_CAMPAIGN_STATE_PATH,
     DEFAULT_RESEARCH_LOCK_PATH,
-    campaign_active_production_jobs,
-    campaign_is_protected_time,
     campaign_jobs,
     campaign_status,
     campaign_week_epoch,
+    historical_research_runtime_gate,
     load_campaign_config,
     load_campaign_state,
 )
@@ -414,14 +413,16 @@ def main() -> int:
             )
         )
         return 0 if args.automatic_handoff else 2
-    if campaign_is_protected_time(now, campaign_config):
-        print(json.dumps({"broad_research_skipped": "protected_production_window"}, ensure_ascii=False))
-        return 0 if args.automatic_handoff else 2
-    active_production = campaign_active_production_jobs(campaign_config, project_root=PROJECT_ROOT)
-    if active_production:
+    runtime_gate = historical_research_runtime_gate(
+        campaign_config, project_root=PROJECT_ROOT
+    )
+    if not runtime_gate["run_allowed"]:
         print(
             json.dumps(
-                {"broad_research_skipped": "production_active", "active_production": active_production},
+                {
+                    "broad_research_skipped": "blocked_real_conflict",
+                    "runtime_gate": runtime_gate,
+                },
                 ensure_ascii=False,
             )
         )
@@ -470,18 +471,15 @@ def main() -> int:
                     )
                 )
                 return 0 if args.automatic_handoff else 2
-            if campaign_is_protected_time(now, campaign_config):
-                print(json.dumps({"broad_research_skipped": "protected_production_window_after_lock"}, ensure_ascii=False))
-                return 0 if args.automatic_handoff else 2
-            active_production = campaign_active_production_jobs(
+            runtime_gate = historical_research_runtime_gate(
                 campaign_config, project_root=PROJECT_ROOT
             )
-            if active_production:
+            if not runtime_gate["run_allowed"]:
                 print(
                     json.dumps(
                         {
-                            "broad_research_skipped": "production_active_after_lock",
-                            "active_production": active_production,
+                            "broad_research_skipped": "blocked_real_conflict_after_lock",
+                            "runtime_gate": runtime_gate,
                         },
                         ensure_ascii=False,
                     )

@@ -32,10 +32,7 @@ from multi_asset_development_v6_store import (
 )
 from multi_asset_discovery_v1 import canonical_json, fingerprint
 from swing_run_lock import SwingRunAlreadyActiveError, SwingRunLock
-from swing_walk_forward_campaign import (
-    campaign_active_production_jobs,
-    load_campaign_config,
-)
+from swing_walk_forward_campaign import historical_research_runtime_gate, load_campaign_config
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -326,17 +323,6 @@ def _validated_benchmark_compute_paths(
     }
 
 
-def _probe_lock_clear(path: Path) -> tuple[bool, str]:
-    lock = SwingRunLock(Path(path))
-    try:
-        lock.acquire()
-    except SwingRunAlreadyActiveError:
-        return False, f"ACTIVE_LOCK:{Path(path).name}"
-    else:
-        lock.release()
-        return True, "CLEAR"
-
-
 def benchmark_dispatch_readiness(
     *,
     production_protection_config: Path = DEFAULT_PRODUCTION_PROTECTION_CONFIG,
@@ -345,17 +331,20 @@ def benchmark_dispatch_readiness(
 ) -> tuple[bool, str, dict[str, object]]:
     """Fail closed immediately before each benchmark compute configuration."""
 
-    active = campaign_active_production_jobs(
+    runtime_gate = historical_research_runtime_gate(
         load_campaign_config(Path(production_protection_config)),
         project_root=Path(project_root),
     )
-    detail: dict[str, object] = {"active_production_jobs": list(active)}
-    if active:
-        return False, "ACTIVE_PRODUCTION_JOB:" + ",".join(active), detail
-    fx_clear, fx_reason = _probe_lock_clear(Path(fx_observer_lock_path))
-    detail["fx_observer_lock"] = fx_reason
-    if not fx_clear:
-        return False, fx_reason, detail
+    detail: dict[str, object] = {"historical_research_runtime_gate": runtime_gate}
+    if not runtime_gate["run_allowed"]:
+        return False, "BLOCKED_REAL_CONFLICT:" + ",".join(
+            runtime_gate["active_production"]
+        ), detail
+    detail["fx_observer"] = {
+        "path": str(Path(fx_observer_lock_path)),
+        "blocking": False,
+        "reason": "ISOLATED_DATABASE_LOCK_AND_BOUNDED_PROVIDER_USE",
+    }
     return True, "CLEAR", detail
 
 

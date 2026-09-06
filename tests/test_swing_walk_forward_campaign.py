@@ -18,6 +18,7 @@ from swing_walk_forward_campaign import (
     campaign_jobs,
     campaign_start_buffer_minutes,
     campaign_status,
+    historical_research_runtime_gate,
     load_campaign_config,
     load_campaign_state,
     next_campaign_job,
@@ -95,7 +96,7 @@ def test_campaign_state_rotates_failed_job_and_is_atomic(tmp_path) -> None:
     assert campaign_status(jobs, reloaded)["jobs_pending"] == len(jobs)
 
 
-def test_campaign_protected_window_and_command_contract() -> None:
+def test_legacy_campaign_window_metadata_and_command_contract() -> None:
     settings = config()
     settings["locked_profile_versions"] = {
         name: f"locked-{name}"
@@ -184,11 +185,63 @@ def test_active_production_lock_blocks_research_start_probe(tmp_path) -> None:
     }
 
     assert campaign_active_production_jobs(settings, project_root=tmp_path) == []
+    assert historical_research_runtime_gate(
+        settings, project_root=tmp_path
+    )["run_allowed"] is True
     with SwingRunLock(production_lock):
         assert campaign_active_production_jobs(settings, project_root=tmp_path) == [
             "Swing-Live-/Forward-Scan"
         ]
+        gate = historical_research_runtime_gate(settings, project_root=tmp_path)
+        assert gate["run_allowed"] is False
+        assert gate["reason"] == "BLOCKED_REAL_CONFLICT"
+        assert gate["time_of_day_used"] is False
     assert campaign_active_production_jobs(settings, project_root=tmp_path) == []
+    assert historical_research_runtime_gate(
+        settings, project_root=tmp_path
+    )["run_allowed"] is True
+
+
+def test_forecast_lock_blocks_only_for_its_real_lock_duration(tmp_path) -> None:
+    forecast_lock = tmp_path / "forecasts.sqlite3.run.lock"
+    settings = {
+        "protected_runtime_locks": [
+            {"name": "Prognose-Abendkette", "path": forecast_lock.name}
+        ]
+    }
+
+    assert historical_research_runtime_gate(
+        settings, project_root=tmp_path
+    )["run_allowed"] is True
+    with SwingRunLock(forecast_lock):
+        blocked = historical_research_runtime_gate(
+            settings, project_root=tmp_path
+        )
+        assert blocked["run_allowed"] is False
+        assert blocked["active_production"] == ["Prognose-Abendkette"]
+    assert historical_research_runtime_gate(
+        settings, project_root=tmp_path
+    )["run_allowed"] is True
+
+
+def test_unprobeable_production_lock_fails_closed(monkeypatch, tmp_path) -> None:
+    settings = {
+        "protected_runtime_locks": [
+            {"name": "Unbekannter Writer", "path": "writer.lock"}
+        ]
+    }
+
+    def _raise_os_error(self) -> None:
+        raise OSError("lock state unavailable")
+
+    monkeypatch.setattr(SwingRunLock, "acquire", _raise_os_error)
+
+    gate = historical_research_runtime_gate(settings, project_root=tmp_path)
+
+    assert gate["run_allowed"] is False
+    assert gate["reason"] == "BLOCKED_REAL_CONFLICT"
+    assert gate["conflict_type"] == "ACTIVE_OR_UNPROBEABLE_PRODUCTION_LOCK"
+    assert gate["active_production"] == ["Unbekannter Writer"]
 
 
 def test_failed_worker_job_remains_resumable_and_uncompleted() -> None:
@@ -327,7 +380,7 @@ def test_project_campaign_uses_five_minute_ignore_new_trigger() -> None:
     assert "-ExecutionTimeLimit (New-TimeSpan -Seconds 0)" in installer
 
 
-def test_project_campaign_allows_night_and_protects_all_production_runs() -> None:
+def test_project_retains_former_windows_as_legacy_metadata_only() -> None:
     settings = load_campaign_config()
 
     assert not campaign_is_protected_time(
@@ -357,6 +410,58 @@ def test_project_campaign_allows_night_and_protects_all_production_runs() -> Non
     assert campaign_is_protected_time(
         datetime.fromisoformat("2026-08-19T22:30:00+02:00"), settings
     )
+
+
+@pytest.mark.parametrize(
+    "timestamp",
+    (
+        "2026-08-19T09:30:00+02:00",
+        "2026-08-19T16:30:00+02:00",
+        "2026-08-19T21:45:00+02:00",
+    ),
+)
+def test_historical_research_gate_never_uses_time_of_day(timestamp: str) -> None:
+    settings = load_campaign_config()
+    settings["protected_runtime_locks"] = []
+
+    gate = historical_research_runtime_gate(settings, project_root=Path.cwd())
+
+    assert datetime.fromisoformat(timestamp).tzinfo is not None
+    assert gate["run_allowed"] is True
+    assert gate["time_of_day_used"] is False
+    assert gate["legacy_time_windows_applied"] is False
+
+
+def test_fx_observer_lock_is_isolated_and_non_blocking(tmp_path) -> None:
+    fx_lock = tmp_path / "fx_forward_pit.collector.lock"
+    settings = {
+        "protected_runtime_locks": [
+            {"name": "Forecast", "path": "forecasts.sqlite3.run.lock"}
+        ]
+    }
+
+    with SwingRunLock(fx_lock):
+        gate = historical_research_runtime_gate(settings, project_root=tmp_path)
+
+    assert gate["run_allowed"] is True
+    assert gate["active_production"] == []
+
+
+def test_active_historical_runners_do_not_call_legacy_clock_window_helper() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    active_runners = (
+        "multi_asset_development_runner.py",
+        "multi_asset_development_v6_runner.py",
+        "scripts/run_swing_walk_forward_campaign.py",
+        "scripts/run_swing_broad_research.py",
+        "scripts/run_swing_broad_research_supervisor.py",
+        "scripts/run_swing_broad_challenger.py",
+        "scripts/run_buyer_confirmation_validation.py",
+    )
+
+    for relative in active_runners:
+        source = (project_root / relative).read_text(encoding="utf-8")
+        assert "campaign_is_protected_time" not in source
 
 
 def test_completed_job_releases_queue_for_next_valid_trigger() -> None:

@@ -156,6 +156,15 @@ Auch nach dem Startsignal bleiben verboten:
 - Force Push, `git reset --hard`, `git clean` oder Verlust fremder Änderungen,
 - Short, ML, vollständiger Opportunity-Feed, Live-Bot oder größeres Redesign.
 
+## Verbindlicher Betriebsgrundsatz für Historical Research
+
+- Historical Research und Development dürfen unabhängig von der lokalen Uhrzeit starten, fortsetzen und resumieren. Die früheren allgemeinen Fenster 09:00–11:30, 15:45–18:45 und 20:00–23:59 einschließlich ihrer 90-Minuten-Vorläufe sind ausschließlich Legacy-Historie.
+- Die zentrale aktive Startentscheidung ist process-/lock-basiert. Blockierend bleiben ein real gehaltener oder nicht sicher prüfbarer inkompatibler Produktions-/Writer-Lock, der globale exklusive Research-Lock, ein bereits aktiver gleicher Run, eine gespeicherte SQLite-Sicherheitspause, ein fehlgeschlagenes Integritätsgate oder eine belegte kritische Ressourcenlage.
+- Geplante zukünftige Forecast-/Collector-Zeitpunkte sind keine Konflikte. Ein als inkompatibel konfigurierter Produktionsprozess blockiert nur während seiner tatsächlichen Lockdauer; nach Lockfreigabe darf der nächste Trigger wieder arbeiten.
+- Der getrennte FX-PIT-Observer ist wegen eigener DB, eigenem Lock und begrenztem Providerumfang kein pauschaler Multi-Asset-Research-Blocker. Unbekannte tatsächliche Lock-/Writer-Zustände bleiben fail-closed.
+- Legacy Forward v1 bleibt eingefroren. Die uhrzeitfreie Research-Regel ist keine Freigabe für neue Forward-, Validation-, Holdout-, External-, Paper-, Shadow-, Broker- oder Orderstufen.
+- Für Development v6 bleibt die bestehende SQLite-Review-Pause unabhängig von dieser Bereinigung maßgeblich. Erst eine getrennt geprüfte technische Recovery darf den vorhandenen Run fortsetzen; alte Uhrzeitfenster sind dabei kein Gate.
+
 ## Nicht aktive beziehungsweise spätere Arbeit
 
 ### Bewahrter Research-/Shadow-Vertrag ohne Urlaubsfreigabe

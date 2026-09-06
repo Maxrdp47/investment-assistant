@@ -7,7 +7,6 @@ import json
 import sqlite3
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -33,8 +32,7 @@ from swing_universe import DEFAULT_SWING_UNIVERSE_PATH, load_swing_universe  # n
 from swing_walk_forward_campaign import (  # noqa: E402
     DEFAULT_CAMPAIGN_CONFIG_PATH,
     DEFAULT_RESEARCH_LOCK_PATH,
-    campaign_active_production_jobs,
-    campaign_is_protected_time,
+    historical_research_runtime_gate,
     load_campaign_config,
 )
 
@@ -161,19 +159,29 @@ def main() -> int:
     if str(manifest["dataset_fingerprint"]) != str(challenger["dataset_fingerprint"]):
         raise RuntimeError("Challenger und Frozen-Manifest besitzen verschiedene Fingerprints.")
     config = load_campaign_config(DEFAULT_CAMPAIGN_CONFIG_PATH)
-    now = datetime.now().astimezone()
-    if campaign_is_protected_time(now, config):
-        print(json.dumps({"challenger_rescan_skipped": "protected_production_window"}, ensure_ascii=False))
-        return 2
-    active_production = campaign_active_production_jobs(config, project_root=PROJECT_ROOT)
-    if active_production:
-        print(json.dumps({"challenger_rescan_skipped": "production_active", "active_production": active_production}, ensure_ascii=False))
+    runtime_gate = historical_research_runtime_gate(config, project_root=PROJECT_ROOT)
+    if not runtime_gate["run_allowed"]:
+        print(json.dumps({"challenger_rescan_skipped": "blocked_real_conflict", "runtime_gate": runtime_gate}, ensure_ascii=False))
         return 2
     pending = [asset for asset in assets if str(asset["ticker"]).upper() not in completed]
     pending = pending[: max(0, int(args.maximum_assets))]
     workers = max(1, min(int(args.workers), 8))
     try:
         with SwingRunLock(DEFAULT_RESEARCH_LOCK_PATH):
+            runtime_gate = historical_research_runtime_gate(
+                config, project_root=PROJECT_ROOT
+            )
+            if not runtime_gate["run_allowed"]:
+                print(
+                    json.dumps(
+                        {
+                            "challenger_rescan_skipped": "blocked_real_conflict_after_lock",
+                            "runtime_gate": runtime_gate,
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                return 2
             with ProcessPoolExecutor(
                 max_workers=workers,
                 initializer=_worker_init,

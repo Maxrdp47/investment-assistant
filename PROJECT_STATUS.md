@@ -114,6 +114,16 @@ Der folgende Stand wurde nur lesend geprüft. Keine Aufgabe wurde in diesem Doku
 
 `Ergebnis 0` bedeutet bei den Windows-Aufgaben einen erfolgreichen Prozessabschluss. Der pausierte v6-Chain-State ist maßgeblich für den Research-Fortschritt; wiederholte Scheduler-Aufrufe sind keine Freigabe zum Übergehen des Review-Stopps.
 
+#### Uhrzeitfreie Historical-Research-Gates
+
+- Die früheren allgemeinen Sperren 09:00–11:30, 15:45–18:45 und 20:00–23:59 sind Legacy-Betriebslogik. Ihre ursprünglichen Fenster und 90-Minuten-Vorläufe bleiben in der historischen Konfiguration und im Archiv nachvollziehbar, besitzen aber keine aktive Start-, Fortsetzungs- oder Resume-Wirkung mehr auf Historical Research/Development.
+- Alle aktiven historischen Einstiegspfade verwenden die gemeinsame deterministische Entscheidung `historical_research_runtime_gate`. Diese Entscheidung wertet keine Uhrzeit aus. Sie blockiert bei einem gehaltenen oder nicht sicher prüfbaren, als inkompatibel konfigurierten Produktions-Lock mit `BLOCKED_REAL_CONFLICT`; eine bloß vorhandene verwaiste Lock-Datei blockiert nicht.
+- Der globale Research-Lock, kampagnen- beziehungsweise runspezifische Doppelstart-Locks, SQLite-Sicherheitspausen, Integritätsgates sowie belegte Disk-/RAM-Grenzen bleiben unverändert fail-closed. Nach Ende eines realen Prozesskonflikts darf der nächste Trigger wieder starten beziehungsweise resumieren.
+- Die konfigurierten echten Produktionskonflikte bleiben der aktive Swing-Live-/Forward-Prozess und die allgemeine Prognose-Abendkette – jeweils nur für die tatsächliche Dauer ihres gehaltenen Locks, nicht schon Stunden vor ihrem geplanten Start.
+- Legacy Forward v1 und seine regionalen Aufgaben bleiben eingefroren beziehungsweise deaktiviert. Diese Änderung reaktiviert keine Signale, Paper-/Shadow-Trades oder Handelsfunktion.
+- Der FX-PIT-Observer bleibt aktiviert und getrennt: eigene DB `runtime/fx_forward_pit.sqlite3`, eigener Lock `runtime/fx_forward_pit.collector.lock`, drei tägliche FX-Paare und höchstens drei Yahoo-Daily-Anfragen pro Lauf. Er schreibt nicht in die Multi-Asset-Evidence-Stores und ist deshalb kein pauschaler Multi-Asset-Research-Blocker.
+- Multi-Asset Development v6 war bereits uhrzeitunabhängig. Sein aktueller Zustand bleibt unverändert `PAUSED_REQUIRES_REVIEW` bei 36,232315 % wegen `EQUITIES:FLG:OperationalError:attempt to write a readonly database`. Die neue Lock-Logik hebt diese SQLite-Sicherheitspause nicht auf und hat den Lauf nicht gestartet oder resumiert.
+
 ### Daten- und Identity-Stand
 
 - Das Research-Identity-System trennt Asset, Listing und Issuer. Verifizierte Beziehungen und unbekannte Abhängigkeiten bleiben getrennt.

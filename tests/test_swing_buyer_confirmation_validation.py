@@ -295,7 +295,7 @@ def test_freeze_contract_contains_no_extra_filters(monkeypatch, tmp_path) -> Non
     assert freeze["holdout_opened"] is False
 
 
-def test_protected_window_does_not_open_validation(monkeypatch, tmp_path) -> None:
+def test_real_process_conflict_does_not_open_validation(monkeypatch, tmp_path) -> None:
     freeze = _freeze()
     opened = []
     monkeypatch.setattr(runner, "load_challenger_freeze", lambda path: freeze)
@@ -307,7 +307,15 @@ def test_protected_window_does_not_open_validation(monkeypatch, tmp_path) -> Non
         lambda path: {"stages": {"validation": {"opened": False, "decision": None}}},
     )
     monkeypatch.setattr(runner, "load_campaign_config", lambda path: {})
-    monkeypatch.setattr(runner, "campaign_is_protected_time", lambda now, config: True)
+    monkeypatch.setattr(
+        runner,
+        "historical_research_runtime_gate",
+        lambda config, project_root: {
+            "run_allowed": False,
+            "reason": "BLOCKED_REAL_CONFLICT",
+            "active_production": ["Forecast"],
+        },
+    )
     monkeypatch.setattr(runner, "open_stage", lambda *args, **kwargs: opened.append(True))
     args = SimpleNamespace(
         database=tmp_path / "store.sqlite3",
@@ -321,5 +329,5 @@ def test_protected_window_does_not_open_validation(monkeypatch, tmp_path) -> Non
 
     result = runner._run_stage(args, [{"ticker": "AAA"}])
 
-    assert result["stage_run_skipped"] == "protected_production_window_or_start_buffer"
+    assert result["stage_run_skipped"] == "blocked_real_conflict"
     assert opened == []

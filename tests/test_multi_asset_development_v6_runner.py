@@ -371,11 +371,48 @@ def test_resource_guard_respects_active_production_lock(
     )
     monkeypatch.setattr(runner, "load_campaign_config", lambda path: {})
     monkeypatch.setattr(
-        runner, "campaign_active_production_jobs", lambda config, project_root: ["live"]
+        runner,
+        "historical_research_runtime_gate",
+        lambda config, project_root: {
+            "run_allowed": False,
+            "reason": "BLOCKED_REAL_CONFLICT",
+            "active_production": ["live"],
+        },
     )
     clear, reason, _ = runner.dispatch_readiness(_contract())
     assert clear is False
-    assert reason == "ACTIVE_PRODUCTION_JOB:live"
+    assert reason == "BLOCKED_REAL_CONFLICT:live"
+
+
+def test_resource_guard_marks_fx_observer_as_non_blocking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        runner.shutil,
+        "disk_usage",
+        lambda path: SimpleNamespace(total=100, used=10, free=40 * 1024**3),
+    )
+    monkeypatch.setattr(
+        runner,
+        "system_resources",
+        lambda: {"available_physical_memory_bytes_at_start": 8 * 1024**3},
+    )
+    monkeypatch.setattr(runner, "load_campaign_config", lambda path: {})
+    monkeypatch.setattr(
+        runner,
+        "historical_research_runtime_gate",
+        lambda config, project_root: {
+            "run_allowed": True,
+            "reason": "CLEAR",
+            "active_production": [],
+        },
+    )
+
+    clear, reason, detail = runner.dispatch_readiness(_contract())
+
+    assert clear is True
+    assert reason == "CLEAR"
+    assert detail["fx_observer"]["blocking"] is False
 
 
 def test_no_data_worker_result_must_name_exact_claimed_units(tmp_path: Path) -> None:

@@ -42,7 +42,7 @@ from multi_asset_development_v6_store import (
 )
 from multi_asset_discovery_v1 import canonical_json, fingerprint
 from swing_run_lock import SwingRunAlreadyActiveError, SwingRunLock
-from swing_walk_forward_campaign import campaign_active_production_jobs, load_campaign_config
+from swing_walk_forward_campaign import historical_research_runtime_gate, load_campaign_config
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -56,7 +56,6 @@ CHAIN_VERSION = "multi-asset-development-chain-2026.09.05-v6"
 OPERATOR_REQUEST_VERSION = "multi-asset-development-operator-request-2026.09.05-v1"
 RUN_MANIFEST_VERSION = "multi-asset-discovery-development-run-manifest-2026.09.05-v6"
 GLOBAL_RESEARCH_LOCK = PROJECT_ROOT / "runtime" / "swing_walk_forward_research.lock"
-FX_OBSERVER_LOCK = PROJECT_ROOT / "runtime" / "fx_forward_pit.collector.lock"
 MINIMUM_DISK_FREE_BYTES = 30 * 1024**3
 MINIMUM_AVAILABLE_MEMORY_BYTES = 2 * 1024**3
 
@@ -244,17 +243,6 @@ class _StayAwake:
             ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
 
 
-def _probe_lock_clear(path: Path) -> tuple[bool, str]:
-    lock = SwingRunLock(path)
-    try:
-        lock.acquire()
-    except SwingRunAlreadyActiveError:
-        return False, f"ACTIVE_LOCK:{path.name}"
-    else:
-        lock.release()
-        return True, "CLEAR"
-
-
 def dispatch_readiness(contract: Mapping[str, object]) -> tuple[bool, str, dict[str, object]]:
     disk = shutil.disk_usage(PROJECT_ROOT)
     resources = system_resources()
@@ -273,16 +261,18 @@ def dispatch_readiness(contract: Mapping[str, object]) -> tuple[bool, str, dict[
         return False, "AVAILABLE_MEMORY_BELOW_2_GIB", detail
     execution = dict(contract["development_execution"])
     protection = PROJECT_ROOT / str(execution["production_protection_config"])
-    active = campaign_active_production_jobs(
+    runtime_gate = historical_research_runtime_gate(
         load_campaign_config(protection), project_root=PROJECT_ROOT
     )
-    detail["active_production_jobs"] = list(active)
-    if active:
-        return False, "ACTIVE_PRODUCTION_JOB:" + ",".join(active), detail
-    fx_clear, fx_reason = _probe_lock_clear(FX_OBSERVER_LOCK)
-    detail["fx_observer_lock"] = fx_reason
-    if not fx_clear:
-        return False, fx_reason, detail
+    detail["historical_research_runtime_gate"] = runtime_gate
+    if not runtime_gate["run_allowed"]:
+        return False, "BLOCKED_REAL_CONFLICT:" + ",".join(
+            runtime_gate["active_production"]
+        ), detail
+    detail["fx_observer"] = {
+        "blocking": False,
+        "reason": "ISOLATED_DATABASE_LOCK_AND_BOUNDED_PROVIDER_USE",
+    }
     return True, "CLEAR", detail
 
 

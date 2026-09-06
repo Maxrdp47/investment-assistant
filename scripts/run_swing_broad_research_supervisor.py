@@ -26,8 +26,7 @@ from swing_broad_research import (  # noqa: E402
 from swing_research_dataset import load_research_dataset_manifest  # noqa: E402
 from swing_universe import DEFAULT_SWING_UNIVERSE_PATH, load_swing_universe  # noqa: E402
 from swing_walk_forward_campaign import (  # noqa: E402
-    campaign_active_production_jobs,
-    campaign_is_protected_time,
+    historical_research_runtime_gate,
 )
 
 
@@ -45,22 +44,17 @@ def broad_supervisor_guard(now: datetime) -> dict[str, object]:
             "reason": "existing_campaign_not_finished",
             "campaign": campaign,
         }
-    if campaign_is_protected_time(now, config):
-        return {
-            "run_allowed": False,
-            "reason": "protected_production_window",
-        }
-    active_production = campaign_active_production_jobs(
+    runtime_gate = historical_research_runtime_gate(
         config,
         project_root=PROJECT_ROOT,
     )
-    if active_production:
+    if not runtime_gate["run_allowed"]:
         return {
             "run_allowed": False,
-            "reason": "production_active",
-            "active_production": active_production,
+            "reason": "blocked_real_conflict",
+            "runtime_gate": runtime_gate,
         }
-    return {"run_allowed": True, "reason": "clear"}
+    return {"run_allowed": True, "reason": "clear", "runtime_gate": runtime_gate}
 
 
 def broad_progress(

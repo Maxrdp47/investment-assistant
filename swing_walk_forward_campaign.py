@@ -150,6 +150,13 @@ def campaign_start_buffer_minutes(config: Mapping[str, object]) -> int:
 
 
 def campaign_is_protected_time(now: datetime, config: Mapping[str, object]) -> bool:
+    """Evaluate the retired clock-window policy for historical evidence only.
+
+    Historical Research/Development runners must not use this helper for an
+    active start decision.  The configured windows are retained so old reports
+    and tests can still explain the former operating policy.
+    """
+
     start_buffer = timedelta(minutes=campaign_start_buffer_minutes(config))
     for window in config.get("protected_windows") or []:
         start_clock = _parse_clock(window["start"])
@@ -186,6 +193,40 @@ def campaign_active_production_jobs(
         else:
             probe.release()
     return active
+
+
+def historical_research_runtime_gate(
+    config: Mapping[str, object],
+    *,
+    project_root: Path | None = None,
+) -> dict[str, object]:
+    """Return the shared clock-free gate for historical research dispatch.
+
+    A configured production lock is a real conflict only while its operating-
+    system lock is held (or cannot be probed safely).  Stale lock files and the
+    time of day never block research.  Campaign/run locks, SQLite safety
+    pauses, resource limits and integrity gates remain owned by their existing
+    callers because those states are specific to the corresponding store/run.
+    """
+
+    active = campaign_active_production_jobs(config, project_root=project_root)
+    if active:
+        return {
+            "run_allowed": False,
+            "reason": "BLOCKED_REAL_CONFLICT",
+            "conflict_type": "ACTIVE_OR_UNPROBEABLE_PRODUCTION_LOCK",
+            "active_production": active,
+            "time_of_day_used": False,
+            "legacy_time_windows_applied": False,
+        }
+    return {
+        "run_allowed": True,
+        "reason": "CLEAR",
+        "conflict_type": None,
+        "active_production": [],
+        "time_of_day_used": False,
+        "legacy_time_windows_applied": False,
+    }
 
 
 def campaign_jobs(

@@ -44,8 +44,7 @@ from swing_universe import DEFAULT_SWING_UNIVERSE_PATH, load_swing_universe  # n
 from swing_walk_forward_campaign import (  # noqa: E402
     DEFAULT_CAMPAIGN_CONFIG_PATH,
     DEFAULT_RESEARCH_LOCK_PATH,
-    campaign_active_production_jobs,
-    campaign_is_protected_time,
+    historical_research_runtime_gate,
     load_campaign_config,
 )
 
@@ -179,14 +178,13 @@ def _run_stage(args: argparse.Namespace, assets: list[dict]) -> dict[str, object
             "decision": status_before["stages"][args.stage]["decision"],
         }
     config = load_campaign_config(args.campaign_config)
-    now = datetime.now().astimezone()
-    if campaign_is_protected_time(now, config):
-        return {"stage_run_skipped": "protected_production_window_or_start_buffer"}
-    active_production = campaign_active_production_jobs(config, project_root=args.project_root)
-    if active_production:
+    runtime_gate = historical_research_runtime_gate(
+        config, project_root=args.project_root
+    )
+    if not runtime_gate["run_allowed"]:
         return {
-            "stage_run_skipped": "production_active",
-            "active_production": active_production,
+            "stage_run_skipped": "blocked_real_conflict",
+            "runtime_gate": runtime_gate,
         }
     completed = completed_stage_symbols(CHALLENGER_VERSION, args.stage, args.database)
     pending = [asset for asset in assets if str(asset["ticker"]).upper() not in completed]
@@ -200,16 +198,13 @@ def _run_stage(args: argparse.Namespace, assets: list[dict]) -> dict[str, object
     processed = 0
     try:
         with SwingRunLock(args.research_lock):
-            now = datetime.now().astimezone()
-            if campaign_is_protected_time(now, config):
-                return {"stage_run_skipped": "protected_after_research_lock"}
-            active_production = campaign_active_production_jobs(
+            runtime_gate = historical_research_runtime_gate(
                 config, project_root=args.project_root
             )
-            if active_production:
+            if not runtime_gate["run_allowed"]:
                 return {
-                    "stage_run_skipped": "production_active_after_research_lock",
-                    "active_production": active_production,
+                    "stage_run_skipped": "blocked_real_conflict_after_research_lock",
+                    "runtime_gate": runtime_gate,
                 }
             if not status_before["stages"][args.stage]["opened"]:
                 open_stage(

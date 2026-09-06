@@ -2,6 +2,11 @@
 
 Stand: 2. September 2026
 
+Aktualisierung 6. September 2026: Die folgende v3-Inventur bleibt als
+historischer Prüfstand erhalten. Die dort noch als für historische
+Swing-Kampagnen aktiv beschriebene Uhrzeitwirkung ist inzwischen ebenfalls
+Legacy; maßgeblich ist der Abschnitt "Aktueller Gate-Stand" am Dokumentende.
+
 ## Ergebnis
 
 Der Multi-Asset-Development-Runner besitzt im ausführbaren Contract v5 eine explizite,
@@ -34,12 +39,12 @@ eingefroren.
 
 ## Kontextregel
 
-Die bestehende Funktion `campaign_is_protected_time(...)` und ihre Konfiguration
-werden nicht gelöscht oder abgeschwächt. Contract v5 klassifiziert ihre
-Uhrzeitfenster ausdrücklich als nicht für Historical Development zuständig.
-Forward-, Paper- und Produktionskontexte behalten ihre vorhandenen Regeln. Der
-Development-Runner prüft nach der einmaligen Startgrenze weiterhin vor jeder
-Arbeitsaufnahme, ob ein geschützter Produktionsprozess tatsächlich aktiv ist.
+Dieser Abschnitt beschreibt den historischen Stand vom 2. September 2026. Die
+Funktion `campaign_is_protected_time(...)` und ihre Konfiguration blieben damals
+erhalten; Contract v5 klassifizierte ihre Uhrzeitfenster bereits als nicht für
+Multi-Asset Historical Development zuständig. Der Development-Runner prüfte
+nach der einmaligen Startgrenze weiterhin vor jeder Arbeitsaufnahme, ob ein
+geschützter Produktionsprozess tatsächlich aktiv war.
 
 Das v3-Contract-Artefakt wurde am 2. September 2026 um 00:55 CEST durch den
 bereits vorhandenen Scheduler vor dem finalen Readiness-Gate append-only
@@ -56,3 +61,13 @@ als unveränderliche Quelle behandelt. v4 wurde ebenfalls nie vorbereitet oder
 gestartet. Das Artefakt bleibt unverändert erhalten. In v5 bleibt die historische
 FX-Quelle bytegenau geschützt; der getrennte mutable Forward-FX-Observer wird
 weiterhin über Datenbankintegrität, Observer-Gates und Brokerverbot geprüft.
+
+## Aktueller Gate-Stand seit 6. September 2026
+
+Die Uhrzeitfenster und der 90-Minuten-Vorlauf sind nur noch Legacy-Metadaten und
+werden von keinem aktiven Historical-Research-/Development-Runner abgefragt.
+Die produktiven Background-Zeitpläne selbst bleiben unverändert. Historical
+Research blockiert ausschließlich bei einem real gehaltenen oder nicht sicher
+prüfbaren, als inkompatibel konfigurierten Produktions-Lock sowie bei seinen
+weiter bestehenden run-, SQLite-, Integritäts- und Ressourcen-spezifischen
+Gates. Der getrennte FX-PIT-Observer ist kein pauschaler Research-Blocker.

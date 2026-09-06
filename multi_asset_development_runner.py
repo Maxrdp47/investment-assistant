@@ -50,8 +50,7 @@ from multi_asset_discovery_v1 import (
 )
 from swing_run_lock import SwingRunAlreadyActiveError, SwingRunLock
 from swing_walk_forward_campaign import (
-    campaign_active_production_jobs,
-    campaign_is_protected_time,
+    historical_research_runtime_gate,
     load_campaign_config,
 )
 
@@ -307,7 +306,11 @@ def _configure_logger(path: Path) -> logging.Logger:
 def development_time_guard(
     contract: Mapping[str, object], *, now: datetime
 ) -> tuple[bool, str]:
-    """Apply only Development-owned time gates, never Forward-only windows."""
+    """Apply only the one-time Development epoch boundary.
+
+    Recurring Forward clock windows are legacy metadata and can never be
+    enabled as a Historical Development gate.
+    """
 
     execution = dict(contract["development_execution"])
     not_before = datetime.fromisoformat(str(execution["development_not_before"]))
@@ -315,11 +318,6 @@ def development_time_guard(
         raise RuntimeError("Development-Startgrenze benötigt Zeitzonen.")
     if now.astimezone(not_before.tzinfo) < not_before:
         return False, "DEVELOPMENT_NOT_BEFORE:" + not_before.isoformat()
-    if execution.get("forward_only_time_windows_apply_to_development") is True:
-        config_path = PROJECT_ROOT / str(execution["production_protection_config"])
-        config = load_campaign_config(config_path)
-        if campaign_is_protected_time(now, config):
-            return False, "FORWARD_ONLY_PROTECTED_WINDOW"
     return True, "CLEAR"
 
 
@@ -334,9 +332,13 @@ def _production_clear(
     config_path = PROJECT_ROOT / str(execution["production_protection_config"])
     config = load_campaign_config(config_path)
     if execution.get("active_production_locks_apply_to_development") is True:
-        active = campaign_active_production_jobs(config, project_root=PROJECT_ROOT)
-        if active:
-            return False, "ACTIVE_PRODUCTION_LOCK:" + ",".join(active)
+        runtime_gate = historical_research_runtime_gate(
+            config, project_root=PROJECT_ROOT
+        )
+        if not runtime_gate["run_allowed"]:
+            return False, "BLOCKED_REAL_CONFLICT:" + ",".join(
+                runtime_gate["active_production"]
+            )
     return True, "CLEAR"
 
 

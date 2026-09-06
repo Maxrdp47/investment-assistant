@@ -29,11 +29,10 @@ from swing_walk_forward_campaign import (  # noqa: E402
     DEFAULT_CAMPAIGN_CONFIG_PATH,
     DEFAULT_CAMPAIGN_STATE_PATH,
     DEFAULT_RESEARCH_LOCK_PATH,
-    campaign_active_production_jobs,
-    campaign_is_protected_time,
     campaign_jobs,
     campaign_status,
     campaign_week_epoch,
+    historical_research_runtime_gate,
     load_campaign_config,
     load_campaign_state,
     next_campaign_job,
@@ -179,7 +178,11 @@ def main() -> int:
     parser.add_argument("--database", type=Path, default=None)
     parser.add_argument("--forward-database", type=Path, default=DEFAULT_SWING_FORWARD_DB_PATH)
     parser.add_argument("--status-only", action="store_true")
-    parser.add_argument("--ignore-protected-window", action="store_true")
+    parser.add_argument(
+        "--ignore-protected-window",
+        action="store_true",
+        help="Veralteter Kompatibilitätsparameter ohne Wirkung; Uhrzeitfenster blockieren Historical Research nicht mehr.",
+    )
     args = parser.parse_args()
 
     config = load_campaign_config(args.config)
@@ -200,9 +203,6 @@ def main() -> int:
     if args.status_only:
         print(json.dumps(status, ensure_ascii=False, indent=2))
         return 0
-    if campaign_is_protected_time(now, config) and not args.ignore_protected_window:
-        print(json.dumps({"campaign_skipped": "protected_window", "status": status}, ensure_ascii=False))
-        return 0
     # Give a simultaneously resumed production task first opportunity to own
     # its runtime lock before research probes it. Normal five-minute starts pay
     # only this bounded grace period; no research state is changed meanwhile.
@@ -212,13 +212,13 @@ def main() -> int:
     )
     if production_grace_seconds:
         time.sleep(production_grace_seconds)
-    active_production = campaign_active_production_jobs(config, project_root=PROJECT_ROOT)
-    if active_production:
+    runtime_gate = historical_research_runtime_gate(config, project_root=PROJECT_ROOT)
+    if not runtime_gate["run_allowed"]:
         print(
             json.dumps(
                 {
-                    "campaign_skipped": "protected_production_active",
-                    "active_production": active_production,
+                    "campaign_skipped": "blocked_real_conflict",
+                    "runtime_gate": runtime_gate,
                     "status": status,
                 },
                 ensure_ascii=False,
@@ -253,16 +253,16 @@ def main() -> int:
                 )
                 return 0
             key = str(job["job_key"])
-            active_production = campaign_active_production_jobs(
+            runtime_gate = historical_research_runtime_gate(
                 config,
                 project_root=PROJECT_ROOT,
             )
-            if active_production:
+            if not runtime_gate["run_allowed"]:
                 print(
                     json.dumps(
                         {
-                            "campaign_skipped": "protected_production_active",
-                            "active_production": active_production,
+                            "campaign_skipped": "blocked_real_conflict",
+                            "runtime_gate": runtime_gate,
                             "status": campaign_status(jobs, state),
                         },
                         ensure_ascii=False,

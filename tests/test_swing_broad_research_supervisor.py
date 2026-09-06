@@ -10,25 +10,31 @@ def test_supervisor_defaults_use_safe_parallel_capacity() -> None:
     assert supervisor.DEFAULT_ASSETS_PER_BATCH == 32
 
 
-def test_supervisor_guard_stops_during_protected_window(monkeypatch) -> None:
+def test_supervisor_guard_allows_legacy_window_without_real_conflict(monkeypatch) -> None:
     monkeypatch.setattr(
         supervisor,
         "_campaign_status",
         lambda now: ({"jobs_pending": 0}, {"protected_windows": []}, {}, []),
     )
-    monkeypatch.setattr(supervisor, "campaign_is_protected_time", lambda now, config: True)
     monkeypatch.setattr(
         supervisor,
-        "campaign_active_production_jobs",
-        lambda config, project_root: [],
+        "historical_research_runtime_gate",
+        lambda config, project_root: {
+            "run_allowed": True,
+            "reason": "CLEAR",
+            "active_production": [],
+            "time_of_day_used": False,
+            "legacy_time_windows_applied": False,
+        },
     )
 
-    decision = supervisor.broad_supervisor_guard(datetime.now().astimezone())
+    decision = supervisor.broad_supervisor_guard(
+        datetime.fromisoformat("2026-09-06T21:45:00+02:00")
+    )
 
-    assert decision == {
-        "run_allowed": False,
-        "reason": "protected_production_window",
-    }
+    assert decision["run_allowed"] is True
+    assert decision["reason"] == "clear"
+    assert decision["runtime_gate"]["legacy_time_windows_applied"] is False
 
 
 def test_supervisor_guard_stops_for_active_production(monkeypatch) -> None:
@@ -37,18 +43,25 @@ def test_supervisor_guard_stops_for_active_production(monkeypatch) -> None:
         "_campaign_status",
         lambda now: ({"jobs_pending": 0}, {"protected_windows": []}, {}, []),
     )
-    monkeypatch.setattr(supervisor, "campaign_is_protected_time", lambda now, config: False)
     monkeypatch.setattr(
         supervisor,
-        "campaign_active_production_jobs",
-        lambda config, project_root: ["Swing-Live-/Forward-Scan"],
+        "historical_research_runtime_gate",
+        lambda config, project_root: {
+            "run_allowed": False,
+            "reason": "BLOCKED_REAL_CONFLICT",
+            "active_production": ["Swing-Live-/Forward-Scan"],
+            "time_of_day_used": False,
+            "legacy_time_windows_applied": False,
+        },
     )
 
     decision = supervisor.broad_supervisor_guard(datetime.now().astimezone())
 
     assert decision["run_allowed"] is False
-    assert decision["reason"] == "production_active"
-    assert decision["active_production"] == ["Swing-Live-/Forward-Scan"]
+    assert decision["reason"] == "blocked_real_conflict"
+    assert decision["runtime_gate"]["active_production"] == [
+        "Swing-Live-/Forward-Scan"
+    ]
 
 
 def test_supervisor_guard_allows_clear_research_window(monkeypatch) -> None:
@@ -57,13 +70,19 @@ def test_supervisor_guard_allows_clear_research_window(monkeypatch) -> None:
         "_campaign_status",
         lambda now: ({"jobs_pending": 0}, {"protected_windows": []}, {}, []),
     )
-    monkeypatch.setattr(supervisor, "campaign_is_protected_time", lambda now, config: False)
     monkeypatch.setattr(
         supervisor,
-        "campaign_active_production_jobs",
-        lambda config, project_root: [],
+        "historical_research_runtime_gate",
+        lambda config, project_root: {
+            "run_allowed": True,
+            "reason": "CLEAR",
+            "active_production": [],
+            "time_of_day_used": False,
+            "legacy_time_windows_applied": False,
+        },
     )
 
     decision = supervisor.broad_supervisor_guard(datetime.now().astimezone())
 
-    assert decision == {"run_allowed": True, "reason": "clear"}
+    assert decision["run_allowed"] is True
+    assert decision["reason"] == "clear"

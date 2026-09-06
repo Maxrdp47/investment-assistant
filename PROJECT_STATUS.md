@@ -59,6 +59,44 @@ Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben s
 - Fibonacci-Duplikatprüfung und Buyer-Provenienz/Reproduktion sind abgeschlossen.
 - Failed Seller bleibt `INCONCLUSIVE_RETAINED`; keine automatische Folgeforschung ist freigegeben.
 
+#### Point-in-Time Event-/News-/Makro-/Geopolitik-Research
+
+Dieser historische Research-/Shadow-Vertrag bleibt als geprüfter Status- und Regressionstest erhalten. Er ist keine aktive Urlaubsaufgabe und besitzt keine Produktionswirkung.
+
+- Event-Schema: `swing-event-pit-2026.08.23-v2`.
+- Event-Code-Fingerprint: `627ef8ca6b7be3f7d2e932d89d2f4f1d6f21cfc41e390ed0b98a8607452f20b8`.
+- Gespeichert sind 24 generische, damals bekannte Unternehmenstermine für 20 Assets und 29 unveränderbare Sidecars vorhandener Forward-Signale.
+- Historische Eventdaten, belastbare Expectations/Surprises sowie Macro-/Geopolitics-/Market-Shock-Coverage bleiben unvollständig beziehungsweise nicht verfügbar.
+- Fehlende belastbare Eventinformation bedeutet nicht „kein Event“.
+- Legacy Forward v1 ist eingefroren; der Event-Layer verändert keinen Score, kein Signal, keinen Stop, kein Ziel, keine Position und keinen Brokerstatus.
+
+#### Konkreter echter Swing-Forward-Status
+
+Historischer Diagnosevertrag vom 2026-08-22. Die 14 abgeschlossenen Legacy-Fälle bleiben read-only erhalten. Spätere Kursfenster und alternative Stops sind ausschließlich Counterfactual und keine echten Forward-Ergebnisse. Die Tabellen bleiben in der kanonischen Statusdatei, weil Regressionstests den konkreten Trade-Level-Vertrag absichern.
+
+| Ticker | Setup | Entry | Stop | Ergebnis R | MFE R / % | MAE R / % | Sitzungen MFE / Exit | schlechter als Stop; Abweichung R/% |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| EWL | Breakout | 64,39 | 63,67 | -1,09 | 0,33 / 0,36 % | -1,02 / -1,14 % | 3 / 3 | ja; -0,02 R/-0,03 % |
+| BANR | Breakout | 72,83 | 71,90 | -1,07 | 2,17 / 2,77 % | -1,01 / -1,28 % | 5 / 7 | nein; 0,00 R/0,00 % |
+| ASB | Breakout | 32,16 | 31,68 | -1,06 | 0,63 / 0,94 % | -1,07 / -1,60 % | 2 / 5 | nein; 0,00 R/0,00 % |
+| UMBF | Breakout | 150,89 | 148,35 | -1,05 | 0,96 / 1,61 % | -1,04 / -1,75 % | 3 / 5 | nein; 0,00 R/0,00 % |
+| HOPE | Breakout | 14,46 | 14,34 | -1,10 | 1,02 / 0,91 % | -1,00 / -0,89 % | 1 / 3 | nein; 0,00 R/0,00 % |
+| BATRK | Breakout | 53,21 | 52,44 | -1,06 | 1,04 / 1,49 % | -1,03 / -1,48 % | 1 / 3 | nein; 0,00 R/0,00 % |
+| IJH | Breakout | 78,60 | 77,72 | -1,06 | 0,04 / 0,05 % | -1,02 / -1,15 % | 1 / 2 | nein; 0,00 R/0,00 % |
+| LLYVA | Breakout | 104,25 | 103,05 | -1,11 | 0,00 / 0,00 % | -1,03 / -1,18 % | 1 / 1 | ja; -0,03 R/-0,03 % |
+| LYV | Breakout | 186,93 | 185,58 | -1,12 | 0,26 / 0,19 % | -1,00 / -0,72 % | 1 / 1 | nein; 0,00 R/0,00 % |
+| LT.NS | Breakout | 4061,45 | 4039,20 | -1,16 | 1,06 / 0,58 % | -1,19 / -0,65 % | 1 / 2 | nein; 0,00 R/0,00 % |
+| LLYVK | Breakout | 108,51 | 106,94 | -1,06 | 0,00 / 0,00 % | -1,10 / -1,58 % | 1 / 1 | nein; 0,00 R/0,00 % |
+| EWBC | Breakout | 136,25 | 134,99 | -1,14 | 0,96 / 0,89 % | -1,04 / -0,97 % | 1 / 2 | ja; -0,04 R/-0,04 % |
+| SREN.SW | Breakout | 140,58 | 138,40 | -1,06 | 0,61 / 0,94 % | -1,05 / -1,62 % | 2 / 3 | nein; 0,00 R/0,00 % |
+| BBT | Breakout | 32,61 | 32,19 | -1,07 | 0,27 / 0,34 % | -1,01 / -1,29 % | 2 / 2 | nein; 0,00 R/0,00 % |
+
+Signalkontext und maschinell erzeugte sachliche Ursache bleiben je Fall im vollständigen historischen Statusarchiv erhalten.
+
+5-/20-Sitzungs-Diagnose nach dem Stop, ausschließlich Counterfactual: Die späteren Felder bleiben `n/v`, solange die jeweils fünf beziehungsweise zwanzig Sitzungen nicht vollständig aus append-only Kontrollereignissen oder dem unveränderten Frozen-Datensatz verfügbar sind. Daily-Daten erfinden keine Intrabar-Reihenfolge.
+
+Bei einem ausdrücklich freigegebenen relevanten Legacy-Diagnoseupdate wird dieser Block read-only mit `scripts/run_swing_edge_diagnostics.py --markdown` neu erzeugt. Er darf keine Strategie reaktivieren.
+
 ### Scheduler und laufender Betrieb
 
 Der folgende Stand wurde nur lesend geprüft. Keine Aufgabe wurde in diesem Dokumentationsauftrag geändert.

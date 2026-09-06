@@ -158,6 +158,14 @@ Auch nach dem Startsignal bleiben verboten:
 
 ## Nicht aktive beziehungsweise spätere Arbeit
 
+### Bewahrter Research-/Shadow-Vertrag ohne Urlaubsfreigabe
+
+##### G2.7 – getrennter Point-in-Time Event-/News-/Makro-/Geopolitik-Edge-Layer
+
+Der vorhandene versionierte Eventvertrag, seine append-only Sidecars, getrennten späteren Labels und Coverage-Regeln bleiben als historische Research-/Shadow-Infrastruktur erhalten. Sie besitzen keine Signal-, Score-, Risiko-, Trade- oder Brokerwirkung. Neue Eventforschung oder Collector-Arbeit ist nur innerhalb U5 nach ausdrücklichem Startsignal und dessen Quellenvertrag zulässig.
+
+Der technische Broad-Vollpass wartet ausdrücklich **nicht** auf eine vollständige historische Eventdatenbank. Unvollständige Event-Coverage darf keine vorhandene Forschungsstufe umdeuten. Dieser Abschnitt bewahrt einen methodischen Vertrag und ist kein Auftrag, den alten Broad- oder Legacy-Forward-Pfad wieder zu starten.
+
 ### Terminal oder abgeschlossen
 
 - Buyer Confirmation v1: `REJECTED_AT_VALIDATION`; kein Rescue, Retuning oder Holdout dieser Version.

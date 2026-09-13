@@ -2,11 +2,12 @@
 
 Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben stehen in [`ROADMAP.md`](ROADMAP.md). Dauerhafte Forschungsregeln stehen in [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Frühere Fassungen wurden unverändert nach [`docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md`](docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md) verschoben.
 
-## Current Truth – 2026-09-06
+## Current Truth – 2026-09-13
 
 ### Git und Dokumentation
 
-- Aktiver Branch beim Dokumentations-Preflight: `codex/multi-asset-development-v6`.
+- Aktiver Recovery-Branch: `codex/multi-asset-development-v7-recovery`.
+- Ausgangs-HEAD des Recovery-Auftrags: `9990fbf557b414a51ca450aabb2a89f278d00d47`.
 - Geprüfter Projekt-HEAD und Upstream vor dem Dokumentationscommit: `b1e3802b807649bc2cf871fa31ccf09fd8781cac`.
 - Die Urlaubs-Workqueue `vacation-workqueue-2026-09-06-v1` ist dokumentiert, aber noch nicht gestartet.
 - Vor einem ausdrücklichen Startsignal wurden keine neue Funktion, kein Benchmark, kein Scan, kein Reprocessing-Lauf, kein Collector und keine Agenten-Wiederaufnahme gestartet.
@@ -49,6 +50,23 @@ Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben s
 - Deskriptiver Plan: `FROZEN`, Fingerprint `cad8fc8abc2a4962ed0d5f9cc1308740691d5a7bc145158488e43ca53554f94e`.
 - Start-Gate: `PASS`, Fingerprint `772ca7498be2dd637ceefa120829b9b99de1f96b53678a7ec1a5f599fd165ecf`.
 - Safety-Felder im Run-Manifest: Development-only `true`; Validation, Holdout, External, Forward, Paper, Shadow, Broker und automatische Orders jeweils `false`.
+
+### Multi-Asset Development v7 Recovery
+
+- Der Nutzer hat am 2026-09-13 einen getrennten Recovery-Lauf ausdrücklich freigegeben. v6 wird weder repariert noch zurückgesetzt noch unter seiner alten Run-ID fortgesetzt.
+- Version: `multi-asset-opportunity-discovery-development-recovery-2026.09.13-v7`.
+- Neue Run-ID: `mad1-development-v7-recovery-20260913-v1`.
+- Recovery-Contract-Fingerprint: `8a3e5c2a7a68f7658068a81e08d1146e386a0331adeae7405de0fb5dea9d515e`.
+- Parent: v6-Run `mad1-development-v6-f6432d72f806e9b97ea8ac46`, Parent-Code `e3ecdb6a1242c5922213ab489eb337342de0b17e`, Parent-Contract `bedf1c9297f1a5b409e13c78b5fc5f41eb33912ffb79fe711b0d3009d478a9d2`.
+- Readonly-Forensik: Die fehlschlagende Datei ist `runtime/multi_asset_discovery_v1_development_v6_outcomes.sqlite3`; der Fehler entstand beim Insert in `outcome_rows` für `EQUITIES:FLG`. Die erhaltene Telemetrie beweist keine einzelne Ursache. Die Klassifikation bleibt deshalb korrekt `I_UNKNOWN`; heutige Dateirechte, Verzeichnis-Schreibprobe, ACLs, Open-Mode und Read-only-Integritätsprüfungen liefern nur negative Gegenwartsbefunde.
+- Fachlicher Diff: `research_semantics_diff_count = 0`. Universe, Development-Split, PIT-/Missingness-/Dependency-Verträge, Feature-/Outcome-Trennung, Safe-/Sell-Zonen, Deterioration, Zeitfenster und Censoring werden unverändert aus dem eingefrorenen v6-Contract verwendet.
+- Geplante Work-Units: 60.504. Davon sind 21.922 vollständig terminal und receipt-gebunden wiederverwendbar; 38.582 werden ground-up neu berechnet. Die 14 alten `FAILED` und 38.568 `PENDING` werden nicht übernommen.
+- Wiederverwendung ist nur nach erneuter Payload-, Case-Set-, Feature-, Outcome- und Receipt-Digestprüfung mit append-only Lineage erlaubt. v7 nutzt neue Control-, Feature- und Outcome-Stores.
+- Ausführung: vier Worker, genau ein SQLite-Writer, eigener Prozess-Lock, globaler exklusiver Research-Lock, fünfminütiger Windows-Task mit `IgnoreNew`, `StartWhenAvailable` und `WakeToRun`.
+- Der Full-Start bleibt fail-closed, bis lokaler Gesamtcheck, exakter Commit/Push/CI, Scheduler-Kontext-Smoke, fester Vier-Assetklassen-Pilot, Store-Gates und immutable Start-Gate tatsächlich `PASS` sind. Nach PASS startet der Task ohne weitere Bestätigung.
+- Erneutes `readonly database` wird nicht retried: sofort `PAUSED_REQUIRES_REVIEW` mit neuem technischem Diagnoseartefakt.
+- Validation, Holdout, External, Forward, Paper, Shadow, Broker, Orders und automatische Strategieoptimierung bleiben geschlossen.
+- Die Knowledge Base erhält aus dieser rein technischen Recovery kein positives oder negatives Strategieergebnis. Erst ein terminaler, bestandener v7-Vollaudit erlaubt die eingefrorene deskriptive Development-Auswertung.
 
 ### Development v5 und ältere Forschung
 
@@ -148,4 +166,4 @@ Der folgende Stand wurde nur lesend geprüft. Keine Aufgabe wurde in diesem Doku
 
 ### Aktuelle nächste Entscheidung
 
-Die nächste erlaubte Umsetzung beginnt erst nach einem ausdrücklichen Startsignal für die Urlaubs-Workqueue. Dann ist zuerst U0 abzuschließen und der technische Schreibfehler des vorhandenen Development-v6-Runs sicher zu prüfen. Vorher bleibt die Queue `PREPARED_NOT_STARTED`.
+Der v7-Recovery-Auftrag ist ausdrücklich freigegeben. Der einzige erlaubte nächste Pfad ist: lokale Verifikation → Commit/Push/CI → Scheduler-Smoke und fester Pilot → immutable v7-Start-Gate → v7 starten. v6 bleibt terminal pausiert; spätere Forschungs- und Handelsstufen bleiben geschlossen.

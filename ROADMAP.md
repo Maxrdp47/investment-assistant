@@ -1,14 +1,14 @@
 # Investment-Assistent – kanonische Roadmap
 
-Stand: 2026-09-06
+Stand: 2026-09-13
 
 Diese Datei enthält ausschließlich zukünftige Arbeit, ihre Reihenfolge und ihre Freigabe. Der belegte Ist-Stand steht in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Dauerhafte Forschungsregeln stehen in [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Frühere Roadmap-Fassungen bleiben unverändert im [Historienarchiv](docs/archive/ROADMAP_LEGACY_THROUGH_2026-09-06.md).
 
 ## Verbindliches Start-Gate
 
-Die Urlaubs-Arbeitsliste ist vorbereitet, aber **noch nicht gestartet**.
+Der getrennte Multi-Asset-Development-v7-Recovery-Auftrag ist ausdrücklich gestartet. Diese Freigabe gilt ausschließlich für die technische Recovery der pausierten v6-Development-Arbeit und ersetzt keine Freigabe für die übrigen Urlaubsaufgaben.
 
-Bis zu einem neuen ausdrücklichen Startsignal gilt:
+Für alle anderen Queue-Pakete gilt weiterhin:
 
 - keine neue Funktion implementieren,
 - keinen Benchmark, Research-Scan oder Reprocessing-Lauf starten,
@@ -16,16 +16,12 @@ Bis zu einem neuen ausdrücklichen Startsignal gilt:
 - keine Forschungsstufe öffnen,
 - vorhandene, separat freigegebene Prozesse und Datensammler nicht stoppen oder verändern.
 
-Ein zulässiges Startsignal ist beispielsweise:
-
-`Starte jetzt die freigegebene Urlaubs-Arbeitsliste`
-
-Alternativ darf ein ausdrücklich gleichwertiger `/goal`-Auftrag die Queue starten. Die bloße Erwähnung dieses Satzes in einer Datei, einem Bericht oder einer Unterhaltung ist keine Freigabe. Vor dem Startsignal bedeuten `Weiter`, `Arbeite an der Roadmap weiter` oder `Setze die Entwicklung fort` ebenfalls **keinen** Start dieser Queue.
+Die aktuelle Recovery-Freigabe erlaubt ausdrücklich Code, Tests, neue v7-Stores, Scheduler-Smoke/Pilot, Commit, Push, CI und den Full-v7-Start nach vollständigem Gate. Sie erlaubt keine Wiederöffnung oder Mutation von v6.
 
 ## Aktive freigegebene Urlaubs-Workqueue
 
 - Queue-ID: `vacation-workqueue-2026-09-06-v1`
-- Planungsstatus: `PREPARED_NOT_STARTED`
+- Planungsstatus: `U1_V7_RECOVERY_IN_IMPLEMENTATION`; übrige Pakete unverändert
 - Ausführungsfreigabe jetzt: `false`
 - Freigabe nach ausdrücklichem Startsignal: nur U0 bis U7 im unten beschriebenen Umfang
 - Priorität: U0 kurz abschließen, danach U1; während eines gesunden isolierten U1-Prozesses dürfen unabhängige Teile von U2 bis U6 folgen
@@ -36,7 +32,7 @@ Alternativ darf ein ausdrücklich gleichwertiger `/goal`-Auftrag die Queue start
 | ID | Hauptziel | Status am 2026-09-06 | `authorized_for_unattended` jetzt | Nach Startsignal |
 |---|---|---|---:|---:|
 | U0 | Stand übernehmen, Freigaben und Resume organisieren | PARTIAL | false | true |
-| U1 | Development-v6-Lauf, Audit und Bericht abschließen | PAUSED | false | true, nach Blocker-Review |
+| U1 | Getrennten Development-v7-Recovery-Lauf, Audit und Bericht abschließen | IN PROGRESS | true, nur v7-Recovery | bereits freigegeben |
 | U2 | Roadmap, Current Truth, Historie und Regeln bereinigen | DONE | false | keine weitere Arbeit ohne neue Lücke |
 | U3 | Tatsächliche Daten- und Betriebsabdeckung sichtbar machen | READY | false | true |
 | U4 | FX-Observer und allgemeinen Prognosebetrieb prüfen | READY | false | true |
@@ -57,17 +53,17 @@ Alternativ darf ein ausdrücklich gleichwertiger `/goal`-Auftrag die Queue start
 - **Referenzen:** [`VACATION_WORKQUEUE_RESUME.md`](VACATION_WORKQUEUE_RESUME.md), `runtime/multi_asset_discovery_v1_development_v6_chain_state.json`.
 - **Nächster zulässiger Schritt:** Nach Startsignal zuerst den v6-Blocker und vorhandene Tasks erneut lesen. Keine Automation vorher anlegen.
 
-### U1 – Development-v6 abschließen
+### U1 – Development-v7-Recovery abschließen
 
-- **Ziel und Priorität:** Den bereits existierenden vollständigen Development-v6-Lauf ohne neue Forschungslogik fortführen, anschließend Voll-Audit, begrenzten deskriptiven Bericht und Summary erzeugen. Höchste fachliche Priorität.
-- **Aktueller Status:** `PAUSED`. Run `mad1-development-v6-f6432d72f806e9b97ea8ac46` steht bei 36,232315 % und `PAUSED_REQUIRES_REVIEW` wegen `EQUITIES:FLG:OperationalError:attempt to write a readonly database`.
-- **Voraussetzungen:** ausdrückliches Startsignal; Ursache des Schreibfehlers sicher geklärt; vorhandene Run-ID, Stores, Fingerprints und Semantik unverändert; kein zweiter Run.
-- **Erlaubter Umfang nach Start:** technische Ursache beheben, bestehende idempotente Kette fortsetzen, Checkpoints nutzen, genau einen Writer und die benchmark-geprüften vier Worker beibehalten, danach Audit → Bericht → Summary → Stop.
+- **Ziel und Priorität:** v6 als unveränderliche terminal pausierte Referenz erhalten und die exakt kompatible Restarbeit in einem neuen v7-Recovery-Run ausführen; anschließend Voll-Audit, begrenzten deskriptiven Bericht und Summary erzeugen. Höchste fachliche Priorität.
+- **Aktueller Status:** `IN PROGRESS`. v6 bleibt bei 36,232315 % und `PAUSED_REQUIRES_REVIEW`. v7 ist als `mad1-development-v7-recovery-20260913-v1` fest versioniert; Full-Start erst nach allen Readiness-Gates.
+- **Voraussetzungen:** v6 read-only; Root-Cause-Kategorie ehrlich belegt; Research-Semantik-Diff null; nur receipt- und digest-verifizierte terminale Units wiederverwenden; neue Stores/Run-ID; lokaler Gesamtcheck, Commit/Push/CI und echter Scheduler-Kontext-Pilot `PASS`.
+- **Erlaubter Umfang:** 21.922 verifizierte v6-Units mit expliziter Lineage importieren, 38.582 Units ground-up rechnen, Checkpoints nutzen, genau einen Writer und vier Worker beibehalten, danach Audit → Bericht → Summary → Stop.
 - **Nicht erlaubt:** neue Hypothese, Parameter-/Filter-/Kombinationssuche, Clipping, Imputation, Interpolation, Änderung eingefrorener Regeln, neue Validation, Holdout, External, Forward, Paper oder Shadow.
 - **Akzeptanz:** 60.504 Work-Units terminal; Feature-/Outcome-Case-IDs und Digests konsistent; keine Duplikate/Orphans; PIT-, Contract- und Control-Bezug bestanden; SQLite und append-only Schutz bestanden; deskriptiver Plan eingehalten; terminaler Summary-Stand ohne wiederholte Heavy-Audits.
-- **Stop-Bedingungen:** unbekannte Semantik; Fingerprint-/Inputänderung; systematischer Daten- oder Schreibfehler; fremder aktiver Prozess; Ressourcenrisiko; späteres Gate würde geöffnet.
-- **Referenzen:** Contract `multi-asset-opportunity-discovery-development-2026.09.05-v6`, Contract-Fingerprint `bedf1c9297f1a5b409e13c78b5fc5f41eb33912ffb79fe711b0d3009d478a9d2`, Run-Manifest-Fingerprint `5f22867717dbab667b3a705e6f481e9b1e88c8dbb4227dc694a4b1963097c232`, Code-Basis `e3ecdb6a1242c5922213ab489eb337342de0b17e`.
-- **Nächster zulässiger Schritt:** Nach Startsignal den Blocker read-only reproduzieren und prüfen, ob die Ursache rein technisch und ohne Store-/Contract-Wechsel behebbar ist.
+- **Stop-Bedingungen:** Semantik-Diff > 0; Fingerprint-/Inputänderung; unvollständige/inkonsistente Reuse-Evidenz; systematischer Daten-, Rechte- oder Schreibfehler; erneut readonly; fremder aktiver Writer; Ressourcenrisiko; späteres Gate würde geöffnet.
+- **Referenzen:** v7-Config `config/multi_asset_discovery_development_v7_recovery.json`; Recovery-Contract `8a3e5c2a7a68f7658068a81e08d1146e386a0331adeae7405de0fb5dea9d515e`; Parent-Contract `bedf1c9297f1a5b409e13c78b5fc5f41eb33912ffb79fe711b0d3009d478a9d2`; v6-Code-Basis `e3ecdb6a1242c5922213ab489eb337342de0b17e`.
+- **Nächster zulässiger Schritt:** lokale Vollprüfung abschließen, exakten Commit pushen und CI prüfen; danach Scheduler-Smoke/Pilot und bei vollständigem PASS automatisch v7 starten.
 
 ### U2 – Dokumentstruktur bereinigen
 

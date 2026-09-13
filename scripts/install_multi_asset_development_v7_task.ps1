@@ -15,8 +15,8 @@ $pilotTaskName = "InvestmentAssistant-MultiAssetDiscoveryV1-Development-v7-Recov
 $v6TaskName = "InvestmentAssistant-MultiAssetDiscoveryV1-Development-v6-Chain"
 $wrapper = Join-Path $projectRoot "scripts\run_multi_asset_development_v7_recovery.cmd"
 $gatePath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_start_gate_2026-09-13-v1.json"
-$smokePath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_scheduler_smoke_2026-09-13-v1.json"
-$pilotPath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_pilot_2026-09-13-v1.json"
+$smokePath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_scheduler_smoke_2026-09-13-v2.json"
+$pilotPath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_pilot_2026-09-13-v2.json"
 $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
 if (@(@($Pilot, $InstallAndStart, $Inspect) | Where-Object { $_ }).Count -ne 1) {
@@ -38,6 +38,35 @@ function Get-ExactTask {
         throw "Task exists outside the expected root folder: $Name"
     }
     return $matches[0]
+}
+
+function Resolve-AccountSid {
+    param([AllowNull()][object]$Identity)
+    $name = [string]$Identity
+    if ([string]::IsNullOrWhiteSpace($name)) { return $null }
+    try {
+        return [System.Security.Principal.SecurityIdentifier]::new($name).Value
+    } catch {
+        try {
+            return [System.Security.Principal.NTAccount]::new($name).Translate(
+                [System.Security.Principal.SecurityIdentifier]
+            ).Value
+        } catch {
+            return $null
+        }
+    }
+}
+
+function Test-EquivalentUser {
+    param(
+        [AllowNull()][object]$Actual,
+        [AllowNull()][object]$Expected
+    )
+    if ([string]$Actual -ieq [string]$Expected) { return $true }
+    $actualSid = Resolve-AccountSid -Identity $Actual
+    $expectedSid = Resolve-AccountSid -Identity $Expected
+    return (-not [string]::IsNullOrWhiteSpace($actualSid) -and
+        $actualSid -eq $expectedSid)
 }
 
 function New-V7Action {
@@ -85,7 +114,9 @@ function Assert-TaskContract {
         execute = $actions.Count -eq 1 -and [string]$actions[0].Execute -ieq "cmd.exe"
         arguments = $actions.Count -eq 1 -and [string]$actions[0].Arguments -ieq $expectedArguments
         working_directory = $actions.Count -eq 1 -and [string]$actions[0].WorkingDirectory -ieq $projectRoot
-        current_user = [string]$task.Principal.UserId -ieq $currentUser
+        current_user = Test-EquivalentUser `
+            -Actual $task.Principal.UserId `
+            -Expected $currentUser
         interactive = [string]$task.Principal.LogonType -eq "Interactive"
         limited = [string]$task.Principal.RunLevel -eq "Limited"
         ignore_new = [string]$task.Settings.MultipleInstances -eq "IgnoreNew"

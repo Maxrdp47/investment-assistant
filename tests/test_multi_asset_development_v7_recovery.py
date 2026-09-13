@@ -277,6 +277,10 @@ def test_scheduler_installer_keeps_v6_and_v7_tasks_separate() -> None:
     assert "-RunLevel Limited" in script
     assert "-WorkingDirectory $projectRoot" in script
     assert "Unregister-ScheduledTask" in script
+    assert "Test-EquivalentUser" in script
+    assert "Resolve-AccountSid" in script
+    assert "multi_asset_development_v7_scheduler_smoke_2026-09-13-v2.json" in script
+    assert "multi_asset_development_v7_pilot_2026-09-13-v2.json" in script
 
 
 def test_v7_config_closes_every_later_stage() -> None:

@@ -56,14 +56,14 @@ Die aktuelle Recovery-Freigabe erlaubt ausdrücklich Code, Tests, neue v7-Stores
 ### U1 – Development-v7-Recovery abschließen
 
 - **Ziel und Priorität:** v6 als unveränderliche terminal pausierte Referenz erhalten und die exakt kompatible Restarbeit in einem neuen v7-Recovery-Run ausführen; anschließend Voll-Audit, begrenzten deskriptiven Bericht und Summary erzeugen. Höchste fachliche Priorität.
-- **Aktueller Status:** `IN PROGRESS`. v6 bleibt bei 36,232315 % und `PAUSED_REQUIRES_REVIEW`. v7 ist als `mad1-development-v7-recovery-20260913-v1` fest versioniert; Full-Start erst nach allen Readiness-Gates.
+- **Aktueller Status:** `IN PROGRESS`. v6 bleibt bei 36,232315 % und `PAUSED_REQUIRES_REVIEW`. Der vorbereitete v7-r1-Stand wurde wegen einer lokal inkompatiblen Task-Trigger-Konstruktion vor Registrierung und vor Scanstart geschlossen und bleibt unverändert. Der kanonische Ersatz ist `mad1-development-v7-recovery-20260913-v2`; Full-Start erst nach allen neu commit- und run-gebundenen Readiness-Gates.
 - **Voraussetzungen:** v6 read-only; Root-Cause-Kategorie ehrlich belegt; Research-Semantik-Diff null; nur receipt- und digest-verifizierte terminale Units wiederverwenden; neue Stores/Run-ID; lokaler Gesamtcheck, Commit/Push/CI und echter Scheduler-Kontext-Pilot `PASS`.
 - **Erlaubter Umfang:** 21.922 verifizierte v6-Units mit expliziter Lineage importieren, 38.582 Units ground-up rechnen, Checkpoints nutzen, genau einen Writer und vier Worker beibehalten, danach Audit → Bericht → Summary → Stop.
 - **Nicht erlaubt:** neue Hypothese, Parameter-/Filter-/Kombinationssuche, Clipping, Imputation, Interpolation, Änderung eingefrorener Regeln, neue Validation, Holdout, External, Forward, Paper oder Shadow.
 - **Akzeptanz:** 60.504 Work-Units terminal; Feature-/Outcome-Case-IDs und Digests konsistent; keine Duplikate/Orphans; PIT-, Contract- und Control-Bezug bestanden; SQLite und append-only Schutz bestanden; deskriptiver Plan eingehalten; terminaler Summary-Stand ohne wiederholte Heavy-Audits.
 - **Stop-Bedingungen:** Semantik-Diff > 0; Fingerprint-/Inputänderung; unvollständige/inkonsistente Reuse-Evidenz; systematischer Daten-, Rechte- oder Schreibfehler; erneut readonly; fremder aktiver Writer; Ressourcenrisiko; späteres Gate würde geöffnet.
-- **Referenzen:** v7-Config `config/multi_asset_discovery_development_v7_recovery.json`; Recovery-Contract `8a3e5c2a7a68f7658068a81e08d1146e386a0331adeae7405de0fb5dea9d515e`; Parent-Contract `bedf1c9297f1a5b409e13c78b5fc5f41eb33912ffb79fe711b0d3009d478a9d2`; v6-Code-Basis `e3ecdb6a1242c5922213ab489eb337342de0b17e`.
-- **Nächster zulässiger Schritt:** lokale Vollprüfung abschließen, exakten Commit pushen und CI prüfen; danach Scheduler-Smoke/Pilot und bei vollständigem PASS automatisch v7 starten.
+- **Referenzen:** v7-r2-Config `config/multi_asset_discovery_development_v7_recovery.json`; Recovery-Contract `77cbb53de9a61fb9c68cc3169d2d14da20c6d38b2e669a870c804ec91b783ee5`; Parent-Contract `bedf1c9297f1a5b409e13c78b5fc5f41eb33912ffb79fe711b0d3009d478a9d2`; v6-Code-Basis `e3ecdb6a1242c5922213ab489eb337342de0b17e`.
+- **Nächster zulässiger Schritt:** Scheduler-Trigger-Fix und neue v7-r2-Identität vollständig prüfen, exakten Commit pushen und CI prüfen; danach neuen Scheduler-Smoke/Pilot und bei vollständigem PASS automatisch v7-r2 starten.
 
 ### U2 – Dokumentstruktur bereinigen
 

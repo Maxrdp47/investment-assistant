@@ -10,13 +10,13 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = "C:\investment-assistent"
 $taskPath = "\"
-$taskName = "InvestmentAssistant-MultiAssetDiscoveryV1-Development-v7-Recovery"
-$pilotTaskName = "InvestmentAssistant-MultiAssetDiscoveryV1-Development-v7-Recovery-Pilot"
+$taskName = "InvestmentAssistant-MultiAssetDiscoveryV1-Development-v7-Recovery-r2"
+$pilotTaskName = "InvestmentAssistant-MultiAssetDiscoveryV1-Development-v7-Recovery-r2-Pilot"
 $v6TaskName = "InvestmentAssistant-MultiAssetDiscoveryV1-Development-v6-Chain"
 $wrapper = Join-Path $projectRoot "scripts\run_multi_asset_development_v7_recovery.cmd"
-$gatePath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_start_gate_2026-09-13-v1.json"
-$smokePath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_scheduler_smoke_2026-09-13-v2.json"
-$pilotPath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_pilot_2026-09-13-v2.json"
+$gatePath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_start_gate_2026-09-13-v2.json"
+$smokePath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_scheduler_smoke_2026-09-13-v3.json"
+$pilotPath = Join-Path $projectRoot "runtime\research_exports\multi_asset_development_v7_pilot_2026-09-13-v3.json"
 $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
 if (@(@($Pilot, $InstallAndStart, $Inspect) | Where-Object { $_ }).Count -ne 1) {
@@ -216,9 +216,11 @@ $existing = Get-ExactTask -Name $taskName
 if ($null -ne $existing) {
     throw "v7 recovery task already exists; inspect it instead of overwriting it."
 }
-$trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(15))
-$trigger.Repetition.Interval = "PT5M"
-$trigger.Repetition.Duration = "P3650D"
+$trigger = New-ScheduledTaskTrigger `
+    -Once `
+    -At ((Get-Date).AddMinutes(15)) `
+    -RepetitionInterval (New-TimeSpan -Minutes 5) `
+    -RepetitionDuration (New-TimeSpan -Days 3650)
 $definition = New-ScheduledTask `
     -Action (New-V7Action -Arguments "--advance") `
     -Trigger $trigger `

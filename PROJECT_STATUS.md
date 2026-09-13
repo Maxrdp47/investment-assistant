@@ -54,14 +54,15 @@ Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben s
 ### Multi-Asset Development v7 Recovery
 
 - Der Nutzer hat am 2026-09-13 einen getrennten Recovery-Lauf ausdrücklich freigegeben. v6 wird weder repariert noch zurückgesetzt noch unter seiner alten Run-ID fortgesetzt.
-- Version: `multi-asset-opportunity-discovery-development-recovery-2026.09.13-v7`.
-- Neue Run-ID: `mad1-development-v7-recovery-20260913-v1`.
-- Recovery-Contract-Fingerprint: `8a3e5c2a7a68f7658068a81e08d1146e386a0331adeae7405de0fb5dea9d515e`.
+- Kanonische Recovery-Version: `multi-asset-opportunity-discovery-development-recovery-2026.09.13-v7-r2`.
+- Kanonische Run-ID: `mad1-development-v7-recovery-20260913-v2`.
+- Recovery-Contract-Fingerprint: `77cbb53de9a61fb9c68cc3169d2d14da20c6d38b2e669a870c804ec91b783ee5`.
+- Der erste vorbereitete v7-Stand `mad1-development-v7-recovery-20260913-v1` erreichte ein vollständiges `PREPARED`-Gate, wurde aber nicht gestartet: Die Task-Installation stoppte vor der Registrierung, weil das lokale Windows-Modul keine nachträgliche Zuweisung an `Trigger.Repetition.Interval` unterstützt. Seine Stores und immutable Evidenz bleiben als ungestartete technische Vorbereitungsreferenz unverändert; v7-r2 verwendet deshalb eine neue Run-ID, neue Stores, neue Manifeste und neue Gate-Artefakte.
 - Parent: v6-Run `mad1-development-v6-f6432d72f806e9b97ea8ac46`, Parent-Code `e3ecdb6a1242c5922213ab489eb337342de0b17e`, Parent-Contract `bedf1c9297f1a5b409e13c78b5fc5f41eb33912ffb79fe711b0d3009d478a9d2`.
 - Readonly-Forensik: Die fehlschlagende Datei ist `runtime/multi_asset_discovery_v1_development_v6_outcomes.sqlite3`; der Fehler entstand beim Insert in `outcome_rows` für `EQUITIES:FLG`. Die erhaltene Telemetrie beweist keine einzelne Ursache. Die Klassifikation bleibt deshalb korrekt `I_UNKNOWN`; heutige Dateirechte, Verzeichnis-Schreibprobe, ACLs, Open-Mode und Read-only-Integritätsprüfungen liefern nur negative Gegenwartsbefunde.
 - Fachlicher Diff: `research_semantics_diff_count = 0`. Universe, Development-Split, PIT-/Missingness-/Dependency-Verträge, Feature-/Outcome-Trennung, Safe-/Sell-Zonen, Deterioration, Zeitfenster und Censoring werden unverändert aus dem eingefrorenen v6-Contract verwendet.
 - Geplante Work-Units: 60.504. Davon sind 21.922 vollständig terminal und receipt-gebunden wiederverwendbar; 38.582 werden ground-up neu berechnet. Die 14 alten `FAILED` und 38.568 `PENDING` werden nicht übernommen.
-- Wiederverwendung ist nur nach erneuter Payload-, Case-Set-, Feature-, Outcome- und Receipt-Digestprüfung mit append-only Lineage erlaubt. v7 nutzt neue Control-, Feature- und Outcome-Stores.
+- Wiederverwendung ist nur nach erneuter Payload-, Case-Set-, Feature-, Outcome- und Receipt-Digestprüfung mit append-only Lineage erlaubt. v7-r2 nutzt neue Control-, Feature- und Outcome-Stores; der ungestartete v7-r1-Vorbereitungsstand wird nicht fortgesetzt.
 - Ausführung: vier Worker, genau ein SQLite-Writer, eigener Prozess-Lock, globaler exklusiver Research-Lock, fünfminütiger Windows-Task mit `IgnoreNew`, `StartWhenAvailable` und `WakeToRun`.
 - Der Full-Start bleibt fail-closed, bis lokaler Gesamtcheck, exakter Commit/Push/CI, Scheduler-Kontext-Smoke, fester Vier-Assetklassen-Pilot, Store-Gates und immutable Start-Gate tatsächlich `PASS` sind. Nach PASS startet der Task ohne weitere Bestätigung.
 - Erneutes `readonly database` wird nicht retried: sofort `PAUSED_REQUIRES_REVIEW` mit neuem technischem Diagnoseartefakt.
@@ -166,4 +167,4 @@ Der folgende Stand wurde nur lesend geprüft. Keine Aufgabe wurde in diesem Doku
 
 ### Aktuelle nächste Entscheidung
 
-Der v7-Recovery-Auftrag ist ausdrücklich freigegeben. Der einzige erlaubte nächste Pfad ist: lokale Verifikation → Commit/Push/CI → Scheduler-Smoke und fester Pilot → immutable v7-Start-Gate → v7 starten. v6 bleibt terminal pausiert; spätere Forschungs- und Handelsstufen bleiben geschlossen.
+Der v7-Recovery-Auftrag ist ausdrücklich freigegeben. Nach dem vor Start sauber gestoppten Scheduler-Installationsversuch wird ausschließlich der neu identifizierte v7-r2-Pfad ausgeführt: lokale Verifikation → Commit/Push/CI → Scheduler-Smoke und fester Pilot → immutable v7-r2-Start-Gate → v7-r2 starten. v6 und der ungestartete v7-r1-Vorbereitungsstand bleiben unverändert; spätere Forschungs- und Handelsstufen bleiben geschlossen.

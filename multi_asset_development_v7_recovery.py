@@ -45,20 +45,20 @@ DEFAULT_CONFIG_PATH = (
     PROJECT_ROOT / "config" / "multi_asset_discovery_development_v7_recovery.json"
 )
 RECOVERY_CONTRACT_VERSION = (
-    "multi-asset-opportunity-discovery-development-recovery-2026.09.13-v7"
+    "multi-asset-opportunity-discovery-development-recovery-2026.09.13-v7-r2"
 )
-RECOVERY_ARTIFACT_VERSION = "multi-asset-development-v7-recovery-contract-2026.09.13-v1"
-RECOVERY_DIFF_VERSION = "multi-asset-development-v7-recovery-diff-2026.09.13-v1"
+RECOVERY_ARTIFACT_VERSION = "multi-asset-development-v7-recovery-contract-2026.09.13-v2"
+RECOVERY_DIFF_VERSION = "multi-asset-development-v7-recovery-diff-2026.09.13-v2"
 ROOT_CAUSE_VERSION = "multi-asset-development-v7-readonly-root-cause-2026.09.13-v1"
-REUSE_REPORT_VERSION = "multi-asset-development-v7-reuse-report-2026.09.13-v1"
-PILOT_VERSION = "multi-asset-development-v7-recovery-pilot-2026.09.13-v2"
-SCHEDULER_SMOKE_VERSION = "multi-asset-development-v7-scheduler-smoke-2026.09.13-v2"
-START_GATE_VERSION = "multi-asset-development-v7-start-gate-2026.09.13-v1"
-RUN_MANIFEST_VERSION = "multi-asset-discovery-development-run-manifest-2026.09.13-v7"
-CHAIN_VERSION = "multi-asset-development-v7-recovery-chain-2026.09.13-v1"
-AUDIT_VERSION = "multi-asset-development-v7-final-audit-2026.09.13-v1"
-REPORT_VERSION = "multi-asset-development-v7-descriptive-report-2026.09.13-v1"
-SUMMARY_VERSION = "multi-asset-development-v7-completion-summary-2026.09.13-v1"
+REUSE_REPORT_VERSION = "multi-asset-development-v7-reuse-report-2026.09.13-v2"
+PILOT_VERSION = "multi-asset-development-v7-recovery-pilot-2026.09.13-v3"
+SCHEDULER_SMOKE_VERSION = "multi-asset-development-v7-scheduler-smoke-2026.09.13-v3"
+START_GATE_VERSION = "multi-asset-development-v7-start-gate-2026.09.13-v2"
+RUN_MANIFEST_VERSION = "multi-asset-discovery-development-run-manifest-2026.09.13-v7-r2"
+CHAIN_VERSION = "multi-asset-development-v7-recovery-chain-2026.09.13-v2"
+AUDIT_VERSION = "multi-asset-development-v7-final-audit-2026.09.13-v2"
+REPORT_VERSION = "multi-asset-development-v7-descriptive-report-2026.09.13-v2"
+SUMMARY_VERSION = "multi-asset-development-v7-completion-summary-2026.09.13-v2"
 
 
 class DevelopmentV7RecoveryError(RuntimeError):
@@ -145,7 +145,7 @@ def verify_self_fingerprint(payload: Mapping[str, object]) -> bool:
 
 def load_recovery_config(path: Path = DEFAULT_CONFIG_PATH) -> dict[str, object]:
     payload = _read_json(path)
-    if payload.get("version") != "multi-asset-development-recovery-config-2026.09.13-v7":
+    if payload.get("version") != "multi-asset-development-recovery-config-2026.09.13-v7-r2":
         raise DevelopmentV7RecoveryError("Unknown v7 recovery config version.")
     if payload.get("recovery_version") != RECOVERY_CONTRACT_VERSION:
         raise DevelopmentV7RecoveryError("Recovery version mismatch.")

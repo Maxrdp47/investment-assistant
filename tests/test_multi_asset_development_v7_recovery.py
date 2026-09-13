@@ -268,19 +268,20 @@ def test_scheduler_installer_keeps_v6_and_v7_tasks_separate() -> None:
     script = (
         PROJECT_ROOT / "scripts" / "install_multi_asset_development_v7_task.ps1"
     ).read_text(encoding="utf-8")
-    assert "Development-v7-Recovery" in script
+    assert "Development-v7-Recovery-r2" in script
     assert "Development-v6-Chain" in script
     assert "Disable-ScheduledTask" in script
     assert "-MultipleInstances IgnoreNew" in script
-    assert 'Repetition.Interval = "PT5M"' in script
+    assert "-RepetitionInterval (New-TimeSpan -Minutes 5)" in script
+    assert "-RepetitionDuration (New-TimeSpan -Days 3650)" in script
     assert "-LogonType Interactive" in script
     assert "-RunLevel Limited" in script
     assert "-WorkingDirectory $projectRoot" in script
     assert "Unregister-ScheduledTask" in script
     assert "Test-EquivalentUser" in script
     assert "Resolve-AccountSid" in script
-    assert "multi_asset_development_v7_scheduler_smoke_2026-09-13-v2.json" in script
-    assert "multi_asset_development_v7_pilot_2026-09-13-v2.json" in script
+    assert "multi_asset_development_v7_scheduler_smoke_2026-09-13-v3.json" in script
+    assert "multi_asset_development_v7_pilot_2026-09-13-v3.json" in script
 
 
 def test_v7_config_closes_every_later_stage() -> None:
@@ -290,3 +291,5 @@ def test_v7_config_closes_every_later_stage() -> None:
     assert all(value is False for key, value in safety.items() if key != "development_only")
     assert config["recovery"]["worker_count"] == 4
     assert config["recovery"]["sqlite_writer_count"] == 1
+    assert config["recovery"]["run_id"].endswith("-v2")
+    assert "v7r2" in config["recovery"]["control_store"]

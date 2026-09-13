@@ -67,7 +67,7 @@ from swing_walk_forward_campaign import historical_research_runtime_gate, load_c
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-RUNNER_VERSION = "multi-asset-development-v7-recovery-runner-2026.09.13-v1"
+RUNNER_VERSION = "multi-asset-development-v7-recovery-runner-2026.09.13-v2"
 GLOBAL_RESEARCH_LOCK = PROJECT_ROOT / "runtime" / "swing_walk_forward_research.lock"
 
 

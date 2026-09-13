@@ -125,7 +125,7 @@ Die aktuelle Recovery-Freigabe erlaubt ausdrücklich Code, Tests, neue v7-Stores
 - **Referenzen:** Ergebnisse U0–U6 und [`VACATION_WORKQUEUE_RESUME.md`](VACATION_WORKQUEUE_RESUME.md).
 - **Nächster zulässiger Schritt:** erst nach Abschluss der vorgelagerten Pakete.
 
-## Automatische Aufgabenauswahl nach dem Startsignal
+## Automatische Aufgabenauswahl nach dem jeweiligen Startsignal
 
 1. `PROJECT_STATUS.md` und `VACATION_WORKQUEUE_RESUME.md` lesen.
 2. Prozesse, Locks und bestehende Run-IDs prüfen.
@@ -136,6 +136,68 @@ Die aktuelle Recovery-Freigabe erlaubt ausdrücklich Code, Tests, neue v7-Stores
 7. Nächste zulässige Aufgabe wählen.
 
 Ein Blocker darf unabhängige freigegebene Arbeit nicht stoppen. Er darf aber nie durch eine gesperrte Forschungsstufe oder eine neue Hypothese umgangen werden. Neu entdeckte Ideen kommen als `DEFERRED / NOT_VACATION_AUTHORIZED` in den Backlog und werden nicht automatisch ausgeführt.
+
+Die Urlaubs-Workqueue und der nachfolgende Trading-Research-Backlog besitzen getrennte Freigaben. Das bereits erteilte v7-Recovery-Signal oder ein Startsignal für U0 bis U7 startet keinen der folgenden Research-Aufträge. Der Trading-Research-Backlog darf erst durch einen späteren ausdrücklichen `/goal`-Auftrag beziehungsweise „Roadmap abarbeiten“ ausgeführt werden.
+
+## Trading-Research-Backlog nach dem aktuellen Development-Pfad
+
+- Backlog-ID: `trading-research-backlog-2026-09-13-v1`
+- Planungsstatus: `PLANNED_NOT_STARTED`
+- Aktuelle Ausführungsfreigabe: `false`
+- Gemeinsame Voraussetzung: Der aktuelle Multi-Asset-Discovery-/Development-Pfad ist vollständig terminal, geprüft und mit einem dokumentierten Review abgeschlossen.
+- Aktivierung: ausschließlich durch einen späteren ausdrücklichen `/goal`-Auftrag beziehungsweise „Roadmap abarbeiten“.
+- Evidenzgrenze: `READY`, `DRAFT`, `PLANNED`, `TESTABLE_NOW`, `CODE_EXTENSION_REQUIRED` und `ALREADY_AVAILABLE` beschreiben nur Arbeits- oder Technikstatus. Sie sind weder positive Evidenz noch Validation-, Produktions- oder Handelsfreigaben.
+- Forschungsgrenze: Jede Ausführung folgt [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Keine Stufe darf automatisch Validation, Holdout, External, Forward, Paper, Shadow, Broker oder Produktion öffnen.
+
+Verbindliche Auswahlreihenfolge für einen später gestarteten Roadmap-Lauf:
+
+1. Aktuellen Multi-Asset-Discovery-/Development-Pfad vollständig abschließen und reviewen.
+2. `TR-01` Wasser-Infrastruktur-Research bearbeiten.
+3. `TR-02` Gold-/Silber-Research bearbeiten, sofern die dann aktuelle Sicherheits- und Prioritätsprüfung keinen höherwertigen Blocker oder Auftrag ergibt.
+4. `TR-03` Overnight-/Intraday-Renditetrennung nur bei dokumentiert begründeter Aktivierung bearbeiten.
+5. Weitere Hypothesen ausschließlich nach der bestehenden Research Policy auswählen.
+
+### TR-01 – Wasser-Infrastruktur-Aktien
+
+- **Ausführungsart:** `DIRECT_AFTER_PREREQUISITES`; bei einem späteren Roadmap-Start selbstständig auswählbar, aber nicht jetzt.
+- **Aktueller Stand:** Capability `TESTABLE_NOW`; Work Request `READY`; Experiment `DRAFT`; kein Resultat.
+- **Voraussetzungen:** gemeinsames Development-/Review-Gate erfüllt; Work Request und Experimentvertrag vor Ausführung unverändert zugeordnet und erneut geprüft; keine höherrangige Sicherheits- oder Datenqualitätslücke.
+- **Scope:** `XYL`, `BMI`, `PNR`, `SPY` und `PHO`; Einzelwerte getrennt auswerten; einen gleichgewichteten Wasser-Korb getrennt auswerten; keine nachträgliche Auswahl nur erfolgreicher Aktien.
+- **Akzeptanz:** reproduzierbarer Development-Bericht für alle vorab festgelegten Einzelwerte und den getrennten Korb; Kosten, Datenqualität, fehlende Werte und Mehrfachtests sichtbar; Resultat sauber in der Knowledge Base verknüpft.
+- **Stop-Bedingungen:** Scope müsste nach Ergebniskenntnis geändert werden; PIT-, Kosten- oder Listing-Semantik ist nicht belastbar; eine gesperrte Forschungsstufe wäre nötig; fremde beziehungsweise laufende Evidenz würde verändert.
+- **Referenzen:** Work Request `3721453e-158f-42cb-8d76-a28f054b7d97`; Hypothese `78bcdab6-e542-4844-bc95-fbdf1b3b1f9b`; Experiment `b2e990f1-16f9-4bad-a5ad-09184c4225c2`.
+- **Nächster zulässiger Schritt:** nach späterem Roadmap-Start und erfüllten Voraussetzungen den bestehenden Experimentvertrag und die unveränderte Fallauswahl prüfen; erst danach Development ausführen.
+
+### TR-02 – Gold-/Silber-Nachzügler
+
+- **Ausführungsart:** `DIRECT_AFTER_PREREQUISITES`; bei einem späteren Roadmap-Start nach `TR-01` selbstständig auswählbar, aber nicht jetzt.
+- **Aktueller Stand:** Capability `CODE_EXTENSION_REQUIRED`; Work Request `READY`; Experiment `DRAFT`; kein Resultat.
+- **Voraussetzungen:** `TR-01` terminal dokumentiert; dann aktuelle Prioritäts- und Sicherheitsprüfung ohne höherwertigen Auftrag; isolierter Gold-/Silber-Research-Runner; vorab fester Experiment- und Ausführungsvertrag.
+- **Scope:** `GC=F`, `SI=F`, Gold-/Silber-relative Divergenz, Futures-/Roll-Semantik, Session Alignment, Point-in-Time-Korrektheit, Kosten/Slippage sowie Selection-/Multiple-Testing-Schutz.
+- **Akzeptanz:** isolierter und reproduzierbarer Development-Bericht mit sichtbarer Roll-, Session-, PIT- und Kostensemantik; Resultat sauber in der Knowledge Base verknüpft; keine automatische Übertragung auf Aktien-/ETF-SwingTrading.
+- **Stop-Bedingungen:** kein sauber isolierbarer Runner; unklare Futures-/Roll- oder Session-Semantik; fehlende realistische Kosten; Auswahl oder Parameter müssten nach Ergebniskenntnis verändert werden; eine gesperrte Forschungsstufe wäre nötig.
+- **Referenzen:** Work Request `4fdfb983-ddbc-4178-bd36-7aa34267df0b`; Hypothese `f8e6a64b-1cf9-431f-9477-4a7a17ab5478`; Experiment `255532e0-3b54-412a-a29e-866bfe4bda82`.
+- **Nächster zulässiger Schritt:** nach späterem Roadmap-Start und erfüllten Voraussetzungen zuerst den isolierten Runner und seinen festen Daten-/Kostenvertrag erstellen und prüfen; erst danach Development ausführen.
+
+### TR-03 – Overnight-/Intraday-Renditetrennung
+
+- **Ausführungsart und Status:** `CONDITIONAL_RESEARCH_RESERVE`; nicht unmittelbar ausführbar und nicht automatisch auszuwählen.
+- **Aktueller Stand:** Capability `ALREADY_AVAILABLE`; Experiment `PLANNED`; kein offener Work Request; kein Resultat.
+- **Aktivierungsvoraussetzungen:** eine konkrete Informationslücke ist dokumentiert; der bestehende Experimentvertrag reicht aus oder wird vor Kenntnis neuer Ergebnisse sauber ergänzt; keine wichtigere Research-Stufe wird blockiert; ein eigener Work Request und eine ausdrückliche Aktivierungsentscheidung liegen vor.
+- **Erlaubter Umfang nach Aktivierung:** Overnight- und Intraday-Renditeanteile isoliert auf zusätzlichen Informationswert gegenüber der einfacheren Baseline prüfen; nur wenige fachlich begründete, vorab festgelegte Vergleiche.
+- **Nicht erlaubt:** Grid Search, automatische Feature-Kombinationen, zusätzlicher Pflichtfilter für bestehende Setups, automatische Regel-/Gewichtsänderung oder Mehrfachzählung korrelierter Merkmale.
+- **Akzeptanz:** isolierter, reproduzierbarer Zusatznutzen oder transparente Null-/Negativ-Evidenz gegenüber der Baseline; Out-of-Sample- und Walk-Forward-Anforderungen bleiben vollständig unter der Research Policy.
+- **Stop-Bedingungen:** keine konkrete Messlücke; Vertrag unvollständig; nur enge oder nachträglich gewählte Parameter wirken; wichtigere Research-Arbeit würde verzögert; eine gesperrte Forschungsstufe wäre nötig.
+- **Nächster zulässiger Schritt:** Reserve unverändert lassen, bis alle Aktivierungsvoraussetzungen nachweislich erfüllt sind.
+
+### Historische Punkte, die nicht erneut geöffnet werden
+
+- Buyer Confirmation v1 bleibt `REJECTED_AT_VALIDATION`.
+- Fibonacci bleibt abgeschlossen beziehungsweise inconclusive.
+- Failed Seller Attempts bleibt abgeschlossen als `INCONCLUSIVE_RETAINED`; kein automatischer Folgeversuch.
+- FX Carry PIT bleibt abgeschlossen beziehungsweise inconclusive; der getrennte PIT-Collector darf nach seinem bestehenden Vertrag weiterlaufen.
+
+Diese vier Punkte sind historische Research-Evidenz und keine offenen Aufgaben des Trading-Research-Backlogs.
 
 ## Dauerhafte Grenzen der Queue
 
@@ -179,13 +241,12 @@ Der technische Broad-Vollpass wartet ausdrücklich **nicht** auf eine vollständ
 - Buyer-Provenienz und Reproduktion: abgeschlossen.
 - Development-v5-Integritätsforensik: abgeschlossen; v5 bleibt `COMPLETED_WITH_FAILURES`.
 
-### Offene Forschung ohne Urlaubsfreigabe
+### Weitere offene Forschung ohne Ausführungsfreigabe
 
-- Failed Seller: `INCONCLUSIVE_RETAINED`; kein automatischer Folgeversuch.
-- Gold/Silber: KB-Work-Request `4fdfb983-ddbc-4178-bd36-7aa34267df0b` bleibt `READY`, aber `NOT_VACATION_AUTHORIZED`.
-- Wasseraktien: KB-Work-Request `3721453e-158f-42cb-8d76-a28f054b7d97` bleibt `READY`, aber `NOT_VACATION_AUTHORIZED`.
 - Technische Indikatorreserve nur bei konkreter dokumentierter Messlücke.
 - Neue Short-, ML-, Confluence-, Exit- oder Strategievarianten sind `DEFERRED`.
+
+Wasser, Gold/Silber und Overnight/Intraday sind mit ihrer späteren Reihenfolge und ihren getrennten Freigabebedingungen im Abschnitt `Trading-Research-Backlog nach dem aktuellen Development-Pfad` kanonisch beschrieben. Sie gehören nicht zur laufenden v7-Recovery und nicht zur Urlaubs-Workqueue.
 
 ### Spätere Produktarbeit
 

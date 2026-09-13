@@ -2,6 +2,14 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-13 – Trading-Research-Backlog geordnet
+
+- Wasser-Infrastruktur-Aktien wurden als erster später direkt ausführbarer Research-Auftrag nach Abschluss und Review des aktuellen Multi-Asset-Development-Pfads eingeordnet.
+- Gold-/Silber-Nachzügler wurden mit isoliertem Runner als Voraussetzung an die zweite Stelle gesetzt.
+- Die Overnight-/Intraday-Renditetrennung wurde ausschließlich als `CONDITIONAL_RESEARCH_RESERVE` dokumentiert.
+- Buyer Confirmation v1, Fibonacci, Failed Seller Attempts und FX Carry PIT bleiben historische Evidenz und wurden nicht erneut geöffnet.
+- Kein Experiment, Runner, Performance-Lauf, Validation- oder Holdout-Schritt wurde gestartet.
+
 ## 2026-09-06 – Dokumentation und Urlaubs-Workqueue konsolidiert
 
 - Die vollständige bisherige `ROADMAP.md` wurde unverändert als `docs/archive/ROADMAP_LEGACY_THROUGH_2026-09-06.md` archiviert.

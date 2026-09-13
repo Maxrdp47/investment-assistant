@@ -155,8 +155,11 @@ Der folgende Stand wurde nur lesend geprüft. Keine Aufgabe wurde in diesem Doku
 ### Knowledge Base
 
 - Die Research Knowledge Base bleibt die append-only Quelle für Sources, Hypothesen, Experimente, Resultate und Work Requests.
-- Aktuell sind genau zwei Work Requests `READY`: Gold/Silber `4fdfb983-ddbc-4178-bd36-7aa34267df0b` und Wasseraktien `3721453e-158f-42cb-8d76-a28f054b7d97`.
-- `READY` in der KB ist keine Urlaubsfreigabe. Beide Aufträge sind in der aktuellen Queue ausdrücklich nicht autorisiert.
+- Aktuell sind genau zwei Work Requests `READY`: Wasseraktien `3721453e-158f-42cb-8d76-a28f054b7d97` mit Capability `TESTABLE_NOW` und Gold/Silber `4fdfb983-ddbc-4178-bd36-7aa34267df0b` mit Capability `CODE_EXTENSION_REQUIRED`. Beide Experimente stehen auf `DRAFT`; für beide existiert noch kein Resultat.
+- Beide Aufträge sind in [`ROADMAP.md`](ROADMAP.md) als späterer Trading-Research-Backlog geordnet: zuerst Wasser, danach Gold/Silber. Sie laufen nicht, gehören weder zur aktiven v7-Recovery noch zur Urlaubs-Workqueue und dürfen erst nach Abschluss samt Review des aktuellen Multi-Asset-Development-Pfads durch einen späteren ausdrücklichen Roadmap-Start aktiviert werden.
+- Die Overnight-/Intraday-Renditetrennung ist nur `CONDITIONAL_RESEARCH_RESERVE`: Capability `ALREADY_AVAILABLE`, Experiment `PLANNED`, kein offener Work Request und kein Resultat. Ohne konkrete Informationslücke, vollständigen Vertrag und eigene Aktivierungsentscheidung ist sie nicht ausführbar.
+- `READY`, `DRAFT` oder technische Verfügbarkeit sind keine positive Evidenz und keine Validation-, Produktions- oder Handelsfreigabe.
+- Durch die Backlog-Dokumentation wurde kein Experiment, Research-Runner, Performance-Lauf, Validation- oder Holdout-Schritt gestartet.
 
 ### Produkt- und Handelsgrenze
 

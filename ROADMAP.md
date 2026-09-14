@@ -1,12 +1,12 @@
 # Investment-Assistent – kanonische Roadmap
 
-Stand: 2026-09-13
+Stand: 2026-09-14
 
 Diese Datei enthält ausschließlich zukünftige Arbeit, ihre Reihenfolge und ihre Freigabe. Der belegte Ist-Stand steht in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Dauerhafte Forschungsregeln stehen in [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Frühere Roadmap-Fassungen bleiben unverändert im [Historienarchiv](docs/archive/ROADMAP_LEGACY_THROUGH_2026-09-06.md).
 
 ## Verbindliches Start-Gate
 
-Der getrennte Multi-Asset-Development-v7-Recovery-Auftrag ist ausdrücklich gestartet. Diese Freigabe gilt ausschließlich für die technische Recovery der pausierten v6-Development-Arbeit und ersetzt keine Freigabe für die übrigen Urlaubsaufgaben.
+Der getrennte Multi-Asset-Development-v7-r2-Recovery-Lauf und sein fachlicher Development-Review sind abgeschlossen. Der Review fand 0 `ROBUST_CANDIDATE_FOR_NEW_HYPOTHESIS`; er erteilt keine Freigabe für eine neue Hypothese oder eine andere Queue-Aufgabe.
 
 Für alle anderen Queue-Pakete gilt weiterhin:
 
@@ -16,12 +16,12 @@ Für alle anderen Queue-Pakete gilt weiterhin:
 - keine Forschungsstufe öffnen,
 - vorhandene, separat freigegebene Prozesse und Datensammler nicht stoppen oder verändern.
 
-Die aktuelle Recovery-Freigabe erlaubt ausdrücklich Code, Tests, neue v7-Stores, Scheduler-Smoke/Pilot, Commit, Push, CI und den Full-v7-Start nach vollständigem Gate. Sie erlaubt keine Wiederöffnung oder Mutation von v6.
+Die frühere Recovery-Freigabe ist erfüllt und keine fortdauernde Ausführungsfreigabe. v6, v7-r1 und die finalen v7-r2-Stores bleiben unverändert; neue Research-Stufen benötigen weiterhin ihre eigene ausdrückliche Aktivierung.
 
 ## Aktive freigegebene Urlaubs-Workqueue
 
 - Queue-ID: `vacation-workqueue-2026-09-06-v1`
-- Planungsstatus: `U1_V7_RECOVERY_IN_IMPLEMENTATION`; übrige Pakete unverändert
+- Planungsstatus: `U1_V7_R2_REVIEW_COMPLETE`; übrige Pakete unverändert
 - Ausführungsfreigabe jetzt: `false`
 - Freigabe nach ausdrücklichem Startsignal: nur U0 bis U7 im unten beschriebenen Umfang
 - Priorität: U0 kurz abschließen, danach U1; während eines gesunden isolierten U1-Prozesses dürfen unabhängige Teile von U2 bis U6 folgen
@@ -32,7 +32,7 @@ Die aktuelle Recovery-Freigabe erlaubt ausdrücklich Code, Tests, neue v7-Stores
 | ID | Hauptziel | Status am 2026-09-06 | `authorized_for_unattended` jetzt | Nach Startsignal |
 |---|---|---|---:|---:|
 | U0 | Stand übernehmen, Freigaben und Resume organisieren | PARTIAL | false | true |
-| U1 | Getrennten Development-v7-Recovery-Lauf, Audit und Bericht abschließen | IN PROGRESS | true, nur v7-Recovery | bereits freigegeben |
+| U1 | Getrennten Development-v7-Recovery-Lauf, Audit und Bericht abschließen | DONE | false | abgeschlossen; keine weitere Aktion |
 | U2 | Roadmap, Current Truth, Historie und Regeln bereinigen | DONE | false | keine weitere Arbeit ohne neue Lücke |
 | U3 | Tatsächliche Daten- und Betriebsabdeckung sichtbar machen | READY | false | true |
 | U4 | FX-Observer und allgemeinen Prognosebetrieb prüfen | READY | false | true |
@@ -56,14 +56,16 @@ Die aktuelle Recovery-Freigabe erlaubt ausdrücklich Code, Tests, neue v7-Stores
 ### U1 – Development-v7-Recovery abschließen
 
 - **Ziel und Priorität:** v6 als unveränderliche terminal pausierte Referenz erhalten und die exakt kompatible Restarbeit in einem neuen v7-Recovery-Run ausführen; anschließend Voll-Audit, begrenzten deskriptiven Bericht und Summary erzeugen. Höchste fachliche Priorität.
-- **Aktueller Status:** `IN PROGRESS`. v6 bleibt bei 36,232315 % und `PAUSED_REQUIRES_REVIEW`. Der vorbereitete v7-r1-Stand wurde wegen einer lokal inkompatiblen Task-Trigger-Konstruktion vor Registrierung und vor Scanstart geschlossen und bleibt unverändert. Der kanonische Ersatz ist `mad1-development-v7-recovery-20260913-v2`; Full-Start erst nach allen neu commit- und run-gebundenen Readiness-Gates.
+- **Aktueller Status:** `DONE`. v6 bleibt bei 36,232315 % und `PAUSED_REQUIRES_REVIEW`; der ungestartete v7-r1-Stand bleibt unverändert. `mad1-development-v7-recovery-20260913-v2` ist mit 60.504 terminalen Work-Units abgeschlossen, sein Final Audit ist `PASS`, und der fachliche Review steht auf `V7_R2_DEVELOPMENT_REVIEW_COMPLETE_AWAITING_HYPOTHESIS_DECISION`.
 - **Voraussetzungen:** v6 read-only; Root-Cause-Kategorie ehrlich belegt; Research-Semantik-Diff null; nur receipt- und digest-verifizierte terminale Units wiederverwenden; neue Stores/Run-ID; lokaler Gesamtcheck, Commit/Push/CI und echter Scheduler-Kontext-Pilot `PASS`.
 - **Erlaubter Umfang:** 21.922 verifizierte v6-Units mit expliziter Lineage importieren, 38.582 Units ground-up rechnen, Checkpoints nutzen, genau einen Writer und vier Worker beibehalten, danach Audit → Bericht → Summary → Stop.
 - **Nicht erlaubt:** neue Hypothese, Parameter-/Filter-/Kombinationssuche, Clipping, Imputation, Interpolation, Änderung eingefrorener Regeln, neue Validation, Holdout, External, Forward, Paper oder Shadow.
 - **Akzeptanz:** 60.504 Work-Units terminal; Feature-/Outcome-Case-IDs und Digests konsistent; keine Duplikate/Orphans; PIT-, Contract- und Control-Bezug bestanden; SQLite und append-only Schutz bestanden; deskriptiver Plan eingehalten; terminaler Summary-Stand ohne wiederholte Heavy-Audits.
 - **Stop-Bedingungen:** Semantik-Diff > 0; Fingerprint-/Inputänderung; unvollständige/inkonsistente Reuse-Evidenz; systematischer Daten-, Rechte- oder Schreibfehler; erneut readonly; fremder aktiver Writer; Ressourcenrisiko; späteres Gate würde geöffnet.
 - **Referenzen:** v7-r2-Config `config/multi_asset_discovery_development_v7_recovery.json`; Recovery-Contract `77cbb53de9a61fb9c68cc3169d2d14da20c6d38b2e669a870c804ec91b783ee5`; Parent-Contract `bedf1c9297f1a5b409e13c78b5fc5f41eb33912ffb79fe711b0d3009d478a9d2`; v6-Code-Basis `e3ecdb6a1242c5922213ab489eb337342de0b17e`.
-- **Nächster zulässiger Schritt:** Scheduler-Trigger-Fix und neue v7-r2-Identität vollständig prüfen, exakten Commit pushen und CI prüfen; danach neuen Scheduler-Smoke/Pilot und bei vollständigem PASS automatisch v7-r2 starten.
+- **Review-Ergebnis:** 0 robuste neue Hypothesenkandidaten. Volatilität, RSI/Mean-Reversion, Sell-Zone-A-Distanz und Safe-Zone-Geometrie bleiben nur `INTERESTING_BUT_INSUFFICIENT`; Dependency ist für alle Fälle `UNKNOWN`, vertragliches effektives N 0, und 2021 ist zu 99,48 % zensiert.
+- **Referenz:** [`MULTI_ASSET_DISCOVERY_V7_R2_DEVELOPMENT_REVIEW_2026-09-14.md`](MULTI_ASSET_DISCOVERY_V7_R2_DEVELOPMENT_REVIEW_2026-09-14.md).
+- **Nächster zulässiger Schritt:** keiner innerhalb U1. Der Planungs-Chat entscheidet getrennt; keine v7-r2-abgeleitete Hypothese automatisch öffnen.
 
 ### U2 – Dokumentstruktur bereinigen
 
@@ -144,7 +146,7 @@ Die Urlaubs-Workqueue und der nachfolgende Trading-Research-Backlog besitzen get
 - Backlog-ID: `trading-research-backlog-2026-09-13-v1`
 - Planungsstatus: `PLANNED_NOT_STARTED`
 - Aktuelle Ausführungsfreigabe: `false`
-- Gemeinsame Voraussetzung: Der aktuelle Multi-Asset-Discovery-/Development-Pfad ist vollständig terminal, geprüft und mit einem dokumentierten Review abgeschlossen.
+- Gemeinsame Voraussetzung: `ERFÜLLT_2026-09-14` – der aktuelle Multi-Asset-Discovery-/Development-Pfad ist vollständig terminal, geprüft und mit einem dokumentierten Review abgeschlossen. Dies ist keine Ausführungsfreigabe für den Backlog.
 - Aktivierung: ausschließlich durch einen späteren ausdrücklichen `/goal`-Auftrag beziehungsweise „Roadmap abarbeiten“.
 - Evidenzgrenze: `READY`, `DRAFT`, `PLANNED`, `TESTABLE_NOW`, `CODE_EXTENSION_REQUIRED` und `ALREADY_AVAILABLE` beschreiben nur Arbeits- oder Technikstatus. Sie sind weder positive Evidenz noch Validation-, Produktions- oder Handelsfreigaben.
 - Forschungsgrenze: Jede Ausführung folgt [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Keine Stufe darf automatisch Validation, Holdout, External, Forward, Paper, Shadow, Broker oder Produktion öffnen.

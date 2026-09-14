@@ -2,13 +2,13 @@
 
 Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben stehen in [`ROADMAP.md`](ROADMAP.md). Dauerhafte Forschungsregeln stehen in [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Frühere Fassungen wurden unverändert nach [`docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md`](docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md) verschoben.
 
-## Current Truth – 2026-09-13
+## Current Truth – 2026-09-14
 
 ### Git und Dokumentation
 
 - Aktiver Recovery-Branch: `codex/multi-asset-development-v7-recovery`.
 - Ausgangs-HEAD des Recovery-Auftrags: `9990fbf557b414a51ca450aabb2a89f278d00d47`.
-- Geprüfter Projekt-HEAD und Upstream vor dem Dokumentationscommit: `b1e3802b807649bc2cf871fa31ccf09fd8781cac`.
+- Geprüfter Projekt-HEAD und Upstream vor dem v7-r2-Review-Commit: `30e26f2157e8a1b3eae761fd1cac73b71a462b92`.
 - Die Urlaubs-Workqueue `vacation-workqueue-2026-09-06-v1` ist dokumentiert, aber noch nicht gestartet.
 - Vor einem ausdrücklichen Startsignal wurden keine neue Funktion, kein Benchmark, kein Scan, kein Reprocessing-Lauf, kein Collector und keine Agenten-Wiederaufnahme gestartet.
 - Der endgültige Dokumentations-Commit ist der Commit, der diese Fassung enthält; der Abschlussbericht nennt seinen Hash und den CI-Stand.
@@ -61,13 +61,16 @@ Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben s
 - Parent: v6-Run `mad1-development-v6-f6432d72f806e9b97ea8ac46`, Parent-Code `e3ecdb6a1242c5922213ab489eb337342de0b17e`, Parent-Contract `bedf1c9297f1a5b409e13c78b5fc5f41eb33912ffb79fe711b0d3009d478a9d2`.
 - Readonly-Forensik: Die fehlschlagende Datei ist `runtime/multi_asset_discovery_v1_development_v6_outcomes.sqlite3`; der Fehler entstand beim Insert in `outcome_rows` für `EQUITIES:FLG`. Die erhaltene Telemetrie beweist keine einzelne Ursache. Die Klassifikation bleibt deshalb korrekt `I_UNKNOWN`; heutige Dateirechte, Verzeichnis-Schreibprobe, ACLs, Open-Mode und Read-only-Integritätsprüfungen liefern nur negative Gegenwartsbefunde.
 - Fachlicher Diff: `research_semantics_diff_count = 0`. Universe, Development-Split, PIT-/Missingness-/Dependency-Verträge, Feature-/Outcome-Trennung, Safe-/Sell-Zonen, Deterioration, Zeitfenster und Censoring werden unverändert aus dem eingefrorenen v6-Contract verwendet.
-- Geplante Work-Units: 60.504. Davon sind 21.922 vollständig terminal und receipt-gebunden wiederverwendbar; 38.582 werden ground-up neu berechnet. Die 14 alten `FAILED` und 38.568 `PENDING` werden nicht übernommen.
-- Wiederverwendung ist nur nach erneuter Payload-, Case-Set-, Feature-, Outcome- und Receipt-Digestprüfung mit append-only Lineage erlaubt. v7-r2 nutzt neue Control-, Feature- und Outcome-Stores; der ungestartete v7-r1-Vorbereitungsstand wird nicht fortgesetzt.
-- Ausführung: vier Worker, genau ein SQLite-Writer, eigener Prozess-Lock, globaler exklusiver Research-Lock, fünfminütiger Windows-Task mit `IgnoreNew`, `StartWhenAvailable` und `WakeToRun`.
-- Der Full-Start bleibt fail-closed, bis lokaler Gesamtcheck, exakter Commit/Push/CI, Scheduler-Kontext-Smoke, fester Vier-Assetklassen-Pilot, Store-Gates und immutable Start-Gate tatsächlich `PASS` sind. Nach PASS startet der Task ohne weitere Bestätigung.
-- Erneutes `readonly database` wird nicht retried: sofort `PAUSED_REQUIRES_REVIEW` mit neuem technischem Diagnoseartefakt.
+- Der Lauf ist vollständig terminal `COMPLETED`: 60.504 Work-Units, davon 52.992 `COMPLETED`, 7.512 `SKIPPED`, 0 `FAILED`, 0 `ACTIVE`, 0 `PENDING` und 0 Retries. 21.922 verifizierte v6-Units wurden mit append-only Lineage wiederverwendet; 38.582 wurden ground-up neu berechnet.
+- Feature- und Outcome-Store enthalten jeweils 2.356.553 Cases. Davon sind 1.749.125 `COMPLETE`, 486.312 `CENSORED_AT_STAGE_BOUNDARY`, 106.954 `CENSORED_AT_INPUT_GAP` und 14.162 `CENSORED_AT_END_OF_AVAILABLE_DATA`.
+- Der Final Audit ist `PASS`: 0 Duplikate, 0 Orphans, 0 Link-Mismatches, 0 Payload-Fehler; alle drei SQLite-Stores bestehen Quick-/Integrity-/Foreign-Key-Prüfung und besitzen die erforderlichen Append-only-Trigger. Audit-Fingerprint: `b3dcb95ccfa0e603842358d8ebb2146b58230d852863d596b09c4ae949f53903`.
+- Der Descriptive Development Report ist `DESCRIPTIVE_COMPLETE` mit Fingerprint `2eda1c028f49528253bbf1622493f7b8ef058e262ec3c6417a2d7903aecc2423`; die Completion Summary steht auf `V7_RECOVERY_COMPLETE_AWAITING_REVIEW` und besitzt Fingerprint `5a3e05085d38e513113a6f9a104d39f938146d40cc662beb1216fe13c2e422fc`.
+- Der fünfminütige v7-r2-Windows-Task ist nach dem terminalen No-op-Verhalten deaktiviert; der Lauf wird nicht erneut gestartet.
 - Validation, Holdout, External, Forward, Paper, Shadow, Broker, Orders und automatische Strategieoptimierung bleiben geschlossen.
-- Die Knowledge Base erhält aus dieser rein technischen Recovery kein positives oder negatives Strategieergebnis. Erst ein terminaler, bestandener v7-Vollaudit erlaubt die eingefrorene deskriptive Development-Auswertung.
+- Der fachliche Review ist in [`MULTI_ASSET_DISCOVERY_V7_R2_DEVELOPMENT_REVIEW_2026-09-14.md`](MULTI_ASSET_DISCOVERY_V7_R2_DEVELOPMENT_REVIEW_2026-09-14.md) abgeschlossen. Alle 2.356.553 Feature-/Outcome-Paare wurden read-only auf Identität geprüft; Control-, Feature- und Outcome-Store blieben nach Größe und Änderungszeit unverändert.
+- Review-Ergebnis: 0 `ROBUST_CANDIDATE_FOR_NEW_HYPOTHESIS`. Volatilität, RSI/Mean-Reversion, Sell-Zone-A-Distanz und Safe-Zone-Geometrie bleiben `INTERESTING_BUT_INSUFFICIENT`; Overnight/Gap/Intraday und Volume Ratio liefern keinen stabilen eigenständigen Zusatznutzen. Relative Strength, explizite HH/HL-/Konsolidierungs-/Breakout-/Pullback-Felder, Volatilitätsregime sowie Fundamentals/Event/Makro/Politik sind nicht ausreichend interpretierbar beziehungsweise nicht befüllt.
+- Dependency-Grenze: Alle 2.356.553 Fälle besitzen `dependency_status = UNKNOWN`; nach dem eingefrorenen Vertrag ergibt sich effektives N 0. Das Signaljahr 2021 ist nur zu 0,5199 % vollständig. FX besitzt 0 vollständige Development-Outcomes.
+- Finaler fachlicher Stand: `V7_R2_DEVELOPMENT_REVIEW_COMPLETE_AWAITING_HYPOTHESIS_DECISION`. Keine Hypothese, keine Folgeforschung und keine spätere Stufe wurde automatisch geöffnet; die Knowledge Base erhielt kein Strategieergebnis.
 
 ### Development v5 und ältere Forschung
 
@@ -118,10 +121,11 @@ Bei einem ausdrücklich freigegebenen relevanten Legacy-Diagnoseupdate wird dies
 
 ### Scheduler und laufender Betrieb
 
-Der folgende Stand wurde nur lesend geprüft. Keine Aufgabe wurde in diesem Dokumentationsauftrag geändert.
+Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde nach dem terminalen Lauf deaktiviert; dieser fachliche Review hat keinen Scheduler verändert.
 
 | Windows-Aufgabe | Zustand | Letzter belegter Lauf | Ergebnis | Bedeutung |
 |---|---|---|---:|---|
+| `InvestmentAssistant-MultiAssetDiscoveryV1-Development-v7-Recovery-r2` | deaktiviert | 2026-09-14 | 0 | v7-r2 terminal; kein erneuter Scanstart |
 | `InvestmentAssistant-MultiAssetDiscoveryV1-Development-v6-Chain` | aktiviert / bereit | 2026-09-06 03:54 | 2 | vorhandene fünfminütige Kette; Chain-State bleibt review-pausiert |
 | `InvestmentAssistant-FX-PIT-Observer` | aktiviert / bereit | 2026-09-05 21:45 | 0 | getrennter append-only Datenobserver, nächste reguläre Zeit 21:45 |
 | `InvestmentAssistantDailyForecasts` | aktiviert / bereit | 2026-09-05 22:30 | 0 | allgemeine Abendkette, nächste reguläre Zeit 22:30 |
@@ -156,7 +160,7 @@ Der folgende Stand wurde nur lesend geprüft. Keine Aufgabe wurde in diesem Doku
 
 - Die Research Knowledge Base bleibt die append-only Quelle für Sources, Hypothesen, Experimente, Resultate und Work Requests.
 - Aktuell sind genau zwei Work Requests `READY`: Wasseraktien `3721453e-158f-42cb-8d76-a28f054b7d97` mit Capability `TESTABLE_NOW` und Gold/Silber `4fdfb983-ddbc-4178-bd36-7aa34267df0b` mit Capability `CODE_EXTENSION_REQUIRED`. Beide Experimente stehen auf `DRAFT`; für beide existiert noch kein Resultat.
-- Beide Aufträge sind in [`ROADMAP.md`](ROADMAP.md) als späterer Trading-Research-Backlog geordnet: zuerst Wasser, danach Gold/Silber. Sie laufen nicht, gehören weder zur aktiven v7-Recovery noch zur Urlaubs-Workqueue und dürfen erst nach Abschluss samt Review des aktuellen Multi-Asset-Development-Pfads durch einen späteren ausdrücklichen Roadmap-Start aktiviert werden.
+- Beide Aufträge sind in [`ROADMAP.md`](ROADMAP.md) als späterer Trading-Research-Backlog geordnet: zuerst Wasser, danach Gold/Silber. Sie laufen nicht, gehören weder zum abgeschlossenen v7-r2-Review noch zur Urlaubs-Workqueue und dürfen trotz erfüllter Development-/Review-Voraussetzung erst durch einen späteren ausdrücklichen Roadmap-Start aktiviert werden.
 - Die Overnight-/Intraday-Renditetrennung ist nur `CONDITIONAL_RESEARCH_RESERVE`: Capability `ALREADY_AVAILABLE`, Experiment `PLANNED`, kein offener Work Request und kein Resultat. Ohne konkrete Informationslücke, vollständigen Vertrag und eigene Aktivierungsentscheidung ist sie nicht ausführbar.
 - `READY`, `DRAFT` oder technische Verfügbarkeit sind keine positive Evidenz und keine Validation-, Produktions- oder Handelsfreigabe.
 - Durch die Backlog-Dokumentation wurde kein Experiment, Research-Runner, Performance-Lauf, Validation- oder Holdout-Schritt gestartet.
@@ -170,4 +174,4 @@ Der folgende Stand wurde nur lesend geprüft. Keine Aufgabe wurde in diesem Doku
 
 ### Aktuelle nächste Entscheidung
 
-Der v7-Recovery-Auftrag ist ausdrücklich freigegeben. Nach dem vor Start sauber gestoppten Scheduler-Installationsversuch wird ausschließlich der neu identifizierte v7-r2-Pfad ausgeführt: lokale Verifikation → Commit/Push/CI → Scheduler-Smoke und fester Pilot → immutable v7-r2-Start-Gate → v7-r2 starten. v6 und der ungestartete v7-r1-Vorbereitungsstand bleiben unverändert; spätere Forschungs- und Handelsstufen bleiben geschlossen.
+Der v7-r2-Recovery-Lauf und sein fachlicher Development-Review sind abgeschlossen. Es gibt 0 robuste neue Hypothesenkandidaten; der Status wartet auf eine Planungsentscheidung. v6 und der ungestartete v7-r1-Vorbereitungsstand bleiben unverändert, und spätere Forschungs- und Handelsstufen bleiben geschlossen. Ein separater späterer Roadmap-Start darf die bestehende Reihenfolge Wasser → Gold/Silber → conditional Overnight verwenden, wurde hier aber nicht erteilt.

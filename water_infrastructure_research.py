@@ -603,7 +603,10 @@ def _effective_nonoverlap_n(rows: Sequence[Mapping[str, object]], horizon: int =
     for days in by_ticker.values():
         last: pd.Timestamp | None = None
         for day in sorted(set(days)):
-            if last is None or (day - last).days >= int(horizon * 5 / 7):
+            # ``horizon`` is measured in trading sessions.  Convert it to a
+            # conservative calendar-day separation before counting another
+            # observation as non-overlapping.
+            if last is None or (day - last).days >= math.ceil(horizon * 7 / 5):
                 total += 1
                 last = day
     return total

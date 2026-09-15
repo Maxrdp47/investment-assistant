@@ -128,6 +128,15 @@ def test_matched_controls_are_outcome_blind() -> None:
     assert before == after
 
 
+def test_effective_n_uses_conservative_trading_session_spacing() -> None:
+    rows = [
+        {"ticker": "XYL", "entry_day": "2020-01-01"},
+        {"ticker": "XYL", "entry_day": "2020-02-20"},
+        {"ticker": "XYL", "entry_day": "2020-04-05"},
+    ]
+    assert water._effective_nonoverlap_n(rows, horizon=60) == 2
+
+
 def test_development_underpowered_is_terminal_inconclusive_and_does_not_open_validation(
     tmp_path: Path,
 ) -> None:

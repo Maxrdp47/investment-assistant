@@ -1,24 +1,42 @@
 # Investment-Assistent – kanonische Roadmap
 
-Stand: 2026-09-14
+Stand: 2026-09-15
 
 Diese Datei enthält ausschließlich zukünftige Arbeit, ihre Reihenfolge und ihre Freigabe. Der belegte Ist-Stand steht in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Dauerhafte Forschungsregeln stehen in [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Frühere Roadmap-Fassungen bleiben unverändert im [Historienarchiv](docs/archive/ROADMAP_LEGACY_THROUGH_2026-09-06.md).
 
 ## Verbindliches Start-Gate
 
-Der getrennte Multi-Asset-Development-v7-r2-Recovery-Lauf und sein fachlicher Development-Review sind abgeschlossen. Der Review fand 0 `ROBUST_CANDIDATE_FOR_NEW_HYPOTHESIS`; er erteilt keine Freigabe für eine neue Hypothese oder eine andere Queue-Aufgabe.
+Der Nutzer hat am 2026-09-15 genau den unten beschriebenen endlichen Research-Programmzyklus `R0` bis `R9` freigegeben. Diese Freigabe ersetzt für Wasser, Gold/Silber, die bedingte Overnight-Prüfung und Multi-Asset Discovery v2 die frühere Warteposition, erweitert den Umfang aber nicht über `R9` hinaus.
 
-Für alle anderen Queue-Pakete gilt weiterhin:
+Der getrennte Multi-Asset-Development-v7-r2-Recovery-Lauf und sein fachlicher Development-Review sind abgeschlossen. Der Review fand 0 `ROBUST_CANDIDATE_FOR_NEW_HYPOTHESIS`; v6, v7-r1 und sämtliche v7-r2-Stores und Artefakte bleiben immutable. Validation und Holdout dürfen innerhalb dieses Programms nur für eine vorher eingefrorene Version und nur nach bestandenem vorgelagertem Gate automatisch geöffnet werden. External, True Forward, Paper, Shadow, Broker, Orders, Live und Produktionsintegration bleiben geschlossen.
 
-- keine neue Funktion implementieren,
-- keinen Benchmark, Research-Scan oder Reprocessing-Lauf starten,
-- keinen neuen Collector und keine Agenten-Wiederaufnahme aktivieren,
-- keine Forschungsstufe öffnen,
-- vorhandene, separat freigegebene Prozesse und Datensammler nicht stoppen oder verändern.
+Historische Großläufe werden sequenziell ausgeführt. Vor Start oder Resume entscheiden ausschließlich reale Prozess-, Lock-, Integritäts- und Ressourcen-Gates; alte starre Uhrzeitfenster besitzen keine Steuerungswirkung. Ein terminales Research-Fail darf technisch dokumentiert, aber nicht durch Retuning, neue Schwellen oder zusätzliche Filter repariert werden.
 
-Die frühere Recovery-Freigabe ist erfüllt und keine fortdauernde Ausführungsfreigabe. v6, v7-r1 und die finalen v7-r2-Stores bleiben unverändert; neue Research-Stufen benötigen weiterhin ihre eigene ausdrückliche Aktivierung.
+## Aktiver endlicher Research-Programmzyklus R0–R9
 
-## Aktive freigegebene Urlaubs-Workqueue
+- Programm-ID: `finite-research-program-2026-09-15-v1`
+- Ausgangs-HEAD: `fb56ea820ec28befc57a67e091a18d9c19d77b72`
+- Ausführungsreihenfolge: `R0 → R1 → R2 → R3 → R4 → R5 → R6 → R7 → gegebenenfalls R8 → R9`
+- Early-Success-Stop: erster unveränderter Kandidat mit Development-/Robustheits-PASS, Validation-PASS und Holdout-PASS führt zu `ROBUST_HOLDOUT_CANDIDATE_FOUND_AWAITING_USER_REVIEW` und beendet alle weiteren automatischen Strategieprüfungen.
+- Negativer Stop: nach Ausschöpfung der zugelassenen Versuche führt fehlender Holdout-PASS zu `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM`.
+- Technischer Stop: eine nicht innerhalb des Vertrags sauber behebbare Daten- oder Technikgrenze führt zu `RESEARCH_PROGRAM_BLOCKED_BY_DATA_OR_TECHNICAL_LIMIT_REQUIRES_REVIEW`.
+
+| Block | Status | Voraussetzungen | Scope | Attempt Count | Inputs / Fingerprints | Gate | Kill Rule | `next_step` |
+|---|---|---|---|---:|---|---|---|---|
+| R0 – v7-r2 kanonisch abschließen | `DONE` | Final Audit, Descriptive Report, Completion Summary und fachlicher Review | Run `mad1-development-v7-recovery-20260913-v2`; reine Bestandsprüfung | 0 neue Research-Versuche | Code `86156d17a9b43febf34cb2a94e72529ad7916f23`; Review-Commit `fb56ea820ec28befc57a67e091a18d9c19d77b72`; Contract `77cbb53de9a61fb9c68cc3169d2d14da20c6d38b2e669a870c804ec91b783ee5`; Audit `b3dcb95ccfa0e603842358d8ebb2146b58230d852863d596b09c4ae949f53903` | Audit `PASS`; Review vollständig; 0 robuste Kandidaten | v7-r2 nie verändern oder daraus nachträglich eine Regel ableiten | R1-Vertrag, Splits, Kosten, Datenqualität und Duplicate-Status vor Ergebnis einfrieren |
+| R1 – Wasser-Hypothese | `ACTIVE_PREFLIGHT` | R0 `DONE`; KB-Vertrag vollständig gelesen; keine bestehende Result-ID; Prozess-/Lock-Gate frei | `XYL`, `BMI`, `PNR`, `SPY`, `PHO`; Einzelwerte und gleichgewichteter Wasser-Korb getrennt; Daily; Development/Validation/Holdout outcome-unabhängig | 0 | Work Request `3721453e-158f-42cb-8d76-a28f054b7d97`; Hypothese `78bcdab6-e542-4844-bc95-fbdf1b3b1f9b`; Experiment `b2e990f1-16f9-4bad-a5ad-09184c4225c2`; neue Run-/Datenfingerprints vor Ergebnissichtung | bestehendes kanonisches Development-/Robustheitsgate; danach exakt eine eingefrorene Version; Validation und Holdout jeweils nur nach PASS | keine erfolgreiche Einzeltitelauswahl; kein Retune; Development-, Validation- oder Holdout-Fail für die Version terminal | isolierten R1-Contract und verfügbare PIT-Preisdaten vollständig prüfen und einfrieren |
+| R2 – Gold/Silber | `BLOCKED_BY_SEQUENCE` | R1 terminal ohne Holdout-PASS | `GC=F`, `SI=F`, relative Divergenz; Futures-Roll, Sessions, PIT, Next-Open, Kosten und Slippage | 0 | Work Request `4fdfb983-ddbc-4178-bd36-7aa34267df0b`; Hypothese `f8e6a64b-1cf9-431f-9477-4a7a17ab5478`; Experiment `255532e0-3b54-412a-a29e-866bfe4bda82`; Fingerprints vor erstem Ergebnis | Development → Freeze → Validation-PASS → einmaliger Holdout | kein Equity-Runner mit falscher Semantik; keine Roll-Lücke verstecken; kein Rescue | erst nach terminalem R1 öffnen |
+| R3 – Overnight/Intraday | `BLOCKED_BY_SEQUENCE` | R2 terminal ohne Holdout-PASS; Contract-Deduplizierung | Zuerst prüfen, ob v7-r2 den geplanten Vertrag vollständig beantwortet; andernfalls genau eine fachlich eigenständige Version | 0 | v7-r2-Review und bestehender Overnight-Research-Vertrag; neue Fingerprints nur falls echte Vertragslücke | Dedupe-PASS ohne neuen Run oder einmaliger Development-/Validation-/Holdout-Pfad | kein Doppeltest, keine neue Schwelle, keine Kombination | erst nach terminalem R2 deduplizieren |
+| R4 – Historical/PIT Capability Expansion | `BLOCKED_BY_SEQUENCE` | R3 terminal ohne Holdout-PASS; keine v2-Outcomes betrachtet | A Identity/Dependencies; B Relative Strength/Struktur; C Fundamentals; D Events; E Makro/Rates; F Politik; G FX; H Crypto; I Survivorship | 0 Research-Versuche; Infrastruktur zählt nicht als Strategie-Attempt | vorhandene Identity-, Equity/ETF-, Crypto-, FX-, COT-, Event-, SEC- und KB-Stores; genaue Fingerprints im Capability Freeze | ausschließlich Coverage, Zeitstempel, Quelle, Missingness, Revisionen und Integrität | keine Capability nach Performance aktivieren; heutige Daten nie rückdatieren; keine minderwertige Ersatzquelle | nach R3 Daten-/Messlücken isoliert schließen und auditieren |
+| R5 – Discovery-v2 Contract Freeze | `BLOCKED_BY_SEQUENCE` | R4 abgeschlossen oder ehrlich begrenzt; Capability Report und Coverage Matrix vorhanden | Feature-, Source-, Missingness-, Outcome-, Seen-Data-, Kosten- und Split-Vertrag | 0 | neue Dataset-/Contract-/Code-/Capability-Fingerprints vor Outcomes | jede Familie genau `ACTIVE_PIT`, `ACTIVE_PIT_LIMITED_SCOPE`, `SHADOW`, `UNAVAILABLE` oder `STRUCTURAL_NOT_APPLICABLE`; bestehendes Quality-C-Gate unverändert | kein Freeze nach Ergebnissichtung; Missing nicht zu False/0 | alle v2-Verträge und Fingerprints unveränderlich persistieren |
+| R6 – Discovery v2 Development | `BLOCKED_BY_SEQUENCE` | R5 Freeze vollständig und Integritäts-/Replay-Pilot `PASS` | Horizon-spezifische 20/60/120/252-Populationen; Einzelfeatures/-familien; keine Massenkombination | 0 | neue Run-ID und neue append-only Stores; Fingerprints aus R5 | vollständiger vorab definierter deskriptiver Review und kanonisches C-/Robustheitsgate | keine Validation während Discovery; kein Gesamt-Score; keine Top-Auswahl nach Profit | Development vollständig ausführen und deskriptiv reviewen |
+| R7 – maximal drei v2-Challenger | `BLOCKED_BY_SEQUENCE` | R6 Review; höchstens drei fachlich plausible, nicht redundante C-Kandidaten | pro Kandidat eine einfache Featurefamilie oder einzelne Bedingung; Interaktion nur separat präregistriert | 0 von maximal 3 | je Version eigene Rule-, Scope-, Feature-, Dataset-, Entry-, Outcome-, Kosten-, Split- und Fingerprint-Freeze | Development-Gate → Validation; nur Validation-PASS → einmaliger Holdout | Validation-/Holdout-Fail terminal; keine Änderung nach Freeze; erster Holdout-PASS beendet das Programm | Kandidaten nach Evidenzqualität, Einfachheit und Nicht-Redundanz priorisieren |
+| R8 – begrenzte Research Reserve | `BLOCKED_CONDITIONAL` | kein Holdout-PASS in R1–R7; keine offenen validierbaren R7-Kandidaten; konkrete dokumentierte Informationslücke | maximal zwei Einzelhypothesen insgesamt aus genau begründeter Momentum-, Trend-, ROC- oder kleiner Candle-Reserve | 0 von maximal 2 | je Hypothese eigener KB-/Ledger-Eintrag, Mechanismus, Scope, Parameter, Attempt und Freeze | individuelle Development-/Validation-/Holdout-Gates | kein pauschaler Indikatorlauf, keine Grid Search, keine Auswahl nach Profit, kein Rettungstest | nur bei erfülltem fachlichem Trigger aktivieren; sonst direkt R9 |
+| R9 – Gesamtentscheidung und STOP | `BLOCKED_BY_SEQUENCE` | alle zulässigen Pfade terminal oder Early Success | vollständiges Ledger, Seen-Data-Register, Capability-/Coverage-Grenzen und Safety-Abschluss | keine neuen Attempts | sämtliche R0–R8-Artefakte und Fingerprints | genau einer der drei freigegebenen finalen Gesamtzustände | nach Finalstatus keine weitere automatische Trading-Forschung | finalen Abschlussbericht erzeugen, offene automatischen Strategietests pausieren und auf Nutzerreview warten |
+
+Kein anderer `READY`-Work-Request und keine außerhalb dieser Tabelle liegende Idee darf als Ersatz ausgewählt werden. Autorisierte signalunabhängige Collector dürfen weiterlaufen, sofern sie keinen echten Prozess-, Lock-, DB- oder Ressourcen-Konflikt verursachen.
+
+## Frühere Urlaubs-Workqueue – nicht mehr aktive Steuerkette
 
 - Queue-ID: `vacation-workqueue-2026-09-06-v1`
 - Planungsstatus: `U1_V7_R2_REVIEW_COMPLETE`; übrige Pakete unverändert

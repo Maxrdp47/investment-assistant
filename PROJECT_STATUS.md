@@ -2,16 +2,18 @@
 
 Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben stehen in [`ROADMAP.md`](ROADMAP.md). Dauerhafte Forschungsregeln stehen in [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Frühere Fassungen wurden unverändert nach [`docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md`](docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md) verschoben.
 
-## Current Truth – 2026-09-14
+## Current Truth – 2026-09-15
 
 ### Git und Dokumentation
 
-- Aktiver Recovery-Branch: `codex/multi-asset-development-v7-recovery`.
+- Aktiver Branch des endlichen Research-Programms: `codex/final-finite-research-program`; Ausgangs-HEAD ist der vollständig geprüfte v7-r2-Review-Commit `fb56ea820ec28befc57a67e091a18d9c19d77b72`.
+- Der Review-Stand wurde am 2026-09-15 ohne Divergenz per normalem Fast-Forward auf `origin/main` integriert. Er liegt damit nicht mehr nur auf dem Recovery-Branch.
 - Ausgangs-HEAD des Recovery-Auftrags: `9990fbf557b414a51ca450aabb2a89f278d00d47`.
 - Geprüfter Projekt-HEAD und Upstream vor dem v7-r2-Review-Commit: `30e26f2157e8a1b3eae761fd1cac73b71a462b92`.
 - Die Urlaubs-Workqueue `vacation-workqueue-2026-09-06-v1` ist dokumentiert, aber noch nicht gestartet.
 - Vor einem ausdrücklichen Startsignal wurden keine neue Funktion, kein Benchmark, kein Scan, kein Reprocessing-Lauf, kein Collector und keine Agenten-Wiederaufnahme gestartet.
-- Der endgültige Dokumentations-Commit ist der Commit, der diese Fassung enthält; der Abschlussbericht nennt seinen Hash und den CI-Stand.
+- Der Nutzer hat den endlichen Research-Programmzyklus `finite-research-program-2026-09-15-v1` von R0 bis spätestens R9 ausdrücklich gestartet. R0 ist abgeschlossen; R1 befindet sich im Vertrags- und Daten-Preflight. Noch wurde kein neuer Research-Run gestartet und kein Ergebnis betrachtet.
+- Der endgültige Programm-Commit ist der Commit, der die Abschlussfassung enthält; der Abschlussbericht nennt seinen Hash und den CI-Stand.
 - Der unmittelbar vorher getrennt abgeschlossene ENTRY-Handoff-Importer liegt in Commit `b1e3802b807649bc2cf871fa31ccf09fd8781cac`. Er gehört nicht zur Urlaubs-Queue und wurde nicht mit diesem Dokumentationspaket vermischt.
 
 ### Multi-Asset Development v6
@@ -126,9 +128,9 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 | Windows-Aufgabe | Zustand | Letzter belegter Lauf | Ergebnis | Bedeutung |
 |---|---|---|---:|---|
 | `InvestmentAssistant-MultiAssetDiscoveryV1-Development-v7-Recovery-r2` | deaktiviert | 2026-09-14 | 0 | v7-r2 terminal; kein erneuter Scanstart |
-| `InvestmentAssistant-MultiAssetDiscoveryV1-Development-v6-Chain` | aktiviert / bereit | 2026-09-06 03:54 | 2 | vorhandene fünfminütige Kette; Chain-State bleibt review-pausiert |
-| `InvestmentAssistant-FX-PIT-Observer` | aktiviert / bereit | 2026-09-05 21:45 | 0 | getrennter append-only Datenobserver, nächste reguläre Zeit 21:45 |
-| `InvestmentAssistantDailyForecasts` | aktiviert / bereit | 2026-09-05 22:30 | 0 | allgemeine Abendkette, nächste reguläre Zeit 22:30 |
+| `InvestmentAssistant-MultiAssetDiscoveryV1-Development-v6-Chain` | deaktiviert | 2026-09-13 21:24 | 2 | v6 bleibt `PAUSED_REQUIRES_REVIEW`; keine Wiederaufnahme |
+| `InvestmentAssistant-FX-PIT-Observer` | aktiviert / bereit | 2026-09-14 21:45 | 0 | getrennter append-only Datenobserver; letzter Lauf erfolgreich |
+| `InvestmentAssistantDailyForecasts` | aktiviert / bereit | 2026-09-14 22:30 | 0 | allgemeine Abendkette; letzter Lauf erfolgreich |
 | `InvestmentAssistant-MultiAssetDiscoveryV1-Development` | deaktiviert | 2026-09-03 14:40 | 267014 | alter Development-v5-Scheduler |
 | `InvestmentAssistantSwingResearchCampaign` | deaktiviert | 2026-08-28 13:10 | 0 | alte historische Kampagne |
 | `InvestmentAssistantSwingScan-asia` | deaktiviert | 2026-08-28 10:30 | 0 | Legacy-Swing |
@@ -160,7 +162,7 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 
 - Die Research Knowledge Base bleibt die append-only Quelle für Sources, Hypothesen, Experimente, Resultate und Work Requests.
 - Aktuell sind genau zwei Work Requests `READY`: Wasseraktien `3721453e-158f-42cb-8d76-a28f054b7d97` mit Capability `TESTABLE_NOW` und Gold/Silber `4fdfb983-ddbc-4178-bd36-7aa34267df0b` mit Capability `CODE_EXTENSION_REQUIRED`. Beide Experimente stehen auf `DRAFT`; für beide existiert noch kein Resultat.
-- Beide Aufträge sind in [`ROADMAP.md`](ROADMAP.md) als späterer Trading-Research-Backlog geordnet: zuerst Wasser, danach Gold/Silber. Sie laufen nicht, gehören weder zum abgeschlossenen v7-r2-Review noch zur Urlaubs-Workqueue und dürfen trotz erfüllter Development-/Review-Voraussetzung erst durch einen späteren ausdrücklichen Roadmap-Start aktiviert werden.
+- Beide Aufträge sind im am 2026-09-15 gestarteten endlichen R0–R9-Programm geordnet: zuerst Wasser, danach bei terminalem Wasser-Ergebnis Gold/Silber. Der Wasserauftrag ist weiterhin `READY`, sein Experiment `DRAFT` und besitzt noch kein Resultat; der R1-Preflight verändert diesen Zustand noch nicht.
 - Die Overnight-/Intraday-Renditetrennung ist nur `CONDITIONAL_RESEARCH_RESERVE`: Capability `ALREADY_AVAILABLE`, Experiment `PLANNED`, kein offener Work Request und kein Resultat. Ohne konkrete Informationslücke, vollständigen Vertrag und eigene Aktivierungsentscheidung ist sie nicht ausführbar.
 - `READY`, `DRAFT` oder technische Verfügbarkeit sind keine positive Evidenz und keine Validation-, Produktions- oder Handelsfreigabe.
 - Durch die Backlog-Dokumentation wurde kein Experiment, Research-Runner, Performance-Lauf, Validation- oder Holdout-Schritt gestartet.
@@ -172,6 +174,6 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 - Keine Strategie-, Score-, Ranking-, Risiko- oder Produktionsregel wurde durch die Dokumentationsbereinigung geändert.
 - Das langfristige Zielbild steht in [`SWINGTRADER_PRODUCT_ARCHITECTURE.md`](SWINGTRADER_PRODUCT_ARCHITECTURE.md) und ist keine Behauptung über aktuelle Funktionen.
 
-### Aktuelle nächste Entscheidung
+### Aktueller nächster Schritt
 
-Der v7-r2-Recovery-Lauf und sein fachlicher Development-Review sind abgeschlossen. Es gibt 0 robuste neue Hypothesenkandidaten; der Status wartet auf eine Planungsentscheidung. v6 und der ungestartete v7-r1-Vorbereitungsstand bleiben unverändert, und spätere Forschungs- und Handelsstufen bleiben geschlossen. Ein separater späterer Roadmap-Start darf die bestehende Reihenfolge Wasser → Gold/Silber → conditional Overnight verwenden, wurde hier aber nicht erteilt.
+R0 des ausdrücklich freigegebenen endlichen Research-Programms ist abgeschlossen: v7-r2 bleibt immutable negative/unklare Development-Evidenz mit 0 robusten Kandidaten, und der Review-Stand ist auf `origin/main` integriert. R1 ist ausschließlich im Preflight. Als Nächstes werden Wasser-Vertrag, outcome-unabhängige Splits, Kosten, Datenabdeckung, Selection Bias, Dependency-/Effective-N-Behandlung, Duplicate-Status und neue Fingerprints vor dem ersten Ergebnis eingefroren. Validation und Holdout bleiben bis zu einem belegten vorgelagerten PASS geschlossen; External, Forward, Paper, Shadow, Broker, Orders und Produktion bleiben für das gesamte Programm geschlossen.

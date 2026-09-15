@@ -2,6 +2,13 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-15 – Endlicher Research-Programmzyklus aktiviert
+
+- Der vollständig geprüfte v7-r2-Review-Stand wurde per normalem Fast-Forward auf `main` integriert; v7-r2 bleibt immutable und enthält 0 robuste Kandidaten.
+- Die Roadmap enthält jetzt die ausdrücklich freigegebene, strikt sequenzielle und endliche Steuerkette R0 bis spätestens R9 einschließlich Attempt-Limits, Gates, Kill-Regeln und Early-Success-/No-Edge-Stop.
+- R0 ist abgeschlossen. R1 Wasser befindet sich im Vertrags- und Daten-Preflight; es wurde noch kein neuer Research-Lauf gestartet, kein Resultat erzeugt und keine ungesehene Stufe geöffnet.
+- External, True Forward, Paper, Shadow, Broker, Orders, Live und Produktionsintegration bleiben geschlossen.
+
 ## 2026-09-13 – Trading-Research-Backlog geordnet
 
 - Wasser-Infrastruktur-Aktien wurden als erster später direkt ausführbarer Research-Auftrag nach Abschluss und Review des aktuellen Multi-Asset-Development-Pfads eingeordnet.

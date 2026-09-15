@@ -1,0 +1,127 @@
+{
+  "version": "water-infrastructure-research-2026.09.15-v1",
+  "program_id": "finite-research-program-2026-09-15-v1",
+  "program_block": "R1",
+  "attempt_count": 1,
+  "knowledge_base": {
+    "work_request_id": "3721453e-158f-42cb-8d76-a28f054b7d97",
+    "hypothesis_id": "78bcdab6-e542-4844-bc95-fbdf1b3b1f9b",
+    "experiment_id": "b2e990f1-16f9-4bad-a5ad-09184c4225c2"
+  },
+  "data": {
+    "source": "Yahoo Finance via yfinance",
+    "source_semantics": "versioned retrieval snapshot; no claim of native bitemporal vendor history",
+    "symbols": ["XYL", "BMI", "PNR", "SPY", "PHO"],
+    "treatment_symbols": ["XYL", "BMI", "PNR"],
+    "benchmark_symbols": ["SPY", "PHO"],
+    "start": "2010-01-01",
+    "end_exclusive": "2026-08-24",
+    "interval": "1d",
+    "auto_adjust": true,
+    "repair": false,
+    "keepna": true,
+    "missing_sessions_forward_filled": false,
+    "invalid_rows_imputed": false,
+    "current_identity_used_as_historical_feature": false
+  },
+  "splits": {
+    "development": ["2010-01-01", "2017-12-31"],
+    "validation": ["2018-01-01", "2021-12-31"],
+    "holdout": ["2022-01-01", "2026-08-23"]
+  },
+  "primary_rule": {
+    "drawdown_from_prior_252_close_high_lte": -0.15,
+    "breakout_close_above_prior_n_close_high": 60,
+    "first_cross_required": true,
+    "signal_after_completed_close": true,
+    "entry": "next available session open",
+    "outcome": "close of the Hth completed session including entry session",
+    "horizons": [5, 10, 20, 60]
+  },
+  "sensitivity_rules": [
+    {"id": "drawdown_10_breakout_60", "drawdown": -0.10, "breakout_days": 60},
+    {"id": "drawdown_20_breakout_60", "drawdown": -0.20, "breakout_days": 60},
+    {"id": "drawdown_15_breakout_40", "drawdown": -0.15, "breakout_days": 40},
+    {"id": "drawdown_15_breakout_120", "drawdown": -0.15, "breakout_days": 120}
+  ],
+  "controls": {
+    "same_date_benchmarks": ["SPY", "PHO"],
+    "buy_and_hold_by_treatment_symbol": true,
+    "matched_non_signal": {
+      "one_per_signal": true,
+      "same_symbol": true,
+      "same_calendar_year": true,
+      "same_spy_regime": true,
+      "nearest_prior_known_realized_volatility_20": true,
+      "outcome_used_for_matching": false,
+      "reuse_allowed": false
+    },
+    "equal_weight_water_basket": {
+      "members": ["XYL", "BMI", "PNR"],
+      "weights": [0.3333333333333333, 0.3333333333333333, 0.3333333333333333],
+      "construction": "equal-weight normalized adjusted OHLC on common sessions; no member selection"
+    }
+  },
+  "costs": {
+    "version": "swing-execution-cost-2026.08.10-v1",
+    "equity_one_way_bps": 9.0,
+    "etf_one_way_bps": 7.0,
+    "basket_one_way_bps": 9.0,
+    "entry_price_multiplier": "1 + one_way_bps/10000",
+    "exit_price_multiplier": "1 - one_way_bps/10000",
+    "gross_and_net_reported_separately": true
+  },
+  "uncertainty": {
+    "method": "deterministic issuer-year cluster bootstrap of primary 20-session net returns",
+    "seed": 20260915,
+    "replicates": 2000,
+    "confidence_level": 0.95,
+    "fixed_rule_year_slices_are_walk_forward_diagnostics_not_refits": true
+  },
+  "development_gate": {
+    "validity_contract": "swing-research-report-validity-2026.08.25-v2",
+    "minimum_raw_treatment_n": 200,
+    "minimum_raw_control_n": 200,
+    "minimum_effective_treatment_n": 100,
+    "minimum_effective_control_n": 100,
+    "minimum_group_share": 0.01,
+    "effective_n": "issuer-specific non-overlapping 60-session outcome-window clusters; basket excluded from gate",
+    "required_primary_horizon": 20,
+    "robustness_criteria": [
+      "validity_gate_pass",
+      "net_expectancy_positive",
+      "net_profit_factor_above_one",
+      "matched_control_delta_positive",
+      "alpha_vs_spy_positive",
+      "alpha_vs_pho_positive",
+      "positive_in_at_least_60pct_of_evaluated_years",
+      "no_single_year_above_50pct_absolute_result_contribution",
+      "all_predeclared_one_factor_sensitivities_non_negative"
+    ],
+    "all_criteria_required": true,
+    "underpowered_is_not_support": true
+  },
+  "stage_authorization": {
+    "development": true,
+    "validation_only_after_development_pass_and_freeze": true,
+    "holdout_only_after_validation_pass": true,
+    "external": false,
+    "forward": false,
+    "paper": false,
+    "shadow": false,
+    "broker": false,
+    "orders": false,
+    "production": false
+  },
+  "runtime": {
+    "dataset_store": "runtime/water_infrastructure_research_v1_prices.sqlite3",
+    "result_store": "runtime/water_infrastructure_research_v1.sqlite3",
+    "process_lock": "runtime/water_infrastructure_research_v1.lock",
+    "global_research_lock": "runtime/swing_walk_forward_research.lock",
+    "artifact_root": "runtime/research_exports/water_infrastructure_research_v1",
+    "checkpoint_resume": true,
+    "append_only": true,
+    "duplicate_protection": true,
+    "terminal_no_op": true
+  }
+}

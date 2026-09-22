@@ -129,7 +129,22 @@ def build_r4b_features(
     ).where(benchmark_available)
     for horizon in contract["return_lookbacks_sessions"]:
         result[f"asset_return_{horizon}"] = close.div(close.shift(horizon)).sub(1)
-        benchmark_return = benchmark["Close"].div(benchmark["Close"].shift(horizon)).sub(1)
+        if "SegmentId" in benchmark:
+            segment = pd.to_numeric(benchmark["SegmentId"], errors="coerce")
+            if (
+                segment.isna().any()
+                or (segment < 0).any()
+                or (segment % 1 != 0).any()
+                or not segment.astype(int).is_monotonic_increasing
+            ):
+                raise ValueError("R4-B invalid benchmark segment identifiers")
+            benchmark_return = benchmark["Close"].div(
+                benchmark.groupby(segment.astype(int), sort=False)["Close"].shift(horizon)
+            ).sub(1)
+        else:
+            benchmark_return = benchmark["Close"].div(
+                benchmark["Close"].shift(horizon)
+            ).sub(1)
         aligned = pd.Series(
             benchmark_return.to_numpy(dtype=float)[safe_positions], index=asset.index
         ).where(benchmark_available)

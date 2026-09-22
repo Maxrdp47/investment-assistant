@@ -1,0 +1,81 @@
+{
+  "version": "multi-asset-discovery-v2-r6-review-2026.09.22-v1",
+  "program_id": "finite-research-program-2026-09-15-v1",
+  "program_block": "R6",
+  "run_id": "mad2-development-v2-20260922-v1",
+  "research_split": "development",
+  "seen_period": ["2016-01-01", "2021-12-31"],
+  "analysis_role": "DESCRIPTIVE_ASSOCIATION_NOT_TRADING_STRATEGY",
+  "continuous_features": [
+    {"name": "core.return_20", "family": "PRICE_RETURNS"},
+    {"name": "core.return_60", "family": "MOMENTUM_TREND_VOLATILITY"},
+    {"name": "core.rsi_14", "family": "MOMENTUM_TREND_VOLATILITY"},
+    {"name": "core.atr_pct", "family": "MOMENTUM_TREND_VOLATILITY"},
+    {"name": "core.volatility_20", "family": "MOMENTUM_TREND_VOLATILITY"},
+    {"name": "core.volatility_60", "family": "MOMENTUM_TREND_VOLATILITY"},
+    {"name": "core.volume_ratio_20", "family": "REPORTED_VOLUME_RELATIVE"},
+    {"name": "core.close_vs_ema20_pct", "family": "MOMENTUM_TREND_VOLATILITY"},
+    {"name": "core.ema20_vs_ema50_pct", "family": "MOMENTUM_TREND_VOLATILITY"},
+    {"name": "core.safe_zone_a_distance_pct", "family": "SUPPORT_RESISTANCE_GEOMETRY"},
+    {"name": "core.safe_zone_b_distance_pct", "family": "SUPPORT_RESISTANCE_GEOMETRY"},
+    {"name": "core.safe_zone_c_distance_pct", "family": "SUPPORT_RESISTANCE_GEOMETRY"},
+    {"name": "r4b.relative_momentum_20", "family": "RELATIVE_STRENGTH_GLOBAL_ACWI"},
+    {"name": "r4b.relative_momentum_60", "family": "RELATIVE_STRENGTH_GLOBAL_ACWI"},
+    {"name": "r4b.relative_momentum_120", "family": "RELATIVE_STRENGTH_GLOBAL_ACWI"},
+    {"name": "r4b.resistance_distance_prior20_pct", "family": "SUPPORT_RESISTANCE_GEOMETRY"},
+    {"name": "r4b.support_distance_prior20_pct", "family": "SUPPORT_RESISTANCE_GEOMETRY"},
+    {"name": "r4b.pullback_from_prior20_high_pct", "family": "CONFIRMED_STRUCTURE_CONTEXT"},
+    {"name": "r4b.consolidation_width_ratio_20_60", "family": "CONFIRMED_STRUCTURE_CONTEXT"},
+    {"name": "r4b.trend_efficiency_20", "family": "CONFIRMED_STRUCTURE_CONTEXT"},
+    {"name": "r4b.trend_efficiency_60", "family": "CONFIRMED_STRUCTURE_CONTEXT"},
+    {"name": "r4b.breakout_above_prior20_high", "family": "CONFIRMED_STRUCTURE_CONTEXT"},
+    {"name": "r4b.confirmed_higher_high", "family": "CONFIRMED_STRUCTURE_CONTEXT"},
+    {"name": "r4b.confirmed_higher_low", "family": "CONFIRMED_STRUCTURE_CONTEXT"},
+    {"name": "r4h.relative_to_btc_20", "family": "CRYPTO_BTC_RELATIVE"},
+    {"name": "r4h.relative_to_btc_60", "family": "CRYPTO_BTC_RELATIVE"},
+    {"name": "r4h.asset_volatility_20", "family": "MOMENTUM_TREND_VOLATILITY"},
+    {"name": "r4h.btc_lagged_volatility_20", "family": "CRYPTO_BTC_RELATIVE"},
+    {"name": "r4h.reported_volume_ratio_20", "family": "REPORTED_VOLUME_RELATIVE"},
+    {"name": "r4h.close_vs_prior20_high_pct", "family": "CONFIRMED_STRUCTURE_CONTEXT"},
+    {"name": "r4h.trend_efficiency_20", "family": "CONFIRMED_STRUCTURE_CONTEXT"}
+  ],
+  "excluded_from_new_candidate_search": {
+    "core.overnight_return": "R3 completed the one allowed overnight/intraday attempt with no robust incremental value",
+    "core.intraday_return": "R3 completed the one allowed overnight/intraday attempt with no robust incremental value",
+    "core.gap_atr": "R3 completed the one allowed overnight/intraday attempt with no robust incremental value",
+    "shadow_and_unavailable_families": "R5 forbids materializing absent historical PIT values"
+  },
+  "outcomes": {
+    "checkpoints": [20, 60, 120, 252],
+    "metrics": ["return_pct", "mfe_pct", "mae_pct"],
+    "checkpoint_population": "only cases containing the exact fully observed checkpoint",
+    "strategy_net_metrics_allowed": false
+  },
+  "method": {
+    "association": "streaming Pearson correlation as descriptive continuous-association diagnostic",
+    "stability_slices": ["calendar_year", "asset_class", "parent_market_regime"],
+    "threshold_search": false,
+    "quantile_search": false,
+    "parameter_search": false,
+    "feature_combinations": false,
+    "profit_ranking": false,
+    "p_value_selection": false,
+    "minimum_20_50_is_release_gate": false
+  },
+  "candidate_gate": {
+    "quality_dimensions": ["PIT", "APPLICABILITY", "COVERAGE", "MISSINGNESS", "SUFFICIENT_CASES", "DEPENDENCIES", "TIME_STABILITY", "ASSET_SCOPE_STABILITY", "REGIME_STABILITY", "OUTCOME_DIMENSION_ROBUSTNESS", "NO_SINGLE_YEAR_DOMINANCE", "REDUNDANCY", "MULTIPLE_TESTING", "NO_CONSTRUCTION_ARTIFACT"],
+    "all_dimensions_must_pass": true,
+    "unknown_dependency_may_not_pass": true,
+    "historical_verified_issuer_effective_n": 0,
+    "automatic_candidates_maximum": 3,
+    "good_aggregate_alone_is_insufficient": true
+  },
+  "stage_safety": {
+    "validation_opened": false,
+    "holdout_opened": false,
+    "external_opened": false,
+    "forward_opened": false,
+    "paper_opened": false,
+    "shadow_execution_opened": false
+  }
+}

@@ -2,6 +2,11 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R6-Ausführung vor Full Development implementiert
+
+- Für `mad2-development-v2-20260922-v1` sind ein dünnes, append-only Delta-/Referenz-Speichermodell, 60.432 Asset×Quartal-Work-Units für 2.518 Equity-/ETF-/Crypto-Einheiten, sechs Rechenworker bei exakt einem SQLite-Schreiber, Checkpoint/Resume, Parent-Receipt-Prüfung, reale Produktions-/Research-Locks und ein deterministischer Drei-Asset-Pilot implementiert. Die zwei rund 10-GB-v7-r2-Elternstores bleiben unverändert und werden nicht blind dupliziert.
+- Der outcome-blinde Review-Vertrag benennt vor dem Full Run 31 Einzelfeatures und die getrennten 20/60/120/252-Populationen. Schwellen-/Grid-/Kombinations-/Profit-Suche bleibt gesperrt; R3-Overnight/Intraday wird nicht erneut als Kandidat getestet. ACWI-Renditen dürfen ausdrücklich keine Kontinuitätssegmentgrenze überschreiten. R6 ist noch nicht gestartet und wartet auf vollständige lokale Prüfung, grünes CI sowie Pilot-/Replay-/Integrity-PASS.
+
 ## 2026-09-22 – R5 Discovery-v2-Vertrag vor Outcomes eingefroren
 
 - Capability Matrix, Quellen, Fingerprints, Missingness, separate 20/60/120/252-Populationen, Seen-Data, Kostenstatus, Stage-Schutz, Quality-C-Gate und R6-Ausführungsschutz sind maschinenlesbar eingefroren. Der Validator prüft 19 Familien und sämtliche lokale Provenienz fail-closed. Contract `0e67967f5d26b0d6801270fea29188d71f6288ad8ca34a3003e384a81fccd241`; keine v2-Outcomes, Validation oder Holdout geöffnet. [R5-Freeze-Bericht](R5_MULTI_ASSET_DISCOVERY_V2_FREEZE_2026-09-22.md).

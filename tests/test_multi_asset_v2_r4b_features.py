@@ -93,3 +93,19 @@ def test_invalid_ohlc_and_unfrozen_benchmark_fail_closed(tmp_path) -> None:
     path.write_text(__import__("json").dumps(bad_contract), encoding="utf-8")
     with pytest.raises(ValueError, match="benchmark scope"):
         build_r4b_features(bars, benchmark, contract_path=path)
+
+
+def test_benchmark_return_never_crosses_segment_boundary() -> None:
+    bars = _bars(190)
+    benchmark = pd.DataFrame(
+        {"Close": np.linspace(80, 90, len(bars)), "SegmentId": 0},
+        index=bars.index,
+    )
+    boundary_position = 80
+    benchmark.iloc[boundary_position:, benchmark.columns.get_loc("SegmentId")] = 1
+
+    features = build_r4b_features(bars, benchmark)
+
+    first_signal_after_boundary = bars.index[boundary_position + 1]
+    assert pd.isna(features.loc[first_signal_after_boundary, "benchmark_return_20"])
+    assert pd.notna(features.loc[bars.index[boundary_position + 21], "benchmark_return_20"])

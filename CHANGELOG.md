@@ -2,6 +2,12 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R1 Wasser-Research terminal dokumentiert
+
+- Der isolierte, vor dem Ergebnis eingefrorene Wasser-Versuch wurde auf dem versionierten Fünf-Symbol-Datensnapshot ausgeführt. Development ist `DEVELOPMENT_INCONCLUSIVE` (`UNDERPOWERED`: 7 Primärfälle, Effective N 3/4). Es gab keinen Challenger, keine Validation und keinen Holdout.
+- Der append-only Research-Review und die Knowledge-Base-Verknüpfung sind abgeschlossen. Ein numerisches Kostenfeld an der KB-Schnittstelle wurde nach einem Übergabeformatfehler korrigiert; der persistierte Forschungsbefund wurde nicht verändert oder neu berechnet.
+- R2 Gold/Silber ist in der Roadmap ausschließlich zum Futures-Preflight geöffnet. Keine Strategie- oder Produktionsregel wurde geändert.
+
 ## 2026-09-15 – Endlicher Research-Programmzyklus aktiviert
 
 - Der vollständig geprüfte v7-r2-Review-Stand wurde per normalem Fast-Forward auf `main` integriert; v7-r2 bleibt immutable und enthält 0 robuste Kandidaten.

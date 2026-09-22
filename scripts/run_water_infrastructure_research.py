@@ -141,19 +141,18 @@ def _complete_kb(
         "interpretation": (
             "Die unveränderte 15%-/60-Sitzungs-Primärregel wurde mit XYL, BMI und PNR "
             "sowie SPY/PHO-, Matched-Control-, Buy-and-Hold- und Korbkontrollen geprüft. "
-            f"Terminale Entscheidung: {decision}. Ein Fail oder Underpowered-Resultat wird nicht retuned."
+            f"Terminale Entscheidung: {decision}. Ein Fail oder Underpowered-Resultat wird nicht retuned. "
+            "Der numerische Kostenwert ist der aggregierte Roundtrip-Abschlag der Aktien "
+            "(zwei mal 9 Basispunkte); separate Slippage ist darin nicht identifizierbar. "
+            "Der vollständige Ausführungskostenvertrag steht im Research-Artefakt."
         ),
         "sample_size": int(treatment.get("n") or 0),
         "hit_rate": treatment.get("hit_rate"),
         "expectancy": treatment.get("mean"),
         "profit_factor": treatment.get("profit_factor"),
         "drawdown": treatment.get("max_sequence_drawdown"),
-        "costs": dict(contract["costs"]),
-        "slippage": {
-            "included_in_one_way_bps": True,
-            "equity_one_way_bps": dict(contract["costs"])["equity_one_way_bps"],
-            "etf_one_way_bps": dict(contract["costs"])["etf_one_way_bps"],
-        },
+        "costs": 2.0 * float(dict(contract["costs"])["equity_one_way_bps"]) / 10_000.0,
+        "slippage": None,
         "in_sample": development,
         "validation": validation,
         "out_of_sample": holdout,

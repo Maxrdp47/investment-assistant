@@ -2,7 +2,7 @@
 
 Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben stehen in [`ROADMAP.md`](ROADMAP.md). Dauerhafte Forschungsregeln stehen in [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Frühere Fassungen wurden unverändert nach [`docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md`](docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md) verschoben.
 
-## Current Truth – 2026-09-15
+## Current Truth – 2026-09-22
 
 ### Git und Dokumentation
 
@@ -12,7 +12,7 @@ Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben s
 - Geprüfter Projekt-HEAD und Upstream vor dem v7-r2-Review-Commit: `30e26f2157e8a1b3eae761fd1cac73b71a462b92`.
 - Die Urlaubs-Workqueue `vacation-workqueue-2026-09-06-v1` ist dokumentiert, aber noch nicht gestartet.
 - Vor einem ausdrücklichen Startsignal wurden keine neue Funktion, kein Benchmark, kein Scan, kein Reprocessing-Lauf, kein Collector und keine Agenten-Wiederaufnahme gestartet.
-- Der Nutzer hat den endlichen Research-Programmzyklus `finite-research-program-2026-09-15-v1` von R0 bis spätestens R9 ausdrücklich gestartet. R0 ist abgeschlossen; R1 befindet sich im Vertrags- und Daten-Preflight. Noch wurde kein neuer Research-Run gestartet und kein Ergebnis betrachtet.
+- Der Nutzer hat den endlichen Research-Programmzyklus `finite-research-program-2026-09-15-v1` von R0 bis spätestens R9 ausdrücklich gestartet. R0 und der einzelne R1-Wasser-Versuch sind abgeschlossen; R2 Gold/Silber befindet sich ausschließlich im Futures-Preflight.
 - Der endgültige Programm-Commit ist der Commit, der die Abschlussfassung enthält; der Abschlussbericht nennt seinen Hash und den CI-Stand.
 - Der unmittelbar vorher getrennt abgeschlossene ENTRY-Handoff-Importer liegt in Commit `b1e3802b807649bc2cf871fa31ccf09fd8781cac`. Er gehört nicht zur Urlaubs-Queue und wurde nicht mit diesem Dokumentationspaket vermischt.
 
@@ -161,8 +161,8 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 ### Knowledge Base
 
 - Die Research Knowledge Base bleibt die append-only Quelle für Sources, Hypothesen, Experimente, Resultate und Work Requests.
-- Aktuell sind genau zwei Work Requests `READY`: Wasseraktien `3721453e-158f-42cb-8d76-a28f054b7d97` mit Capability `TESTABLE_NOW` und Gold/Silber `4fdfb983-ddbc-4178-bd36-7aa34267df0b` mit Capability `CODE_EXTENSION_REQUIRED`. Beide Experimente stehen auf `DRAFT`; für beide existiert noch kein Resultat.
-- Beide Aufträge sind im am 2026-09-15 gestarteten endlichen R0–R9-Programm geordnet: zuerst Wasser, danach bei terminalem Wasser-Ergebnis Gold/Silber. Der Wasserauftrag ist weiterhin `READY`, sein Experiment `DRAFT` und besitzt noch kein Resultat; der R1-Preflight verändert diesen Zustand noch nicht.
+- Der Wasser-Work-Request `3721453e-158f-42cb-8d76-a28f054b7d97` ist `COMPLETED` mit Result-ID `99197886-6ff7-4e37-a811-73ee4abe9b1a`. Der Gold/Silber-Work-Request `4fdfb983-ddbc-4178-bd36-7aa34267df0b` ist weiterhin `READY` und hat noch kein Resultat.
+- R1 Development ist terminal `DEVELOPMENT_INCONCLUSIVE`: 7 Primärfälle, Effective N 3/4, Validity Gate `UNDERPOWERED`; Validation und Holdout wurden nicht geöffnet. Der [R1-Review](WATER_INFRASTRUCTURE_R1_REVIEW_2026-09-22.md) dokumentiert Scope, Kosten, Datenlimit und Fingerprints. R2 darf nun isoliert vorgeprüft werden; dessen Futures-Semantik ist noch nicht bestätigt.
 - Die Overnight-/Intraday-Renditetrennung ist nur `CONDITIONAL_RESEARCH_RESERVE`: Capability `ALREADY_AVAILABLE`, Experiment `PLANNED`, kein offener Work Request und kein Resultat. Ohne konkrete Informationslücke, vollständigen Vertrag und eigene Aktivierungsentscheidung ist sie nicht ausführbar.
 - `READY`, `DRAFT` oder technische Verfügbarkeit sind keine positive Evidenz und keine Validation-, Produktions- oder Handelsfreigabe.
 - Durch die Backlog-Dokumentation wurde kein Experiment, Research-Runner, Performance-Lauf, Validation- oder Holdout-Schritt gestartet.
@@ -176,4 +176,4 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 
 ### Aktueller nächster Schritt
 
-R0 des ausdrücklich freigegebenen endlichen Research-Programms ist abgeschlossen: v7-r2 bleibt immutable negative/unklare Development-Evidenz mit 0 robusten Kandidaten, und der Review-Stand ist auf `origin/main` integriert. R1 ist ausschließlich im Preflight. Als Nächstes werden Wasser-Vertrag, outcome-unabhängige Splits, Kosten, Datenabdeckung, Selection Bias, Dependency-/Effective-N-Behandlung, Duplicate-Status und neue Fingerprints vor dem ersten Ergebnis eingefroren. Validation und Holdout bleiben bis zu einem belegten vorgelagerten PASS geschlossen; External, Forward, Paper, Shadow, Broker, Orders und Produktion bleiben für das gesamte Programm geschlossen.
+R0 bleibt abgeschlossen und v7-r2 immutable mit 0 robusten Kandidaten. R1 ist als unterpowerter Einzelversuch terminal, ohne Challenger und ohne spätere Stufen. Als Nächstes wird R2 Gold/Silber auf echte Futures-Datensemantik, Roll-/Adjustment-Regeln, Sessions, Kosten und PIT-Tauglichkeit geprüft, bevor ein separater Vertrag eingefroren oder ein Resultat erzeugt wird. External, Forward, Paper, Shadow, Broker, Orders und Produktion bleiben für das gesamte Programm geschlossen.

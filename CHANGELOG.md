@@ -2,6 +2,10 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R4-D/E/F lokale PIT-Quellen auditiert
+
+- Die vorhandenen Event- und COT-Stores wurden schreibgeschützt auf tatsächliche Verfügbarkeitszeitpunkte und Quellen geprüft. Nur 24 Forward-Firmenereignisse aus 2026, keine historisch verwendbaren Politikereignisse; COT-Reportdaten wurden lokal erst 2026 beobachtet. Für 2016–2021 sind Event/Politik/COT `SHADOW`, Makro-Vintages und vorab veröffentlichte Expectations `UNAVAILABLE`. Keine historischen Features oder Outcomes aktiviert. [Quellenaudit](R4_D_E_F_PIT_SOURCE_AUDIT_2026-09-22.md).
+
 ## 2026-09-22 – R4-C historisches Fundamentals-Gate
 
 - Ein CIK-gebundener, rein offline arbeitender SEC-Company-Facts-Parser bewahrt jährliche Filings und Amendments getrennt und setzt ein konservatives As-of-Gate ab dem Folgetag des Einreichungsdatums. Synthetische Kausalitätstests bestehen. Da weder ein versionierter lokaler SEC-Quellsnapshot noch ein historisch gültiger Join zu den Frozen-Equities vorliegt, bleibt die Fundamentals-Familie `SHADOW` mit 0 belegter historischer Coverage. Keine v2-Outcomes oder Regeln wurden geöffnet. [Capability-Bericht](R4_C_FUNDAMENTALS_CAPABILITY_2026-09-22.md).

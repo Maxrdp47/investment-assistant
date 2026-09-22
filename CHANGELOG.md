@@ -2,6 +2,12 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – Programm fortgesetzt; R3 einmalig abgeschlossen
+
+- Der Nutzerauftrag „weiter“ führte zur erneuten Prüfung des Master-Vertrags. Dessen „Sonst R3“ erlaubt die Fortsetzung nach dem R2-Daten-Gate. Die frühere globale Stop-Einordnung ist als historischer Zwischenstand überholt; R2-Rohbefunde und Blocker bleiben unverändert.
+- Der v7-r2-Review beantwortete den registrierten Overnight-/Intraday-Vertrag nicht vollständig. Ein einzelner [R3-Vertrag](OVERNIGHT_INTRADAY_R3_DEDUPE_2026-09-22.md) wurde vor Ergebnissichtung eingefroren und nach grünem CI über die unveränderte Equity-/ETF-PIT-Projektion mit Pilot, Resume, globalem Research-Lock und append-only Store ausgeführt.
+- Der [R3-Review](OVERNIGHT_INTRADAY_R3_REVIEW_2026-09-22.md) fand keinen stabilen inkrementellen Development-Zusammenhang des rollierenden Overnight-Bias gegenüber der einfachen Baseline. KB-Ergebnis idempotent verknüpft; keine Handelsregel, Validation, Holdout oder Produktionsänderung. Nächster Programmblock ist R4 Capability Expansion.
+
 ## 2026-09-22 – Endliches Research-Programm am R2-Daten-Gate gestoppt
 
 - R2 Gold/Silber wurde ausschließlich auf Quell- und Ausführbarkeit vorgeprüft. Die verfügbaren Yahoo-Futures-Proxies enthalten keine belegbare historische Kontrakt-/Roll-Provenienz; die getesteten alten Einzelkontrakte waren nicht verfügbar. Keine Strategieergebnisse, kein R2-Research-Freeze und kein späteres Datenfenster wurden erzeugt.

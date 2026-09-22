@@ -2,6 +2,11 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – Endliches Research-Programm am R2-Daten-Gate gestoppt
+
+- R2 Gold/Silber wurde ausschließlich auf Quell- und Ausführbarkeit vorgeprüft. Die verfügbaren Yahoo-Futures-Proxies enthalten keine belegbare historische Kontrakt-/Roll-Provenienz; die getesteten alten Einzelkontrakte waren nicht verfügbar. Keine Strategieergebnisse, kein R2-Research-Freeze und kein späteres Datenfenster wurden erzeugt.
+- Der R2-Work-Request ist mit konkretem Datenblocker `BLOCKED`; ein [Daten-Gate-Bericht](GOLD_SILVER_R2_DATA_GATE_2026-09-22.md) wurde mit dem DRAFT-Experiment referenziert. Der [technische Programmabschluss](FINITE_RESEARCH_PROGRAM_TECHNICAL_STOP_2026-09-22.md) hält R3–R9 geschlossen und kennzeichnet ausdrücklich, dass kein allgemeines No-Edge-Urteil möglich ist.
+
 ## 2026-09-22 – R1 Wasser-Research terminal dokumentiert
 
 - Der isolierte, vor dem Ergebnis eingefrorene Wasser-Versuch wurde auf dem versionierten Fünf-Symbol-Datensnapshot ausgeführt. Development ist `DEVELOPMENT_INCONCLUSIVE` (`UNDERPOWERED`: 7 Primärfälle, Effective N 3/4). Es gab keinen Challenger, keine Validation und keinen Holdout.

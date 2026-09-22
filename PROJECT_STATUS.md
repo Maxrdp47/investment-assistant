@@ -2,7 +2,7 @@
 
 Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben stehen in [`ROADMAP.md`](ROADMAP.md). Dauerhafte Forschungsregeln stehen in [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Frühere Fassungen wurden unverändert nach [`docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md`](docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md) verschoben.
 
-## Current Truth – 2026-09-22
+## Current Truth – 2026-09-23
 
 ### Git und Dokumentation
 
@@ -12,9 +12,20 @@ Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben s
 - Geprüfter Projekt-HEAD und Upstream vor dem v7-r2-Review-Commit: `30e26f2157e8a1b3eae761fd1cac73b71a462b92`.
 - Die Urlaubs-Workqueue `vacation-workqueue-2026-09-06-v1` ist dokumentiert, aber noch nicht gestartet.
 - Vor einem ausdrücklichen Startsignal wurden keine neue Funktion, kein Benchmark, kein Scan, kein Reprocessing-Lauf, kein Collector und keine Agenten-Wiederaufnahme gestartet.
-- Der Nutzer hat den endlichen Research-Programmzyklus `finite-research-program-2026-09-15-v1` von R0 bis spätestens R9 ausdrücklich gestartet und am 2026-09-22 mit „weiter“ fortgesetzt. R0 und der einzelne R1-Wasser-Versuch sind abgeschlossen. R2 Gold/Silber scheiterte **vor jedem Performance-Lauf** am Futures-Daten-/Methodik-Gate. Die frühere Einstufung als globaler technischer Stop ist überholt. R3 ist nach einem einzigen deskriptiven Development-Versuch terminal ohne robusten Zusatznutzen. R4-A–I sind outcome-frei abgeschlossen oder ehrlich begrenzt. R5 ist mit Contract `0e67967f5d26b0d6801270fea29188d71f6288ad8ca34a3003e384a81fccd241` vor jeder v2-Outcome-Betrachtung eingefroren; Smoke #60 für die getrennte Repository-/Runtime-Provenienzprüfung ist grün. R6 ist technisch implementiert, aber noch nicht gestartet: 2.518 Equity-/ETF-/Crypto-Einheiten, 60.432 Asset×Quartal-Work-Units, 6 Worker/1 Writer, neue append-only Feature-Delta-/Outcome-Referenz-Stores und ein vorab festgelegter 31-Feature-Review. Vor Full Development fehlen noch der grüne CI-Lauf des R6-Commits und der deterministische Drei-Asset-Pilot samt Replay-/Integrity-PASS. Validation/Holdout und R7–R9 bleiben geschlossen.
+- Der ausdrücklich freigegebene endliche Research-Programmzyklus `finite-research-program-2026-09-15-v1` ist terminal abgeschlossen. R0–R6 wurden innerhalb ihrer jeweiligen Gates abgeschlossen oder begrenzt; R2 blieb vor Performance an fehlender Futures-Kontrakt-/Roll-/Open-Provenienz blockiert. R6 lief nach grünem Smoke #61 und Pilot-/Replay-/Integrity-PASS mit 6 Workern/1 Writer vollständig durch. Der Final Audit ist `PASS`, der Review fand 0 robuste Quality-C-Kandidaten. R7 wurde nicht geöffnet, R8 aktivierte 0 Reserve-Hypothesen und R9 setzte `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM`. Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker und Orders blieben geschlossen.
 - Der endgültige Programm-Commit ist der Commit, der die Abschlussfassung enthält; der Abschlussbericht nennt seinen Hash und den CI-Stand.
 - Der unmittelbar vorher getrennt abgeschlossene ENTRY-Handoff-Importer liegt in Commit `b1e3802b807649bc2cf871fa31ccf09fd8781cac`. Er gehört nicht zur Urlaubs-Queue und wurde nicht mit diesem Dokumentationspaket vermischt.
+
+### R6 Discovery v2 und Programmabschluss
+
+- Run: `mad2-development-v2-20260922-v1`; 60.432/60.432 Receipts, davon 52.992 `COMPLETED`, 7.440 `SKIPPED`, 0 `FAILED`, 0 Retries. Feature- und Outcome-Referenzen: jeweils 2.356.553; 607.428 zensierte Fälle, 245.905 Fälle ohne verfügbares R-Ergebnis.
+- [Final Audit](R6_MULTI_ASSET_DISCOVERY_V2_FINAL_AUDIT_2026-09-22.md): `PASS`, Fingerprint `7a83cc352de0c69e47cf41a7659a9999225aa3a6884424751701e9311a8898b0`; SQLite-Quick-Checks `ok`, 0 FK-Fehler, 0 Duplikate, 0 Orphans, 0 Feature-Link-Abweichungen.
+- [Descriptive Development Report](R6_MULTI_ASSET_DISCOVERY_V2_DESCRIPTIVE_DEVELOPMENT_REPORT_2026-09-22.md): 2.356.553 Fälle, 31 vorab benannte Features, getrennte 20/60/120/252-Auswertungen; Fingerprint `4ee1cdb2193a0103618ffa6887d8da03f65030addaf93fb1231a1db639d46024`. Es wurden keine Schwellen, Rankings, Featurekombinationen oder Profit-basierte Auswahlen getestet.
+- [Completion Summary](R6_MULTI_ASSET_DISCOVERY_V2_COMPLETION_SUMMARY_2026-09-22.md): `R6_COMPLETE_NO_ROBUST_CANDIDATES_R7_NOT_OPENED`, Fingerprint `917bf73aac6c49bef06c292000d7d526c521e6a2342169ee3e2348d9749e7ce2`. Harte Grenze: historisch verifizierte Issuer-Dependencies Effective N = 0; 0 robuste Kandidaten.
+- [R8 Trigger-Review](FINITE_RESEARCH_PROGRAM_R8_TRIGGER_REVIEW_2026-09-22.md): `SKIPPED_NO_JUSTIFIED_RESERVE_TRIGGER`, 0/2 Reserve-Attempts, Fingerprint `15d052c53e10ede584092f86fc044f4d74880b5b278bc60518fa112c7129006e`. Kein technischer Reserveindikator kann die belegte Provenienzlücke schließen.
+- R9: `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM`, Fingerprint `4cef4088c6fcaf2eee0b8b52975ffe1f8c94e93aad1014d5dab11db484dcf16b`; 3 neue empirische Attempts insgesamt, 0 Validation- und 0 Holdout-Stufen. Das ist eine Aussage über das begrenzte freigegebene Programm, keine universelle Behauptung, dass kein Markt-Edge existiert.
+- Knowledge Base: Hypothese `3335b324-63d3-4f88-aa00-bccacdde761e` `REJECTED`; Experiment `b8d0072d-c05f-4eea-bebe-0fd5e39a33e6` `COMPLETED`; Resultat `043ac802-1712-4834-8d84-bdafcf230413` `inconclusive`. Der Wiederholungslauf war idempotent; KB-Quick-Check `ok`, 0 FK-Fehler.
+- Produktsoftware und Research-Infrastruktur bleiben aktiv. Ein validierter Trading-Edge ist nicht bestätigt. Automatische Strategiesuche ist pausiert; nur bereits autorisierte signalunabhängige Datensammler dürfen weiterlaufen.
 
 ### Multi-Asset Development v6
 
@@ -72,7 +83,7 @@ Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben s
 - Der fachliche Review ist in [`MULTI_ASSET_DISCOVERY_V7_R2_DEVELOPMENT_REVIEW_2026-09-14.md`](MULTI_ASSET_DISCOVERY_V7_R2_DEVELOPMENT_REVIEW_2026-09-14.md) abgeschlossen. Alle 2.356.553 Feature-/Outcome-Paare wurden read-only auf Identität geprüft; Control-, Feature- und Outcome-Store blieben nach Größe und Änderungszeit unverändert.
 - Review-Ergebnis: 0 `ROBUST_CANDIDATE_FOR_NEW_HYPOTHESIS`. Volatilität, RSI/Mean-Reversion, Sell-Zone-A-Distanz und Safe-Zone-Geometrie bleiben `INTERESTING_BUT_INSUFFICIENT`; Overnight/Gap/Intraday und Volume Ratio liefern keinen stabilen eigenständigen Zusatznutzen. Relative Strength, explizite HH/HL-/Konsolidierungs-/Breakout-/Pullback-Felder, Volatilitätsregime sowie Fundamentals/Event/Makro/Politik sind nicht ausreichend interpretierbar beziehungsweise nicht befüllt.
 - Dependency-Grenze: Alle 2.356.553 Fälle besitzen `dependency_status = UNKNOWN`; nach dem eingefrorenen Vertrag ergibt sich effektives N 0. Das Signaljahr 2021 ist nur zu 0,5199 % vollständig. FX besitzt 0 vollständige Development-Outcomes.
-- Finaler fachlicher Stand: `V7_R2_DEVELOPMENT_REVIEW_COMPLETE_AWAITING_HYPOTHESIS_DECISION`. Keine Hypothese, keine Folgeforschung und keine spätere Stufe wurde automatisch geöffnet; die Knowledge Base erhielt kein Strategieergebnis.
+- Historischer v7-r2-Stufenstand: `V7_R2_DEVELOPMENT_REVIEW_COMPLETE_AWAITING_HYPOTHESIS_DECISION`. Aus v7-r2 selbst wurde keine Hypothese und keine spätere Stufe automatisch geöffnet. Der danach getrennt freigegebene endliche R0–R9-Zyklus ist inzwischen terminal abgeschlossen; sein R6-Katalogeintrag ist oben separat dokumentiert.
 
 ### Development v5 und ältere Forschung
 
@@ -176,4 +187,4 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 
 ### Aktueller nächster Schritt
 
-R0 bleibt abgeschlossen und v7-r2 immutable mit 0 robusten Kandidaten. R1 ist als unterpowerter Einzelversuch terminal. R2 ist vor Research-Freeze/Development an der fehlenden überprüfbaren Kontrakt-/Roll-/Open-Provenienz blockiert. Der [einzige R3-Versuch](OVERNIGHT_INTRADAY_R3_REVIEW_2026-09-22.md) ist nach 2.297 Asset-/Listing-Einheiten abgeschlossen: medianes partielles r für 1/5/20 Sitzungen +0,0041/+0,0012/−0,0103, zeitlich instabil und nur auf bereits gesehenen Development-Daten. KB-Resultat `3cc7e3a9-47a9-4e01-a20a-fd4e1e6f43d1`, kein Challenger; Validation und Holdout ungeöffnet. R4-A–I ist outcome-frei vollständig und die Survivorship-/Dependency-Grenze dokumentiert. Der [R5-Freeze](R5_MULTI_ASSET_DISCOVERY_V2_FREEZE_2026-09-22.md) verankert die begrenzte Capability Matrix, zwei Frozen-Datasets, 19 Familien, eigene checkpoint-spezifische Populationen und neue R6-Stores/Run-ID; Validatorstatus lokal `PASS_R5_FREEZE_VALID`, Smoke #60 grün. R6 ist implementiert und wartet auf seinen eigenen Commit/CI sowie Pilot-/Replay-/Integrity-PASS; noch existiert kein Full-Run-Ergebnis. R7–R9, External, Forward, Paper, Shadow-Ausführung, Broker, Orders und Produktion bleiben geschlossen.
+Das endliche Programm R0–R9 ist mit `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM` abgeschlossen. Es existiert kein freigegebener nächster automatischer Strategietest. `next_step` ist `STOP_AWAIT_USER_REVIEW`. Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker, Orders und Produktionsstrategie blieben ungeöffnet beziehungsweise unverändert.

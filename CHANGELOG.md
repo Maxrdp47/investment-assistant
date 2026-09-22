@@ -2,6 +2,13 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-23 – Endliches Research-Programm R0–R9 abgeschlossen
+
+- R6 `mad2-development-v2-20260922-v1` wurde nach grünem CI sowie Pilot-/Replay-/Integrity-PASS vollständig mit 60.432/60.432 Receipts und 2.356.553 Fällen abgeschlossen. Der [Final Audit](R6_MULTI_ASSET_DISCOVERY_V2_FINAL_AUDIT_2026-09-22.md) ist `PASS`; der [Descriptive Development Report](R6_MULTI_ASSET_DISCOVERY_V2_DESCRIPTIVE_DEVELOPMENT_REPORT_2026-09-22.md) wertet alle 31 vorab benannten Einzelfeatures aus. Der [Completion Summary](R6_MULTI_ASSET_DISCOVERY_V2_COMPLETION_SUMMARY_2026-09-22.md) dokumentiert 0 robuste Kandidaten und ein ungeöffnetes R7.
+- Das verpflichtende Dependency-Gate scheiterte an historisch verifizierten Issuer-Dependencies Effective N = 0. Es wurde keine Schwellen-, Ranking-, Kombinations- oder Rettungssuche durchgeführt. Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker und Orders blieben geschlossen.
+- Der [R8 Trigger-Review](FINITE_RESEARCH_PROGRAM_R8_TRIGGER_REVIEW_2026-09-22.md) aktivierte 0 von maximal 2 Reserve-Hypothesen, weil technische Reserveindikatoren die belegte Provenienzlücke nicht schließen können. R9 setzte terminal `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM`; automatische Strategiesuche ist bis zum Nutzerreview pausiert, Produktsoftware und Research-Infrastruktur bleiben aktiv.
+- Der R6-Abschluss wurde idempotent in der Knowledge Base archiviert: Hypothese `3335b324-63d3-4f88-aa00-bccacdde761e` `REJECTED`, Experiment `b8d0072d-c05f-4eea-bebe-0fd5e39a33e6` `COMPLETED`, Resultat `043ac802-1712-4834-8d84-bdafcf230413` `inconclusive`.
+
 ## 2026-09-22 – R6-Ausführung vor Full Development implementiert
 
 - Für `mad2-development-v2-20260922-v1` sind ein dünnes, append-only Delta-/Referenz-Speichermodell, 60.432 Asset×Quartal-Work-Units für 2.518 Equity-/ETF-/Crypto-Einheiten, sechs Rechenworker bei exakt einem SQLite-Schreiber, Checkpoint/Resume, Parent-Receipt-Prüfung, reale Produktions-/Research-Locks und ein deterministischer Drei-Asset-Pilot implementiert. Die zwei rund 10-GB-v7-r2-Elternstores bleiben unverändert und werden nicht blind dupliziert.

@@ -2,6 +2,10 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R4-C historisches Fundamentals-Gate
+
+- Ein CIK-gebundener, rein offline arbeitender SEC-Company-Facts-Parser bewahrt jährliche Filings und Amendments getrennt und setzt ein konservatives As-of-Gate ab dem Folgetag des Einreichungsdatums. Synthetische Kausalitätstests bestehen. Da weder ein versionierter lokaler SEC-Quellsnapshot noch ein historisch gültiger Join zu den Frozen-Equities vorliegt, bleibt die Fundamentals-Familie `SHADOW` mit 0 belegter historischer Coverage. Keine v2-Outcomes oder Regeln wurden geöffnet. [Capability-Bericht](R4_C_FUNDAMENTALS_CAPABILITY_2026-09-22.md).
+
 ## 2026-09-22 – R4-B begrenzte PIT-Merkmale vorbereitet
 
 - Ein getrennter, outcome-freier Featurepass für globales ACWI-Relative-Momentum und explizite bestätigte Preisstruktur wurde implementiert und mit kausalen Präfix-Tests geprüft. Vor dem Freeze wurde ein gleichdatiger ACWI-Schluss wegen möglicher Zeitzonen-Leakage durch einen streng früheren, höchstens fünf Tage alten Schluss ersetzt. Region und Sektor wurden nicht rückdatiert; kein Filter oder Strategy-Score aktiviert. [Capability-Bericht](R4_B_RELATIVE_STRUCTURE_CAPABILITY_2026-09-22.md).

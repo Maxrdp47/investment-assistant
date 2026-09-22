@@ -2,6 +2,10 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R4-I Survivorship-Grenze und R4-Abschluss
+
+- Der aktuelle Frozen Scope wurde gegen seinen 2026er Auswahlzeitpunkt auditiert. Historische Index-Constituents, Delistings, Pleiten, Vorgängerbeziehungen und ausgeschiedene Crypto-Assets sind nicht versioniert vorhanden. Die 2016–2021-Kurse bilden deshalb nur ein current-curated Panel; Survivorship-Richtung und -Größe bleiben unbekannt. R4-A–I ist ohne v2-Outcomes abgeschlossen beziehungsweise ehrlich begrenzt. [R4-I-Audit](R4_I_SURVIVORSHIP_UNIVERSE_AUDIT_2026-09-22.md).
+
 ## 2026-09-22 – R4-H Crypto-Capability begrenzt vorbereitet
 
 - Ein neuer outcome-freier, segment-sicherer Featurevertrag berechnet auf eingefrorenen Crypto-OHLCV ausschließlich kausale, um einen UTC-Tag verzögerte BTC-Relative-Renditen, Volatilität, gemeldetes Relative-Volume und einfache kontinuierliche Strukturwerte. Der read-only BTC/ETH-Pilot und gezielte Kausalitätstests bestehen. Dominanz und On-Chain bleiben `UNAVAILABLE`; keine Crypto-Regel oder neue Teststufe aktiviert. [Capability-Bericht](R4_H_CRYPTO_CAPABILITY_2026-09-22.md).

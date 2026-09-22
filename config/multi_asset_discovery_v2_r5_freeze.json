@@ -1,0 +1,190 @@
+{
+  "version": "multi-asset-discovery-v2-r5-freeze-2026.09.22-v1",
+  "program_id": "finite-research-program-2026-09-15-v1",
+  "program_block": "R5",
+  "freeze_status": "FROZEN_NO_OUTCOMES_OPENED",
+  "frozen_after_r4_commit": "28ba5d141af176c8d93383ba9fd5e22d5bb51a06",
+  "research_objective": "Which point-in-time known states are robustly associated with attractive later upside paths relative to structural risk?",
+  "research_role": "DEVELOPMENT_DISCOVERY_NOT_TRADING_STRATEGY",
+  "analysis_resolution": "COMPLETED_DAILY_BARS_ONLY",
+  "market_scopes": ["EQUITIES", "ETF", "CRYPTO"],
+  "excluded_market_scopes": {
+    "FX": "FX_HISTORICAL_DISCOVERY_NOT_TESTABLE",
+    "FUTURES": "NO_VERIFIED_CONTRACT_ROLL_AND_OPEN_PROVENANCE"
+  },
+  "parent_semantics": {
+    "scientific_contract_fingerprint": "bedf1c9297f1a5b409e13c78b5fc5f41eb33912ffb79fe711b0d3009d478a9d2",
+    "recovery_contract_fingerprint": "77cbb53de9a61fb9c68cc3169d2d14da20c6d38b2e669a870c804ec91b783ee5",
+    "v7_recovery_contract_sha256": "45480a2c4a4ca41bd580fe0e3f466065bdb8358531e915334d1c2cc39d459506",
+    "v6_scientific_contract_sha256": "8f67337c6e45eba6ebd8a749b38e4774503d7ead0b1a87253d2756a7595d7283",
+    "unchanged_roots": [
+      "analysis_resolution",
+      "asset_class_analysis",
+      "candidate_generation",
+      "dependency_contract",
+      "deterioration_contract",
+      "lifecycle",
+      "outcome_contract",
+      "point_in_time",
+      "safe_zone_contract",
+      "sell_zone_contract",
+      "stage_contract"
+    ],
+    "outcome_contract_fingerprint": "8078297c9a8ebe62ecd7a0ae5f1f65b27f3e22df9ba8214c044b8356e5be020c",
+    "safe_zone_fingerprint": "6293908689d98a5f8c5c310315c6a26d2c02ede322356468244d8092ab2b16ed",
+    "stage_split_legacy_reference_id": "e86c880c780f1864387316a9229103615c5d80ee7be2bc92d3c17b1362d2c9e",
+    "gap_policy_fingerprint": "7f9510c1147b88c71603bb4c77c91b529b801b5dce6649ba040590a9152c176f"
+  },
+  "sources": {
+    "equity_etf": {
+      "version": "equity-etf-historical-pit-2026.09.03-v1",
+      "dataset_fingerprint": "321531c482d844df4d5513b58646b3f41553f47a7b2276517cb8473886c298d6",
+      "scope": "CURRENT_CURATED_FROZEN_PANEL_2016_2021",
+      "survivorship_status": "UNKNOWN_NOT_QUANTIFIABLE"
+    },
+    "crypto": {
+      "version": "crypto-historical-pit-2026.09.05-v1",
+      "dataset_fingerprint": "475b78ee3dd0a45371b6dc0448b9d915d0a879dadabe4c2d385573fd1fe6bf91",
+      "scope": "CURRENT_CURATED_FROZEN_PANEL_2016_2021",
+      "survivorship_status": "UNKNOWN_NOT_QUANTIFIABLE"
+    },
+    "identity": {
+      "version": "research-identity-registry-2026.08.30-multisource-v2",
+      "registry_fingerprint": "d8bd34a3bac724f6ff15f4d33a03efe7b517518b2a71208046be11bc1530387e",
+      "historical_verified_issuer_clusters": 0,
+      "unknown_dependency_contribution_to_effective_n": 0
+    },
+    "universe_manifest_sha256": "f2f0985819ad5ab356fdbd6014ffb08a538759e77e105ee384153cb759aa6b3f",
+    "input_precheck_sha256": "2834e2b24ce8f0cd00b6d37947ec58a73a434b7cf65ca4e8421351b32f7be909"
+  },
+  "capability_reports": {
+    "R4_A_IDENTITY_DEPENDENCY_AUDIT_2026-09-22.md": "385978ea4c3cc1de9cf5e268ea213feb816942da813208a42dc46a8cc6d4453b",
+    "R4_B_RELATIVE_STRUCTURE_CAPABILITY_2026-09-22.md": "8a3e2ba44fd646b852a52b5d55defd5d77ee42a501d5be4a3bba4170eca2fc71",
+    "R4_C_FUNDAMENTALS_CAPABILITY_2026-09-22.md": "7a99e446afc1b27eb82e3275efb4287a2d4e9e48ed03c35c750ff4265be501c7",
+    "R4_D_E_F_PIT_SOURCE_AUDIT_2026-09-22.md": "fe1bec0d813adb8f39d7d98a61cb16043dae480ceaa91f1ade799634e360d9af",
+    "R4_G_FX_HISTORICAL_CAPABILITY_2026-09-22.md": "989f70cdb0e689734324fd39629fcc3dc649b3162b4708bf4f54bf484d5046ec",
+    "R4_H_CRYPTO_CAPABILITY_2026-09-22.md": "add67054d66def9b54ae9e8410daf4412f393247c153aae6dffaf0571bab46bd",
+    "R4_I_SURVIVORSHIP_UNIVERSE_AUDIT_2026-09-22.md": "a3c7ab7ef9e056f0a37830d1ef048a7e67b1b33abb9755cb6de5a6300c280274"
+  },
+  "feature_contracts": {
+    "multi_asset_v2_r4b.json": {
+      "file_sha256": "f8c4e0587934425305e63904cd368dfadf4fb6c3b32e56110e1efb768248241f",
+      "contract_fingerprint": "aef8ec16c674f7284884caca3fb040480eba77fbacfc05a23fece5c75ad47901"
+    },
+    "crypto_r4h_features.json": {
+      "file_sha256": "945e8fd332586d39ec347b518f59734294f4921940f62dfa135b026f60f28c99",
+      "contract_fingerprint": "5020eab57a4c2b60f81677bacff0b905a50f79fa30144b75e508f61e9e02dd51"
+    }
+  },
+  "capabilities": [
+    {"family": "PRICE_RETURNS", "status": "ACTIVE_PIT_LIMITED_SCOPE", "scope": ["EQUITIES", "ETF", "CRYPTO"], "limit": "frozen current-curated OHLC only"},
+    {"family": "MOMENTUM_TREND_VOLATILITY", "status": "ACTIVE_PIT_LIMITED_SCOPE", "scope": ["EQUITIES", "ETF", "CRYPTO"], "limit": "causal OHLC only; no optimized threshold"},
+    {"family": "CONFIRMED_STRUCTURE_CONTEXT", "status": "ACTIVE_PIT_LIMITED_SCOPE", "scope": ["EQUITIES", "ETF", "CRYPTO"], "limit": "confirmed pivots and continuous breakout/pullback/consolidation context"},
+    {"family": "RELATIVE_STRENGTH_GLOBAL_ACWI", "status": "ACTIVE_PIT_LIMITED_SCOPE", "scope": ["EQUITIES", "ETF"], "limit": "strictly prior ACWI close; no region or sector claim"},
+    {"family": "RELATIVE_STRENGTH_REGION_SECTOR", "status": "UNAVAILABLE", "scope": ["EQUITIES", "ETF"], "limit": "no historical region or sector mapping"},
+    {"family": "MARKET_REGIME_GLOBAL_ACWI", "status": "ACTIVE_PIT_LIMITED_SCOPE", "scope": ["EQUITIES", "ETF"], "limit": "global fallback only; continuous predeclared OHLC state"},
+    {"family": "REPORTED_VOLUME_RELATIVE", "status": "ACTIVE_PIT_LIMITED_SCOPE", "scope": ["EQUITIES", "ETF", "CRYPTO"], "limit": "relative reported units only; no universal liquidity/notional claim"},
+    {"family": "GAP_OVERNIGHT_INTRADAY_RAW", "status": "ACTIVE_PIT_LIMITED_SCOPE", "scope": ["EQUITIES", "ETF"], "limit": "raw causal OHLC components; completed negative R3 rolling-bias hypothesis may not be retested"},
+    {"family": "SUPPORT_RESISTANCE_GEOMETRY", "status": "ACTIVE_PIT_LIMITED_SCOPE", "scope": ["EQUITIES", "ETF", "CRYPTO"], "limit": "prior completed bars only; continuous values"},
+    {"family": "FUNDAMENTALS_SEC", "status": "SHADOW", "scope": ["EQUITIES"], "limit": "parser only; zero verified historical joined signal rows"},
+    {"family": "COMPANY_EVENTS", "status": "SHADOW", "scope": ["EQUITIES", "ETF"], "limit": "forward sidecar only; zero verified 2016-2021 events"},
+    {"family": "MACRO_RATES_EXPECTATIONS", "status": "UNAVAILABLE", "scope": ["EQUITIES", "ETF", "CRYPTO"], "limit": "no versioned vintage or pre-event expectation source"},
+    {"family": "COT", "status": "SHADOW", "scope": ["EQUITIES", "ETF", "CRYPTO"], "limit": "local availability observed in 2026 only"},
+    {"family": "POLICY_GEOPOLITICS", "status": "SHADOW", "scope": ["EQUITIES", "ETF", "CRYPTO"], "limit": "zero verified historical events"},
+    {"family": "FX_SPECIFIC", "status": "UNAVAILABLE", "scope": ["FX"], "limit": "zero gap-safe 220-observation histories"},
+    {"family": "CRYPTO_BTC_RELATIVE", "status": "ACTIVE_PIT_LIMITED_SCOPE", "scope": ["CRYPTO"], "limit": "exact previous UTC day BTC benchmark; frozen universe only"},
+    {"family": "CRYPTO_ONCHAIN_DOMINANCE", "status": "UNAVAILABLE", "scope": ["CRYPTO"], "limit": "no historical PIT source"},
+    {"family": "HISTORICAL_ISSUER_DEPENDENCY", "status": "SHADOW", "scope": ["EQUITIES", "ETF"], "limit": "zero historically verified issuer clusters"},
+    {"family": "HISTORICAL_UNIVERSE_MEMBERSHIP", "status": "UNAVAILABLE", "scope": ["EQUITIES", "ETF", "CRYPTO"], "limit": "no historical constituents, delistings, failures or predecessor chain"}
+  ],
+  "coverage_matrix": {
+    "EQUITIES_ETF": {"configured_units": 2488, "active_units": 2297, "active_bars": 3025873, "historical_issuer_effective_n": 0, "survivorship": "UNKNOWN"},
+    "CRYPTO": {"configured_units": 30, "active_units": 29, "active_bars": 33675, "gap_safe_eligible_signal_positions": 27293, "survivorship": "UNKNOWN"},
+    "FX": {"active_pairs": 3, "active_bars": 4508, "gap_safe_eligible_signal_positions": 0, "status": "NOT_TESTABLE"},
+    "FUNDAMENTALS": {"verified_historical_joined_signal_rows": 0},
+    "EVENTS": {"verified_2016_2021_events": 0},
+    "POLICY_GEOPOLITICS": {"verified_2016_2021_events": 0},
+    "MACRO_VINTAGES_EXPECTATIONS": {"verified_2016_2021_series": 0},
+    "COT": {"verified_2016_2021_release_rows": 0}
+  },
+  "missingness_contract": {
+    "states": ["AVAILABLE", "UNKNOWN", "UNAVAILABLE", "SHADOW", "PROVIDER_FAILURE", "STRUCTURAL_NOT_APPLICABLE"],
+    "missing_never_becomes_false_or_zero": true,
+    "no_imputation": true,
+    "no_interpolation": true,
+    "no_cross_segment_fill": true,
+    "shadow_families_excluded_from_r6_features": true,
+    "unavailable_families_excluded_from_r6_features": true,
+    "applicability_recorded_separately_from_value": true,
+    "source_known_at_and_feature_known_at_retained": true
+  },
+  "outcome_contract": {
+    "inherit_parent_fingerprints": true,
+    "reference_entry": "next available open in same continuity segment and development stage",
+    "checkpoints": [20, 60, 120, 252],
+    "each_checkpoint_uses_its_own_fully_observable_population": true,
+    "longer_checkpoint_missing_does_not_censor_shorter_complete_checkpoint": true,
+    "safe_zones": ["A_CONFIRMED_SWING_LOW", "B_CONFIRMED_SUPPORT_ZONE", "C_SUPPORT_ELSE_SWING_LOW_MINUS_0_5_ATR14"],
+    "original_and_protective_safe_zones_separate": true,
+    "intraday_and_close_breaches_separate": true,
+    "sell_zones_measurement_only": true,
+    "deterioration_families_separate": true,
+    "mfe_mae_units": ["PERCENT", "ATR14", "STRUCTURAL_R_WHERE_VALID"],
+    "no_intrabar_order_invention": true,
+    "outcome_may_cross_stage_or_segment_boundary": false
+  },
+  "stage_contract": {
+    "development": ["2016-01-01", "2021-12-31"],
+    "development_is_already_seen": true,
+    "validation": ["2022-01-01", "2023-12-31"],
+    "validation_opened": false,
+    "holdout_starts": "2024-01-01",
+    "holdout_opened": false,
+    "external_opened": false,
+    "forward_opened": false,
+    "paper_opened": false,
+    "shadow_execution_opened": false
+  },
+  "seen_data_register": {
+    "2016_2021": ["v6 partial Development", "v7-r2 completed Development", "R3 overnight/intraday Development", "R4 capability coverage audits"],
+    "reuse_allowed_for_descriptive_r6_development": true,
+    "unseen_claim_allowed": false,
+    "validation_or_holdout_selection_allowed": false
+  },
+  "cost_contract": {
+    "r6_is_descriptive_path_research_not_tradeable_strategy": true,
+    "net_return_profit_factor_or_strategy_expectancy_allowed": false,
+    "numeric_cost_assumption_invented": false,
+    "before_any_r7_challenger": "freeze asset-class-specific spread, slippage, fee and financing assumptions before its Development evaluation"
+  },
+  "review_quality_c_gate": {
+    "policy_file_sha256": "fa9e64cfed7d5d47f9dc0e3c6e848a986278340c893edf1d0c714978b9beeacc",
+    "required_dimensions": ["PIT", "APPLICABILITY", "COVERAGE", "MISSINGNESS", "SUFFICIENT_CASES", "DEPENDENCIES", "TIME_STABILITY", "ASSET_SCOPE_STABILITY", "REGIME_STABILITY", "OUTCOME_DIMENSION_ROBUSTNESS", "NO_SINGLE_YEAR_DOMINANCE", "REDUNDANCY", "MULTIPLE_TESTING", "NO_CONSTRUCTION_ARTIFACT"],
+    "all_dimensions_must_pass_for_robust_candidate": true,
+    "unknown_dependency_or_effective_n_may_not_be_replaced_by_raw_n": true,
+    "individual_features_and_families_only": true,
+    "automatic_feature_combinations": false,
+    "composite_opportunity_score": false,
+    "parameter_grid_or_threshold_search": false,
+    "ranking_by_profit": false,
+    "good_aggregate_alone_is_insufficient": true
+  },
+  "r6_execution_contract": {
+    "run_id": "mad2-development-v2-20260922-v1",
+    "new_append_only_stores_required": true,
+    "control_store": "runtime/multi_asset_discovery_v2_development_control.sqlite3",
+    "feature_store": "runtime/multi_asset_discovery_v2_development_features.sqlite3",
+    "outcome_store": "runtime/multi_asset_discovery_v2_development_outcomes.sqlite3",
+    "global_research_lock": "runtime/swing_walk_forward_research.lock",
+    "process_lock": "runtime/multi_asset_discovery_v2_development.lock",
+    "worker_count": 6,
+    "sqlite_writer_count": 1,
+    "checkpoint_after_each_work_unit": true,
+    "work_unit_partition": "asset_by_calendar_quarter",
+    "deterministic_replay_required": true,
+    "pilot_and_integrity_gate_required_before_full_run": true,
+    "active_production_locks_block_start": true,
+    "old_time_of_day_windows_apply": false,
+    "validation_holdout_external_forward_paper_shadow_broker_orders_opened": false
+  }
+}

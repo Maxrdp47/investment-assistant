@@ -2,6 +2,10 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R5 Discovery-v2-Vertrag vor Outcomes eingefroren
+
+- Capability Matrix, Quellen, Fingerprints, Missingness, separate 20/60/120/252-Populationen, Seen-Data, Kostenstatus, Stage-Schutz, Quality-C-Gate und R6-Ausführungsschutz sind maschinenlesbar eingefroren. Der Validator prüft 19 Familien und sämtliche lokale Provenienz fail-closed. Contract `0e67967f5d26b0d6801270fea29188d71f6288ad8ca34a3003e384a81fccd241`; keine v2-Outcomes, Validation oder Holdout geöffnet. [R5-Freeze-Bericht](R5_MULTI_ASSET_DISCOVERY_V2_FREEZE_2026-09-22.md).
+
 ## 2026-09-22 – R4-I Survivorship-Grenze und R4-Abschluss
 
 - Der aktuelle Frozen Scope wurde gegen seinen 2026er Auswahlzeitpunkt auditiert. Historische Index-Constituents, Delistings, Pleiten, Vorgängerbeziehungen und ausgeschiedene Crypto-Assets sind nicht versioniert vorhanden. Die 2016–2021-Kurse bilden deshalb nur ein current-curated Panel; Survivorship-Richtung und -Größe bleiben unbekannt. R4-A–I ist ohne v2-Outcomes abgeschlossen beziehungsweise ehrlich begrenzt. [R4-I-Audit](R4_I_SURVIVORSHIP_UNIVERSE_AUDIT_2026-09-22.md).

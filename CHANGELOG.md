@@ -2,6 +2,10 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R4-B begrenzte PIT-Merkmale vorbereitet
+
+- Ein getrennter, outcome-freier Featurepass für globales ACWI-Relative-Momentum und explizite bestätigte Preisstruktur wurde implementiert und mit kausalen Präfix-Tests geprüft. Vor dem Freeze wurde ein gleichdatiger ACWI-Schluss wegen möglicher Zeitzonen-Leakage durch einen streng früheren, höchstens fünf Tage alten Schluss ersetzt. Region und Sektor wurden nicht rückdatiert; kein Filter oder Strategy-Score aktiviert. [Capability-Bericht](R4_B_RELATIVE_STRUCTURE_CAPABILITY_2026-09-22.md).
+
 ## 2026-09-22 – R4-A Identity-/Dependency-Audit
 
 - Die eingefrorene Equity-/ETF-Projektion und die neueste Identitäts-Registry wurden read-only zeitlich abgeglichen. Alle passenden aktuellen Registry-Mappings beginnen erst am 2026-08-30; für 2016–2021 sind 0 Issuer-Beziehungen zeitgenössisch verifiziert. Der [methodische Audit](R4_A_IDENTITY_DEPENDENCY_AUDIT_2026-09-22.md) trennt Roh-N, beobachtete Listing-/Zeitgruppen und echtes Effective N. Keine Identität wurde rückdatiert oder ein v7-/Frozen-Artefakt verändert.

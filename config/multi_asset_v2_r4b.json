@@ -1,0 +1,30 @@
+{
+  "version": "multi-asset-v2-r4b-pit-features-2026.09.22-v1",
+  "program_id": "finite-research-program-2026-09-15-v1",
+  "program_block": "R4-B",
+  "source_projection_version": "equity-etf-historical-pit-2026.09.03-v1",
+  "source_dataset_fingerprint": "321531c482d844df4d5513b58646b3f41553f47a7b2276517cb8473886c298d6",
+  "asset_scope": "EQUITIES/ETF frozen active bars 2016-2021",
+  "market_benchmark": "ACWI",
+  "benchmark_scope": "GLOBAL_FALLBACK_ONLY_NO_HISTORICAL_REGION_OR_SECTOR_CLAIM",
+  "benchmark_alignment": "last ACWI close on a strictly earlier calendar date, at most 5 calendar days old; missing/stale is null; same-date close forbidden across time zones",
+  "return_lookbacks_sessions": [20, 60, 120],
+  "confirmed_pivot": {
+    "left_completed_bars": 2,
+    "right_confirmation_bars": 2,
+    "strict_unique_extreme": true,
+    "known_from": "confirmation close, never candidate close"
+  },
+  "structure": {
+    "prior_range_sessions": [20, 60],
+    "trend_efficiency_sessions": [20, 60],
+    "consolidation": "prior20_range_width divided by prior60_range_width; continuous, no cutoff",
+    "breakout_context": "signal close above prior20 high; descriptive only",
+    "pullback_context": "signal close relative to prior20 high; continuous",
+    "support_resistance": "distance to prior20 low/high; no future bars"
+  },
+  "current_registry_backdated": false,
+  "sector_benchmark_active": false,
+  "strategy_filter_created": false,
+  "outcomes_used_for_capability_selection": false
+}

@@ -8,13 +8,15 @@ import pytest
 from multi_asset_v2_r5_contract import load_contract, validate_contract_structure, validate_freeze
 
 
-def test_canonical_r5_freeze_and_all_provenance_pass() -> None:
+def test_canonical_r5_freeze_and_repository_provenance_pass() -> None:
     contract, fingerprint = load_contract()
-    result = validate_freeze()
-    assert result["status"] == "PASS_R5_FREEZE_VALID"
+    result = validate_freeze(require_runtime_sources=False)
+    assert result["status"] == "PASS_R5_FREEZE_REPOSITORY_PROVENANCE_VALID_RUNTIME_NOT_CHECKED"
     assert result["contract_fingerprint"] == fingerprint
     assert result["feature_family_count"] == 19
     assert result["outcomes_opened"] is False
+    assert result["runtime_sources_checked"] is False
+    assert result["verified_datasets"] == {}
     assert all(item["status"] in {
         "ACTIVE_PIT", "ACTIVE_PIT_LIMITED_SCOPE", "SHADOW", "UNAVAILABLE",
         "STRUCTURAL_NOT_APPLICABLE",

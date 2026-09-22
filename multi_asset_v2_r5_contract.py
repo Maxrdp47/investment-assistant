@@ -177,7 +177,12 @@ def _projection_fingerprint(path: Path, version: str) -> str:
     return str(row[0])
 
 
-def validate_freeze(path: Path = DEFAULT_CONTRACT, root: Path = ROOT) -> dict[str, Any]:
+def validate_freeze(
+    path: Path = DEFAULT_CONTRACT,
+    root: Path = ROOT,
+    *,
+    require_runtime_sources: bool = True,
+) -> dict[str, Any]:
     contract, contract_fingerprint = load_contract(path)
     for filename, expected in contract["capability_reports"].items():
         target = root / filename
@@ -194,37 +199,49 @@ def validate_freeze(path: Path = DEFAULT_CONTRACT, root: Path = ROOT) -> dict[st
         payload = json.loads(target.read_text(encoding="utf-8"))
         if fingerprint(payload) != metadata["contract_fingerprint"]:
             raise ValueError(f"R5 feature contract fingerprint changed: {filename}")
-    fixed_files = {
-        "universe_manifest_sha256": root / "config" / "swing_universe_sources.json",
-        "input_precheck_sha256": root / "runtime" / "research_exports" / "multi_asset_development_v6_input_precheck_2026-09-05-v1-r7.json",
-    }
+    fixed_files = {"universe_manifest_sha256": root / "config" / "swing_universe_sources.json"}
     for key, target in fixed_files.items():
         if not target.is_file() or file_sha256(target) != contract["sources"][key]:
             raise ValueError(f"R5 source artifact changed: {key}")
-    parent_files = {
-        "v7_recovery_contract_sha256": root / "runtime" / "research_exports" / "multi_asset_development_v7_recovery_contract_2026-09-13-v2.json",
-        "v6_scientific_contract_sha256": root / "runtime" / "research_exports" / "multi_asset_discovery_v1_development_contract_2026-09-05-v6-r3.json",
-    }
-    for key, target in parent_files.items():
-        if not target.is_file() or file_sha256(target) != contract["parent_semantics"][key]:
-            raise ValueError(f"R5 parent contract changed: {key}")
     if file_sha256(root / "RESEARCH_POLICY.md") != contract["review_quality_c_gate"]["policy_file_sha256"]:
         raise ValueError("R5 canonical research policy changed")
-    source_paths = {
-        "equity_etf": root / "runtime" / "equity_etf_historical_pit_2026-09-03-v1.sqlite3",
-        "crypto": root / "runtime" / "crypto_historical_pit_2026-09-05-v1.sqlite3",
-    }
     verified: dict[str, str] = {}
-    for source, target in source_paths.items():
-        metadata = contract["sources"][source]
-        actual = _projection_fingerprint(target, metadata["version"])
-        if actual != metadata["dataset_fingerprint"]:
-            raise ValueError(f"R5 dataset fingerprint changed: {source}")
-        verified[source] = actual
+    if require_runtime_sources:
+        input_precheck = (
+            root / "runtime" / "research_exports"
+            / "multi_asset_development_v6_input_precheck_2026-09-05-v1-r7.json"
+        )
+        if (
+            not input_precheck.is_file()
+            or file_sha256(input_precheck) != contract["sources"]["input_precheck_sha256"]
+        ):
+            raise ValueError("R5 source artifact changed: input_precheck_sha256")
+        parent_files = {
+            "v7_recovery_contract_sha256": root / "runtime" / "research_exports" / "multi_asset_development_v7_recovery_contract_2026-09-13-v2.json",
+            "v6_scientific_contract_sha256": root / "runtime" / "research_exports" / "multi_asset_discovery_v1_development_contract_2026-09-05-v6-r3.json",
+        }
+        for key, target in parent_files.items():
+            if not target.is_file() or file_sha256(target) != contract["parent_semantics"][key]:
+                raise ValueError(f"R5 parent contract changed: {key}")
+        source_paths = {
+            "equity_etf": root / "runtime" / "equity_etf_historical_pit_2026-09-03-v1.sqlite3",
+            "crypto": root / "runtime" / "crypto_historical_pit_2026-09-05-v1.sqlite3",
+        }
+        for source, target in source_paths.items():
+            metadata = contract["sources"][source]
+            actual = _projection_fingerprint(target, metadata["version"])
+            if actual != metadata["dataset_fingerprint"]:
+                raise ValueError(f"R5 dataset fingerprint changed: {source}")
+            verified[source] = actual
     return {
-        "status": "PASS_R5_FREEZE_VALID",
+        "status": (
+            "PASS_R5_FREEZE_VALID"
+            if require_runtime_sources
+            else "PASS_R5_FREEZE_REPOSITORY_PROVENANCE_VALID_RUNTIME_NOT_CHECKED"
+        ),
         "contract_fingerprint": contract_fingerprint,
         "verified_datasets": verified,
+        "runtime_sources_checked": require_runtime_sources,
         "feature_family_count": len(contract["capabilities"]),
         "outcomes_opened": False,
         "validation_opened": False,

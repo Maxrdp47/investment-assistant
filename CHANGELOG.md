@@ -2,6 +2,10 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R4-A Identity-/Dependency-Audit
+
+- Die eingefrorene Equity-/ETF-Projektion und die neueste Identitäts-Registry wurden read-only zeitlich abgeglichen. Alle passenden aktuellen Registry-Mappings beginnen erst am 2026-08-30; für 2016–2021 sind 0 Issuer-Beziehungen zeitgenössisch verifiziert. Der [methodische Audit](R4_A_IDENTITY_DEPENDENCY_AUDIT_2026-09-22.md) trennt Roh-N, beobachtete Listing-/Zeitgruppen und echtes Effective N. Keine Identität wurde rückdatiert oder ein v7-/Frozen-Artefakt verändert.
+
 ## 2026-09-22 – Programm fortgesetzt; R3 einmalig abgeschlossen
 
 - Der Nutzerauftrag „weiter“ führte zur erneuten Prüfung des Master-Vertrags. Dessen „Sonst R3“ erlaubt die Fortsetzung nach dem R2-Daten-Gate. Die frühere globale Stop-Einordnung ist als historischer Zwischenstand überholt; R2-Rohbefunde und Blocker bleiben unverändert.

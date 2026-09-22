@@ -1,0 +1,58 @@
+{
+  "version": "overnight-intraday-r3-2026.09.22-v1",
+  "program_id": "finite-research-program-2026-09-15-v1",
+  "program_block": "R3",
+  "attempt_count": 1,
+  "knowledge_base_experiment_id": "8389509b-dc70-41b6-9df9-e27c194f0a04",
+  "source": {
+    "path": "runtime/equity_etf_historical_pit_2026-09-03-v1.sqlite3",
+    "projection_version": "equity-etf-historical-pit-2026.09.03-v1",
+    "dataset_fingerprint": "321531c482d844df4d5513b58646b3f41553f47a7b2276517cb8473886c298d6",
+    "price_adjustment": "yfinance_auto_adjust_true",
+    "source_scope": "all active EQUITIES/ETF bars in frozen projection, no provider download",
+    "source_access": "read_only"
+  },
+  "population": {
+    "start": "2016-01-01",
+    "end": "2021-12-31",
+    "asset_unit": "asset_id plus listing_id",
+    "missing_bars": "not imputed",
+    "invalid_bars": "projection-excluded; retain source exclusion count",
+    "identity_dependency_status": "UNKNOWN; no independent effective-N or robust strategy claim"
+  },
+  "research": {
+    "rolling_window_sessions": 20,
+    "signal_cutoff": "after completed daily close",
+    "primary_feature": "rolling_overnight_bias",
+    "baseline_feature": "prior_20_session_close_to_close_return",
+    "outcome": "future close-to-close return from signal close; descriptive, not tradable",
+    "horizons_sessions": [1, 5, 20],
+    "comparison": "per asset-year-horizon Pearson partial correlation of primary feature with forward return controlling baseline plus intercept; no threshold or combination",
+    "secondary_descriptive_features": [
+      "rolling_overnight_total_return_share",
+      "rolling_overnight_volatility",
+      "rolling_intraday_volatility"
+    ],
+    "forward_mfe_mae": "reported as untraded close-anchored path diagnostics",
+    "cohorts": "calendar year and asset class, with asset-year as reporting unit",
+    "minimum_asset_year_cases": 30,
+    "cost_model_status": "NOT_APPLICABLE_NO_TRADABLE_VARIANT",
+    "validation": "not opened; all 2016-2021 years previously viewed in v7-r2 Development",
+    "holdout": "not opened",
+    "interpretation_gate": "descriptive Development only; no C/challenger/Validation without separately frozen independent evidence and restored dependency effective-N"
+  },
+  "runtime": {
+    "result_store": "runtime/overnight_intraday_r3_v1.sqlite3",
+    "research_lock": "runtime/swing_walk_forward_research.lock",
+    "process_lock": "runtime/overnight_intraday_r3_v1.lock"
+  },
+  "forbidden": [
+    "new trading rule",
+    "RSI/EMA or Overnight mandatory filter",
+    "confluence combinations",
+    "threshold search",
+    "retuning",
+    "production changes",
+    "External/Forward/Paper/Shadow/Broker/Orders"
+  ]
+}

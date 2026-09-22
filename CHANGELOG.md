@@ -2,6 +2,10 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R4-G FX-Historiengrenze reproduziert
+
+- Der eingefrorene FX-Precheck und der read-only Segment-Loader zeigen 4.508 gültige Balken, 93 archivierte Invalid-Source- und 165 Peer-Missing-Grenzen sowie maximal 194/148/75 Balken lange Kontinuitätssegmente je Paar. Damit gibt es 0 Gap-sichere 220er-Signale. Wochenenden wurden nicht als Sitzungen erfunden; ein Kalenderbug ist nicht belegt. FX wird ohne Daten-/Regel-Lockerung als historisch nicht testbar eingestuft. [R4-G-Audit](R4_G_FX_HISTORICAL_CAPABILITY_2026-09-22.md).
+
 ## 2026-09-22 – R4-D/E/F lokale PIT-Quellen auditiert
 
 - Die vorhandenen Event- und COT-Stores wurden schreibgeschützt auf tatsächliche Verfügbarkeitszeitpunkte und Quellen geprüft. Nur 24 Forward-Firmenereignisse aus 2026, keine historisch verwendbaren Politikereignisse; COT-Reportdaten wurden lokal erst 2026 beobachtet. Für 2016–2021 sind Event/Politik/COT `SHADOW`, Makro-Vintages und vorab veröffentlichte Expectations `UNAVAILABLE`. Keine historischen Features oder Outcomes aktiviert. [Quellenaudit](R4_D_E_F_PIT_SOURCE_AUDIT_2026-09-22.md).

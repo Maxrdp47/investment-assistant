@@ -2,6 +2,10 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-22 – R4-H Crypto-Capability begrenzt vorbereitet
+
+- Ein neuer outcome-freier, segment-sicherer Featurevertrag berechnet auf eingefrorenen Crypto-OHLCV ausschließlich kausale, um einen UTC-Tag verzögerte BTC-Relative-Renditen, Volatilität, gemeldetes Relative-Volume und einfache kontinuierliche Strukturwerte. Der read-only BTC/ETH-Pilot und gezielte Kausalitätstests bestehen. Dominanz und On-Chain bleiben `UNAVAILABLE`; keine Crypto-Regel oder neue Teststufe aktiviert. [Capability-Bericht](R4_H_CRYPTO_CAPABILITY_2026-09-22.md).
+
 ## 2026-09-22 – R4-G FX-Historiengrenze reproduziert
 
 - Der eingefrorene FX-Precheck und der read-only Segment-Loader zeigen 4.508 gültige Balken, 93 archivierte Invalid-Source- und 165 Peer-Missing-Grenzen sowie maximal 194/148/75 Balken lange Kontinuitätssegmente je Paar. Damit gibt es 0 Gap-sichere 220er-Signale. Wochenenden wurden nicht als Sitzungen erfunden; ein Kalenderbug ist nicht belegt. FX wird ohne Daten-/Regel-Lockerung als historisch nicht testbar eingestuft. [R4-G-Audit](R4_G_FX_HISTORICAL_CAPABILITY_2026-09-22.md).

@@ -1,0 +1,20 @@
+{
+  "version": "crypto-r4h-observational-features-2026.09.22-v1",
+  "program_id": "finite-research-program-2026-09-15-v1",
+  "program_block": "R4-H",
+  "source_projection_version": "crypto-historical-pit-2026.09.05-v1",
+  "source_dataset_fingerprint": "475b78ee3dd0a45371b6dc0448b9d915d0a879dadabe4c2d385573fd1fe6bf91",
+  "source_scope": "frozen active crypto bars 2016-2021; no on-chain source",
+  "btc_benchmark": "BTC-USD",
+  "benchmark_alignment": "exactly previous UTC calendar day; never same-date close",
+  "relative_return_lookbacks_days": [20, 60],
+  "volatility_lookback_days": 20,
+  "relative_volume_lookback_days": 20,
+  "structure_lookback_days": 20,
+  "segment_boundaries_respected": true,
+  "quote_volume_or_liquidity_claim": false,
+  "dominance_available": false,
+  "onchain_available": false,
+  "strategy_filter_created": false,
+  "outcomes_used_for_capability_selection": false
+}

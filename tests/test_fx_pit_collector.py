@@ -128,6 +128,111 @@ def test_provider_failure_is_not_recorded_as_no_event(tmp_path: Path) -> None:
     assert health["last_success"] is None
 
 
+def test_structural_missingness_does_not_advance_last_success(tmp_path: Path) -> None:
+    path = tmp_path / "collector.sqlite3"
+
+    def observed(_context):
+        return {
+            "status": "OBSERVED",
+            "source": "pytest source",
+            "observations": [_observation()],
+            "response_quality": "TEST",
+        }
+
+    def unavailable(_context):
+        return {
+            "status": "NO_RELIABLE_DATA",
+            "source": "pytest source",
+            "missingness": {"reliable_adapter_available": False},
+            "response_quality": "NO_RELIABLE_ADAPTER",
+        }
+
+    run_fx_pit_collector(
+        _settings("source"),
+        {"source": observed},
+        path=path,
+        lock_path=tmp_path / "collector.lock",
+        observed_at=STAMP,
+        schedule_slot="2026-08-29:observed",
+    )
+    run_fx_pit_collector(
+        _settings("source"),
+        {"source": unavailable},
+        path=path,
+        lock_path=tmp_path / "collector.lock",
+        observed_at="2026-08-30T10:00:00+00:00",
+        schedule_slot="2026-08-30:missing",
+    )
+    with sqlite3.connect(path) as connection:
+        health = json.loads(
+            connection.execute(
+                "SELECT health_json FROM source_health ORDER BY last_attempt DESC LIMIT 1"
+            ).fetchone()[0]
+        )
+    assert health["last_success"] == STAMP
+    assert health["coverage_status"] == "NO_RELIABLE_DATA"
+    assert health["stale_status"] == "STALE"
+
+
+def test_legacy_false_success_is_not_carried_forward(tmp_path: Path) -> None:
+    path = tmp_path / "collector.sqlite3"
+
+    def unavailable(_context):
+        return {
+            "status": "NO_RELIABLE_DATA",
+            "source": "never observed source",
+            "missingness": {"reliable_adapter_available": False},
+            "response_quality": "NO_RELIABLE_ADAPTER",
+        }
+
+    initialize_fx_pit_collector_store(path)
+    with sqlite3.connect(path) as connection:
+        legacy = {
+            "run_id": "legacy-run",
+            "source": "never observed source",
+            "last_attempt": STAMP,
+            "last_success": STAMP,
+            "consecutive_failures": 0,
+            "stale_status": "CURRENT",
+            "rate_limit_status": "NOT_REPORTED",
+            "coverage_status": "NO_RELIABLE_DATA",
+            "response_quality": "NO_RELIABLE_ADAPTER",
+        }
+        connection.execute(
+            "INSERT INTO source_health VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "legacy-health",
+                "legacy-run",
+                "never observed source",
+                STAMP,
+                STAMP,
+                0,
+                "CURRENT",
+                "NOT_REPORTED",
+                "NO_RELIABLE_DATA",
+                "NO_RELIABLE_ADAPTER",
+                "legacy-fingerprint",
+                json.dumps(legacy),
+            ),
+        )
+    run_fx_pit_collector(
+        _settings("source"),
+        {"source": unavailable},
+        path=path,
+        lock_path=tmp_path / "collector.lock",
+        observed_at="2026-08-30T10:00:00+00:00",
+        schedule_slot="2026-08-30:missing",
+    )
+    with sqlite3.connect(path) as connection:
+        health = json.loads(
+            connection.execute(
+                "SELECT health_json FROM source_health ORDER BY last_attempt DESC LIMIT 1"
+            ).fetchone()[0]
+        )
+    assert health["last_success"] is None
+    assert health["stale_status"] == "STALE"
+
+
 def test_daily_run_is_idempotent_and_does_not_call_provider_twice(tmp_path: Path) -> None:
     path = tmp_path / "collector.sqlite3"
     calls = {"count": 0}

@@ -26,6 +26,8 @@ def test_checked_in_settings_are_fail_closed_and_laptop_friendly() -> None:
     assert settings["local_run_time"] == "21:45"
     assert settings["schedule"]["wake_to_run"] is False
     assert settings["schedule"]["start_when_available"] is True
+    assert settings["schedule"]["cot_catch_up_refresh"] is True
+    assert settings["schedule"]["cot_max_source_age_days"] == 10
     assert set(settings["pairs"]) == {"EUR/USD", "USD/JPY", "GBP/USD"}
     assert all(value is False for value in settings["safety"].values())
 
@@ -107,3 +109,73 @@ def test_cftc_adapter_uses_only_reports_available_at_cutoff(monkeypatch) -> None
     assert all(item["source_type"] == "FORWARD_PIT" for item in result["observations"])
     assert all(item["payload"]["shadow_only"] is True for item in result["observations"])
     assert all(row["status"] == "AVAILABLE_PIT" for row in result["coverage"])
+
+
+def test_cftc_adapter_catches_up_after_missed_refresh_day(monkeypatch) -> None:
+    settings = runner.load_settings(runner.DEFAULT_SETTINGS_PATH)
+    context = _context(settings)
+    context["observed_at"] = "2026-09-09T10:00:00+00:00"  # Wednesday
+    stale_reports = [
+        {
+            "report_id": "stale-eur",
+            "report_date": "2026-08-18",
+            "available_at": "2026-08-21T20:00:00+00:00",
+            "first_seen_at": "2026-08-21T20:00:00+00:00",
+            "market_code": "eur",
+            "market_name": "EURO FX",
+            "report_type": "tff_futures_only",
+            "open_interest": 100.0,
+            "categories": {},
+            "classification_guardrails": {},
+            "pit_eligible": True,
+        }
+    ]
+    calls = {"refresh": 0, "load": 0}
+
+    def load(*_args):
+        calls["load"] += 1
+        return stale_reports
+
+    def refresh(**_kwargs):
+        calls["refresh"] += 1
+        return {"status": "ok", "errors": []}
+
+    monkeypatch.setattr(runner, "load_all_cot_reports_as_of", load)
+    monkeypatch.setattr(runner, "refresh_official_cot_forward", refresh)
+    result = runner.official_cftc_provider(context)
+    assert calls == {"refresh": 1, "load": 2}
+    assert result["status"] == "NO_RELIABLE_DATA"
+    assert result["observations"] == []
+    assert result["missingness"]["catch_up_refresh"] is True
+    assert all(row["status"] == "UNAVAILABLE" for row in result["coverage"])
+
+
+def test_cftc_adapter_does_not_relabel_stale_report_as_current(monkeypatch) -> None:
+    settings = runner.load_settings(runner.DEFAULT_SETTINGS_PATH)
+    context = _context(settings)
+    context["observed_at"] = "2026-09-09T10:00:00+00:00"
+    reports = [
+        {
+            "report_id": "stale-usd",
+            "report_date": "2026-08-18",
+            "available_at": "2026-08-21T20:00:00+00:00",
+            "first_seen_at": "2026-08-21T20:00:00+00:00",
+            "market_code": "usd",
+            "market_name": "U.S. DOLLAR INDEX",
+            "report_type": "tff_futures_only",
+            "open_interest": 100.0,
+            "categories": {},
+            "classification_guardrails": {},
+            "pit_eligible": True,
+        }
+    ]
+    monkeypatch.setattr(runner, "load_all_cot_reports_as_of", lambda *_args: reports)
+    monkeypatch.setattr(
+        runner,
+        "refresh_official_cot_forward",
+        lambda **_kwargs: {"status": "ok", "errors": []},
+    )
+    result = runner.official_cftc_provider(context)
+    assert result["status"] == "NO_RELIABLE_DATA"
+    assert result["observations"] == []
+    assert "USD" in result["missingness"]["stale_currencies"]

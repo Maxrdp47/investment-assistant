@@ -184,6 +184,7 @@ def official_cftc_provider(
     names_by_currency = dict(settings.get("cot_currency_market_names") or {})
     schedule = dict(settings.get("schedule") or {})
     refresh_weekday = int(schedule.get("cot_refresh_weekday_utc", 4))
+    max_source_age_days = int(schedule.get("cot_max_source_age_days", 10))
     refresh = {"status": "not_scheduled", "errors": []}
     if offline:
         return {
@@ -196,14 +197,53 @@ def official_cftc_provider(
             ],
             "response_quality": "NOT_CALLED",
         }
-    if force_refresh or observed.weekday() == refresh_weekday:
+    reports = load_all_cot_reports_as_of(observed, DEFAULT_COT_DB_PATH)
+    relevant_patterns = {
+        str(name).upper()
+        for market_names in names_by_currency.values()
+        for name in market_names
+    }
+    latest_known_at = max(
+        (
+            _utc(
+                report.get("available_at")
+                or report.get("published_at")
+                or report.get("first_seen_at")
+            )
+            for report in reports
+            if report.get("pit_eligible")
+            and str(report.get("report_type")) == "tff_futures_only"
+            and any(
+                pattern in str(report.get("market_name") or "").upper()
+                for pattern in relevant_patterns
+            )
+            and (
+                report.get("available_at")
+                or report.get("published_at")
+                or report.get("first_seen_at")
+            )
+        ),
+        default=None,
+    )
+    source_age_days = (
+        (observed - latest_known_at).total_seconds() / 86400.0
+        if latest_known_at is not None
+        else None
+    )
+    catch_up_refresh = bool(schedule.get("cot_catch_up_refresh", True)) and (
+        source_age_days is None or source_age_days > max_source_age_days
+    )
+    refresh_called = force_refresh or observed.weekday() == refresh_weekday or catch_up_refresh
+    if refresh_called:
         refresh = refresh_official_cot_forward(
             retrieved_at=observed,
             path=DEFAULT_COT_DB_PATH,
         )
-    reports = load_all_cot_reports_as_of(observed, DEFAULT_COT_DB_PATH)
+        reports = load_all_cot_reports_as_of(observed, DEFAULT_COT_DB_PATH)
     observations = []
     available_currencies = set()
+    stale_currencies = set()
+    latest_source_at = None
     for currency, market_names in sorted(names_by_currency.items()):
         patterns = [str(name).upper() for name in market_names]
         matches = [
@@ -228,6 +268,12 @@ def official_cftc_provider(
             or latest.get("published_at")
             or latest.get("first_seen_at")
         )
+        available_stamp = _utc(available_at)
+        latest_source_at = max(latest_source_at, available_stamp) if latest_source_at else available_stamp
+        age_days = (observed - available_stamp).total_seconds() / 86400.0
+        if age_days > max_source_age_days:
+            stale_currencies.add(currency)
+            continue
         observations.append(
             {
                 "observation_type": "COT",
@@ -261,12 +307,25 @@ def official_cftc_provider(
     coverage = []
     for pair_id, contract in context["pairs"].items():
         currencies = {str(contract["base_currency"]), str(contract["quote_currency"])}
+        if currencies <= available_currencies:
+            coverage_status = "AVAILABLE_PIT"
+            reason = "official CFTC report is within the configured source-age limit"
+        elif currencies & available_currencies:
+            coverage_status = "AVAILABLE_SHADOW"
+            reason = "only one mapped currency has a current official CFTC report"
+        else:
+            coverage_status = "UNAVAILABLE"
+            reason = (
+                "mapped official CFTC reports exceed the configured source-age limit"
+                if currencies & stale_currencies
+                else "no mapped official CFTC report is available at the cutoff"
+            )
         coverage.append(
             {
                 "pair_id": pair_id,
                 "feature": "COT",
-                "status": "AVAILABLE_PIT" if currencies <= available_currencies else "AVAILABLE_SHADOW" if currencies & available_currencies else "UNAVAILABLE",
-                "reason": "official CFTC report available after verified/forward availability cutoff",
+                "status": coverage_status,
+                "reason": reason,
             }
         )
     refresh_errors = list(refresh.get("errors") or [])
@@ -276,7 +335,15 @@ def official_cftc_provider(
         "observations": observations,
         "coverage": coverage,
         "error": json.dumps(refresh_errors, ensure_ascii=False) if refresh_errors else None,
-        "missingness": {"no_new_release": not observations, "refresh_status": refresh.get("status")},
+        "missingness": {
+            "no_current_release": not observations,
+            "refresh_called": refresh_called,
+            "catch_up_refresh": catch_up_refresh,
+            "refresh_status": refresh.get("status"),
+            "max_source_age_days": max_source_age_days,
+            "latest_source_at": latest_source_at.isoformat() if latest_source_at else None,
+            "stale_currencies": sorted(stale_currencies),
+        },
         "response_quality": "OFFICIAL_WITH_REFRESH_ERRORS" if refresh_errors else "OFFICIAL",
     }
 

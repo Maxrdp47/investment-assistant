@@ -655,6 +655,18 @@ def _last_source_health(connection: sqlite3.Connection, source: str) -> dict[str
     return {} if row is None else json.loads(str(row[0]))
 
 
+def _last_observed_source_success(
+    connection: sqlite3.Connection, source: str
+) -> str | None:
+    row = connection.execute(
+        "SELECT last_success FROM source_health "
+        "WHERE source=? AND coverage_status='OBSERVED' AND last_success IS NOT NULL "
+        "ORDER BY last_attempt DESC, health_id DESC LIMIT 1",
+        (source,),
+    ).fetchone()
+    return None if row is None else str(row[0])
+
+
 def _append_source_health(
     connection: sqlite3.Connection,
     *,
@@ -666,15 +678,35 @@ def _append_source_health(
 ) -> dict[str, object]:
     previous = _last_source_health(connection, source)
     failed = status == "PROVIDER_FAILURE"
-    consecutive = int(previous.get("consecutive_failures") or 0) + 1 if failed else 0
-    last_success = previous.get("last_success") if failed else observed_at
+    observed = status == "OBSERVED"
+    consecutive = (
+        int(previous.get("consecutive_failures") or 0) + 1
+        if failed
+        else 0
+        if observed
+        else int(previous.get("consecutive_failures") or 0)
+    )
+    # A provider attempt is not a successful data observation.  In particular,
+    # structural missingness and a run where the provider was not scheduled must
+    # never make a stale source look current.
+    last_success = (
+        observed_at
+        if observed
+        else _last_observed_source_success(connection, source)
+    )
+    if observed:
+        stale_status = "CURRENT"
+    elif failed:
+        stale_status = "STALE" if consecutive >= 2 else "ATTENTION"
+    else:
+        stale_status = "STALE" if status == "NO_RELIABLE_DATA" else "ATTENTION"
     health = {
         "run_id": run_id,
         "source": source,
         "last_attempt": observed_at,
         "last_success": last_success,
         "consecutive_failures": consecutive,
-        "stale_status": "STALE" if consecutive >= 2 else "ATTENTION" if failed else "CURRENT",
+        "stale_status": stale_status,
         "rate_limit_status": "UNKNOWN" if failed else "NOT_REPORTED",
         "coverage_status": (
             "PROVIDER_FAILURE"

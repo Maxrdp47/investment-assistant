@@ -14,6 +14,8 @@
     "wake_to_run": false,
     "multiple_instances": "IgnoreNew",
     "cot_refresh_weekday_utc": 4,
+    "cot_catch_up_refresh": true,
+    "cot_max_source_age_days": 10,
     "event_boost_enabled": false,
     "quote_sampling_frequency": "not_enabled_without_reliable_bid_ask_source"
   },

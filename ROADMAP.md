@@ -10,9 +10,28 @@ Der Nutzer hat am 2026-09-15 genau den unten beschriebenen endlichen Research-Pr
 
 Der getrennte Multi-Asset-Development-v7-r2-Recovery-Lauf und sein fachlicher Development-Review sind abgeschlossen. Der Review fand 0 `ROBUST_CANDIDATE_FOR_NEW_HYPOTHESIS`; v6, v7-r1 und sämtliche v7-r2-Stores und Artefakte bleiben immutable. Validation und Holdout dürfen innerhalb dieses Programms nur für eine vorher eingefrorene Version und nur nach bestandenem vorgelagertem Gate automatisch geöffnet werden. External, True Forward, Paper, Shadow, Broker, Orders, Live und Produktionsintegration bleiben geschlossen.
 
-**Programm am 2026-09-23 terminal abgeschlossen:** R1 blieb unterpowert; R2 blieb wegen fehlender belegbarer Futures-Kontrakt-/Roll-/Open-Provenienz ohne Research-Versuch blockiert; R3 fand keinen robusten Zusatznutzen. R4 und R5 begrenzten und froren den zulässigen v2-Scope ein. R6 wurde vollständig ausgeführt und geprüft, fand aber wegen des verpflichtenden Dependency-Gates keinen robusten Quality-C-Kandidaten. R7 wurde deshalb nicht geöffnet. R8 aktivierte mangels einer durch Reserveindikatoren messbaren Informationslücke 0 von maximal 2 Reserve-Hypothesen. R9 setzte den vertraglichen Endstatus `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM`. Nächster Schritt ist ausschließlich Nutzerreview; keine weitere automatische Trading-Forschung ist freigegeben.
+**Programm am 2026-09-23 terminal abgeschlossen:** R1 blieb unterpowert; R2 blieb wegen fehlender belegbarer Futures-Kontrakt-/Roll-/Open-Provenienz ohne Research-Versuch blockiert; R3 fand keinen robusten Zusatznutzen. R4 und R5 begrenzten und froren den zulässigen v2-Scope ein. R6 wurde vollständig ausgeführt und geprüft, fand aber wegen des verpflichtenden Dependency-Gates keinen robusten Quality-C-Kandidaten. R7 wurde deshalb nicht geöffnet. R8 aktivierte mangels einer durch Reserveindikatoren messbaren Informationslücke 0 von maximal 2 Reserve-Hypothesen. R9 setzte den vertraglichen Endstatus `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM`.
+
+Die anschließend ausdrücklich freigegebene begrenzte Informationslayer-Runde ist ebenfalls terminal. Sie auditierte und reparierte ausschließlich Datensammlung und prüfte Fundamentals, Expectations/Surprise, COT, Crypto-Regime und Gold/Silber strikt in dieser Reihenfolge. Kein Coverage-Gate erlaubte einen Development-Test; der Endstatus lautet `RESEARCH_BLOCKED_BY_INSUFFICIENT_PIT_DATA`. Automatische Strategiesuche bleibt pausiert.
 
 Historische Großläufe werden sequenziell ausgeführt. Vor Start oder Resume entscheiden ausschließlich reale Prozess-, Lock-, Integritäts- und Ressourcen-Gates; alte starre Uhrzeitfenster besitzen keine Steuerungswirkung. Ein terminales Research-Fail darf technisch dokumentiert, aber nicht durch Retuning, neue Schwellen oder zusätzliche Filter repariert werden.
+
+## Begrenzte Informationslayer-Runde – terminaler Stand
+
+Verbindliche Reihenfolge und tatsächlich erreichter Stand:
+
+| Stufe | Status | Ergebnis / nächster zulässiger Schritt |
+|---|---|---|
+| A – Data Health / Collection | `DONE` | [A–M-Health-Bericht](RESEARCH_DATA_HEALTH_AND_COVERAGE_2026-09-23.md) und [Gap Report](DATA_COLLECTION_GAP_REPORT_2026-09-23.md) erstellt; bestehende Stores blieben read-only |
+| Collector Repair | `DONE` | COT-Catch-up und Source-Health-Semantik repariert; offizieller CFTC-Store append-only nachgezogen; laufende FX-/Forecast-Aufgaben bleiben aktiv |
+| B – Fundamentals | `BLOCKED_INSUFFICIENT_PIT_DATA` | 0 historische PIT-Filing-Cases; erst prospektive offizielle Filing-Snapshots und historisch gültiges Issuer-Mapping sammeln |
+| C – Expectations / Surprise | `BLOCKED_INSUFFICIENT_PIT_DATA` | 0 PIT-eligible Expected/Actual-Paare; keine Approximation; prospektiv sammeln |
+| D – COT | `COLLECTOR_HEALTHY_RESEARCH_BLOCKED` | Quelle aktuell; First-Seen-Historie erst 31,342 Tage / 3 Collection-Tage; weiter append-only sammeln und später Coverage erneut prüfen |
+| E – Crypto Regime | `BLOCKED_NO_NEW_INFORMATION_LAYER` | nur bereits bekannte technische OHLCV-Schicht; keine Dominance/Breadth/Liquidity/On-Chain-PIT-Schicht; kein Retest |
+| F – Gold/Silber | `BLOCKED_BY_DATA_SEMANTICS` | Futures-Kontrakt-, Roll-, Session-, Open- und Kostenprovenienz weiterhin nicht belegt |
+| G – Review | `DONE` | 0 neue Challenger; Development, Validation, Holdout, External, Forward, Paper, Shadow, Broker und Orders geschlossen |
+
+Aktiver Betriebsplan ist jetzt ausschließlich signalunabhängige Datensammlung. Ein neuer Forschungsvertrag darf erst nach einem späteren reproduzierbaren Coverage-Gate entstehen. Maximal drei Challenger bleiben die harte Obergrenze dieser Informationslayer-Freigabe; aktuell wurden 0 erzeugt. Abgeschlossene negative Claims werden nicht wieder geöffnet.
 
 ## Aktiver endlicher Research-Programmzyklus R0–R9
 

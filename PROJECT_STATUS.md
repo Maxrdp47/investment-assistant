@@ -6,7 +6,7 @@ Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben s
 
 ### Git und Dokumentation
 
-- Aktiver Branch des endlichen Research-Programms: `codex/final-finite-research-program`; Ausgangs-HEAD ist der vollständig geprüfte v7-r2-Review-Commit `fb56ea820ec28befc57a67e091a18d9c19d77b72`.
+- Aktiver Branch der begrenzten Informationslayer-/Data-Health-Runde: `codex/information-layer-data-health`; unveränderter Ausgangs-HEAD ist der abgeschlossene und gepushte R0–R9-Stand `9a1969fd7eb56f3758f3e980069d7ab41a629cb9`.
 - Der Review-Stand wurde am 2026-09-15 ohne Divergenz per normalem Fast-Forward auf `origin/main` integriert. Er liegt damit nicht mehr nur auf dem Recovery-Branch.
 - Ausgangs-HEAD des Recovery-Auftrags: `9990fbf557b414a51ca450aabb2a89f278d00d47`.
 - Geprüfter Projekt-HEAD und Upstream vor dem v7-r2-Review-Commit: `30e26f2157e8a1b3eae761fd1cac73b71a462b92`.
@@ -15,6 +15,16 @@ Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben s
 - Der ausdrücklich freigegebene endliche Research-Programmzyklus `finite-research-program-2026-09-15-v1` ist terminal abgeschlossen. R0–R6 wurden innerhalb ihrer jeweiligen Gates abgeschlossen oder begrenzt; R2 blieb vor Performance an fehlender Futures-Kontrakt-/Roll-/Open-Provenienz blockiert. R6 lief nach grünem Smoke #61 und Pilot-/Replay-/Integrity-PASS mit 6 Workern/1 Writer vollständig durch. Der Final Audit ist `PASS`, der Review fand 0 robuste Quality-C-Kandidaten. R7 wurde nicht geöffnet, R8 aktivierte 0 Reserve-Hypothesen und R9 setzte `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM`. Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker und Orders blieben geschlossen.
 - Der endgültige Programm-Commit ist der Commit, der die Abschlussfassung enthält; der Abschlussbericht nennt seinen Hash und den CI-Stand.
 - Der unmittelbar vorher getrennt abgeschlossene ENTRY-Handoff-Importer liegt in Commit `b1e3802b807649bc2cf871fa31ccf09fd8781cac`. Er gehört nicht zur Urlaubs-Queue und wurde nicht mit diesem Dokumentationspaket vermischt.
+
+### Informationslayer- und Data-Health-Runde
+
+- Der vollständige read-only A–M-Audit steht in [`RESEARCH_DATA_HEALTH_AND_COVERAGE_2026-09-23.md`](RESEARCH_DATA_HEALTH_AND_COVERAGE_2026-09-23.md); der daraus abgeleitete Lückenbericht steht in [`DATA_COLLECTION_GAP_REPORT_2026-09-23.md`](DATA_COLLECTION_GAP_REPORT_2026-09-23.md). Der Audit liest bestehende SQLite-Stores mit `mode=ro`, prüft die beiden aktiven Windows-Aufgaben und verwendet ausschließlich die kanonischen Zustände `HEALTHY`, `STALE`, `PARTIAL`, `FAILED`, `NOT_CONFIGURED` und `NOT_APPLICABLE`.
+- Operativ aktiv und im Windows-Aufgabenplaner jeweils `Ready` sind `InvestmentAssistant-FX-PIT-Observer` und `InvestmentAssistantDailyForecasts`. Der letzte geplante FX-Lauf vom 2026-09-22 21:45 war erfolgreich; der commit-attribuierte Reparaturlauf `fxpit-run-8bc429f20d7df5c68dd130d984205a38` unter `859b4f6abead3aecd0bd0d9dd6b9adb6610227d0` endete am 2026-09-23 ebenfalls `COMPLETED`, mit Store-Integrität `ok`, 0 Providerfehlern und 0 verbotenen Ausgaben. Der letzte Prognoselauf vom 2026-09-22 22:30 endete mit 324 Erfolgen, einem expliziten Fehler für `MATIC-USD` und ohne Rate-Limit-Fehler.
+- Repariert wurde ausschließlich Collector-Semantik: Ein verpasster COT-Freitag wird bei zu alter tatsächlicher Quelle nachgeholt; alte COT-Reports werden nicht mehr als aktuelle `AVAILABLE_PIT`-Coverage ausgegeben; `NO_RELIABLE_DATA` und `NOT_SCHEDULED` verschieben `last_success` nicht mehr fälschlich nach vorn.
+- Der kontrollierte offizielle CFTC-Nachzug am 2026-09-23 speicherte 747 Reports append-only (196 TFF, 551 Disaggregated), 0 Fehler und 0 Produktionswirkung. Der COT-Store steht danach bei 63.439 Reports, 2.580 Availability-Belegen, Quick-Check `ok`; die Quelle ist operativ wieder aktuell. Die tatsächliche First-Seen-Evidenz umfasst aber erst 31,342 Tage und drei Collection-Tage und reicht daher nicht für einen unabhängigen historischen COT-Test.
+- Fundamentals bestehen nur als Capability-/Parsercode: SEC-Snapshot-Cache, konfigurierte SEC-Kontaktkennung und historisches Issuer-Mapping fehlen. Expectations/Macro/Policy-Rates besitzen 0 PIT-Beobachtungen beziehungsweise 0 erwartete/tatsächliche Paare. Company Events umfassen nur 24 veraltete Forward-Snapshots ohne `published_at`. Crypto besitzt 33.675 eingefrorene OHLCV-Bars, aber keine neue PIT-Dominance-, Breadth-, Liquidity- oder On-Chain-Schicht. Gold/Silber bleibt wegen fehlender Futures-Kontrakt-, Roll-, Session-, Open- und Kostenprovenienz blockiert.
+- Damit scheitern alle vorgeschriebenen Coverage-Gates vor Development. Es wurden 0 neue Challenger erzeugt und weder Development-Performance, Validation noch Holdout geöffnet. External, Forward, Paper, Shadow, Broker und Orders blieben geschlossen. Keine abgeschlossene negative technische Hypothese wurde erneut getestet.
+- Terminaler Stand dieser begrenzten Runde: `RESEARCH_BLOCKED_BY_INSUFFICIENT_PIT_DATA`; finaler Data-Health-Fingerprint `70a6f59462558019eb14b2a818f70b5e25c89c5a3a91bf2a042d5393bb20ee43`.
 
 ### R6 Discovery v2 und Programmabschluss
 
@@ -140,8 +150,8 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 |---|---|---|---:|---|
 | `InvestmentAssistant-MultiAssetDiscoveryV1-Development-v7-Recovery-r2` | deaktiviert | 2026-09-14 | 0 | v7-r2 terminal; kein erneuter Scanstart |
 | `InvestmentAssistant-MultiAssetDiscoveryV1-Development-v6-Chain` | deaktiviert | 2026-09-13 21:24 | 2 | v6 bleibt `PAUSED_REQUIRES_REVIEW`; keine Wiederaufnahme |
-| `InvestmentAssistant-FX-PIT-Observer` | aktiviert / bereit | 2026-09-14 21:45 | 0 | getrennter append-only Datenobserver; letzter Lauf erfolgreich |
-| `InvestmentAssistantDailyForecasts` | aktiviert / bereit | 2026-09-14 22:30 | 0 | allgemeine Abendkette; letzter Lauf erfolgreich |
+| `InvestmentAssistant-FX-PIT-Observer` | aktiviert / bereit | 2026-09-22 21:45 | 0 | getrennter append-only Datenobserver; COT-Catch-up repariert und Quelle am 2026-09-23 nachgezogen |
+| `InvestmentAssistantDailyForecasts` | aktiviert / bereit | 2026-09-22 22:30 | 0 | allgemeine Abendkette; 324 erfolgreich, 1 expliziter Assetfehler, 0 Rate-Limits |
 | `InvestmentAssistant-MultiAssetDiscoveryV1-Development` | deaktiviert | 2026-09-03 14:40 | 267014 | alter Development-v5-Scheduler |
 | `InvestmentAssistantSwingResearchCampaign` | deaktiviert | 2026-08-28 13:10 | 0 | alte historische Kampagne |
 | `InvestmentAssistantSwingScan-asia` | deaktiviert | 2026-08-28 10:30 | 0 | Legacy-Swing |
@@ -167,7 +177,7 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 - Die v6-Inputs verwenden getrennte geprüfte Equity-/ETF-, Crypto- und FX-Projektionen.
 - Nichtpositive strukturelle Risiken erhalten keinen erfundenen R-Wert.
 - Fehlende oder ausgeschlossene Bars bleiben sichtbar; kein Clipping, keine Imputation und keine Interpolation.
-- `TECHNIK VORHANDEN`, `DATEN VORHANDEN`, `EVIDENZ VORHANDEN` und `AKTIVIERT` sind unterschiedliche Zustände. Ein vollständiger Coverage-Bericht ist als U3 geplant, aber noch nicht erstellt.
+- `TECHNIK VORHANDEN`, `DATEN VORHANDEN`, `EVIDENZ VORHANDEN` und `AKTIVIERT` sind unterschiedliche Zustände. Der vollständige aktuelle A–M-Coverage-Bericht ist erstellt; fehlende PIT-Evidenz bleibt sichtbar und wurde nicht durch heutige Daten rückdatiert.
 
 ### Knowledge Base
 
@@ -187,4 +197,4 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 
 ### Aktueller nächster Schritt
 
-Das endliche Programm R0–R9 ist mit `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM` abgeschlossen. Es existiert kein freigegebener nächster automatischer Strategietest. `next_step` ist `STOP_AWAIT_USER_REVIEW`. Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker, Orders und Produktionsstrategie blieben ungeöffnet beziehungsweise unverändert.
+Das endliche Programm R0–R9 bleibt mit `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM` abgeschlossen. Die danach freigegebene begrenzte Informationslayer-Runde endet vor Development mit `RESEARCH_BLOCKED_BY_INSUFFICIENT_PIT_DATA`. Nächster zulässiger Schritt ist ausschließlich prospektive, signalunabhängige Datensammlung über die bereits genehmigten Collector und ein späterer neuer Coverage-Review; es existiert kein freigegebener automatischer Strategietest. Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker, Orders und Produktionsstrategie blieben ungeöffnet beziehungsweise unverändert.

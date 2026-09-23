@@ -649,9 +649,9 @@ def render_health_markdown(payload: Mapping[str, object]) -> str:
         [
             "# RESEARCH_DATA_HEALTH_AND_COVERAGE",
             "",
-            f"Version: `{payload['version']}`  ",
-            f"As of: `{payload['as_of']}`  ",
-            f"Fingerprint: `{payload['report_fingerprint']}`  ",
+            f"Version: `{payload['version']}`",
+            f"As of: `{payload['as_of']}`",
+            f"Fingerprint: `{payload['report_fingerprint']}`",
             "Mode: read-only audit; no strategy, signal, trade, broker or order path.",
             "",
             "## Data families",
@@ -692,7 +692,7 @@ def render_gap_markdown(payload: Mapping[str, object]) -> str:
         [
             "# DATA_COLLECTION_GAP_REPORT",
             "",
-            f"As of: `{payload['as_of']}`  ",
+            f"As of: `{payload['as_of']}`",
             f"Source report: `{payload['report_fingerprint']}`",
             "",
             "1. **Are all strategically important data families collected?** No. Price/OHLCV and forecasts exist, while fundamentals, expectations, politics/regulation, yield/rate expectations and execution-quality data are not operational.",

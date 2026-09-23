@@ -1,6 +1,6 @@
 # DATA_COLLECTION_GAP_REPORT
 
-As of: `2026-09-23T07:47:00+00:00`  
+As of: `2026-09-23T07:47:00+00:00`
 Source report: `70a6f59462558019eb14b2a818f70b5e25c89c5a3a91bf2a042d5393bb20ee43`
 
 1. **Are all strategically important data families collected?** No. Price/OHLCV and forecasts exist, while fundamentals, expectations, politics/regulation, yield/rate expectations and execution-quality data are not operational.

@@ -1,8 +1,8 @@
 # RESEARCH_DATA_HEALTH_AND_COVERAGE
 
-Version: `research-data-health-2026.09.23-v1`  
-As of: `2026-09-23T07:47:00+00:00`  
-Fingerprint: `70a6f59462558019eb14b2a818f70b5e25c89c5a3a91bf2a042d5393bb20ee43`  
+Version: `research-data-health-2026.09.23-v1`
+As of: `2026-09-23T07:47:00+00:00`
+Fingerprint: `70a6f59462558019eb14b2a818f70b5e25c89c5a3a91bf2a042d5393bb20ee43`
 Mode: read-only audit; no strategy, signal, trade, broker or order path.
 
 ## Data families

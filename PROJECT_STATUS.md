@@ -2,24 +2,32 @@
 
 Diese Datei enthält nur den aktuell belegten Ist-Stand. Planung und Freigaben stehen in [`ROADMAP.md`](ROADMAP.md). Dauerhafte Forschungsregeln stehen in [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md). Frühere Fassungen wurden unverändert nach [`docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md`](docs/archive/PROJECT_STATUS_LEGACY_THROUGH_2026-09-06.md) verschoben.
 
-## Current Truth – 2026-09-23
+## Current Truth – 2026-09-26
+
+### SwingTrader-Master-Roadmap: geplant, nicht gestartet
+
+- R0–R9 bleibt terminal `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM`; die Informationslayer-Runde bleibt `RESEARCH_BLOCKED_BY_INSUFFICIENT_PIT_DATA`. Bestätigter Trading-Edge: `NONE_CONFIRMED`; automatische Strategiesuche pausiert. R9-Decision und Data-Health-Artefakt wurden read-only geprüft, nicht neu erzeugt.
+- Die neue Roadmap ist als Plan freigegeben: Phase 0 Betrieb, Phase 1 PIT-Daten, danach getrennte Opportunity-/Thesis-/Entry-/Risk-/Monitor-/Exit-Bausteine, integrierte Strategie und stufenweise Evidenz bis zu einem separat genehmigten Live-Bot. Keine dieser geplanten Funktionen wird damit als implementiert oder validiert behauptet.
+- Status: `SWINGTRADER_MASTER_ROADMAP_REBUILT_AWAITING_START`. Keine neue Collector-Aktivierung, Strategiesuche, Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker- oder Orderfreigabe. Die genannten Evidenzstufen bleiben für den neuen Plan geschlossen; alte getrennte Evidenz bleibt unverändert.
+- Am 2026-09-26 read-only verifiziert: FX-PIT-Observer und allgemeine Forecast-Abendkette sind aktiviert/bereit, Research- und Legacy-Swing-Aufgaben deaktiviert. FX lief zuletzt am 2026-09-25 um 21:45 erfolgreich; Forecast um 22:30 mit 339 Erfolgen, einem expliziten Assetfehler und 0 Rate-Limits. Keine Scheduleränderung durch diesen Auftrag.
+- Zusätzliche Filing-/Expectation-/Makro-/Policy-/Crypto-Regime-Collector sind hier nicht als aktiv nachgewiesen. Der A–M-Coverage-Stand vom 2026-09-23 bleibt ein datierter Audit, keine laufend aktualisierte Erfolgsmeldung. Die technische Indikatorreserve bleibt dokumentierte, triggergebundene Planung, nicht neu implementiert oder getestet.
 
 ### Git und Dokumentation
 
-- Aktiver Branch der begrenzten Informationslayer-/Data-Health-Runde: `codex/information-layer-data-health`; unveränderter Ausgangs-HEAD ist der abgeschlossene und gepushte R0–R9-Stand `9a1969fd7eb56f3758f3e980069d7ab41a629cb9`.
+- Dokumentationsbranch: `codex/swingtrader-master-roadmap`, ausgehend vom unveränderten Data-Health-Commit `da8c02fe2cf585fe133bb3ecd1f5f4742a0292ec` auf `codex/information-layer-data-health`. Commit-/Push-/CI-Ergebnis dieser Überarbeitung steht im zugehörigen Abschlussbericht; eine Integration nach `main` wird nicht behauptet.
 - Der Review-Stand wurde am 2026-09-15 ohne Divergenz per normalem Fast-Forward auf `origin/main` integriert. Er liegt damit nicht mehr nur auf dem Recovery-Branch.
 - Ausgangs-HEAD des Recovery-Auftrags: `9990fbf557b414a51ca450aabb2a89f278d00d47`.
 - Geprüfter Projekt-HEAD und Upstream vor dem v7-r2-Review-Commit: `30e26f2157e8a1b3eae761fd1cac73b71a462b92`.
-- Die Urlaubs-Workqueue `vacation-workqueue-2026-09-06-v1` ist dokumentiert, aber noch nicht gestartet.
-- Vor einem ausdrücklichen Startsignal wurden keine neue Funktion, kein Benchmark, kein Scan, kein Reprocessing-Lauf, kein Collector und keine Agenten-Wiederaufnahme gestartet.
+- Frühere Roadmap und Urlaubs-Workqueue sind unverändert [archiviert](docs/archive/ROADMAP_ARCHIVE_2026-09-26.md), keine aktive Steuerung. Der alte Resume-Einstieg verweist nur noch auf den neuen Plan und Current Truth.
+- Dieser reine Dokumentationsauftrag startet keine neue Funktion, keinen Benchmark, Scan, Reprocessing-Lauf, Collector und keine Agenten-Wiederaufnahme.
 - Der ausdrücklich freigegebene endliche Research-Programmzyklus `finite-research-program-2026-09-15-v1` ist terminal abgeschlossen. R0–R6 wurden innerhalb ihrer jeweiligen Gates abgeschlossen oder begrenzt; R2 blieb vor Performance an fehlender Futures-Kontrakt-/Roll-/Open-Provenienz blockiert. R6 lief nach grünem Smoke #61 und Pilot-/Replay-/Integrity-PASS mit 6 Workern/1 Writer vollständig durch. Der Final Audit ist `PASS`, der Review fand 0 robuste Quality-C-Kandidaten. R7 wurde nicht geöffnet, R8 aktivierte 0 Reserve-Hypothesen und R9 setzte `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM`. Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker und Orders blieben geschlossen.
 - Der endgültige Programm-Commit ist der Commit, der die Abschlussfassung enthält; der Abschlussbericht nennt seinen Hash und den CI-Stand.
 - Der unmittelbar vorher getrennt abgeschlossene ENTRY-Handoff-Importer liegt in Commit `b1e3802b807649bc2cf871fa31ccf09fd8781cac`. Er gehört nicht zur Urlaubs-Queue und wurde nicht mit diesem Dokumentationspaket vermischt.
 
-### Informationslayer- und Data-Health-Runde
+### Abgeschlossene Informationslayer- und Data-Health-Runde (Audit 2026-09-23)
 
 - Der vollständige read-only A–M-Audit steht in [`RESEARCH_DATA_HEALTH_AND_COVERAGE_2026-09-23.md`](RESEARCH_DATA_HEALTH_AND_COVERAGE_2026-09-23.md); der daraus abgeleitete Lückenbericht steht in [`DATA_COLLECTION_GAP_REPORT_2026-09-23.md`](DATA_COLLECTION_GAP_REPORT_2026-09-23.md). Der Audit liest bestehende SQLite-Stores mit `mode=ro`, prüft die beiden aktiven Windows-Aufgaben und verwendet ausschließlich die kanonischen Zustände `HEALTHY`, `STALE`, `PARTIAL`, `FAILED`, `NOT_CONFIGURED` und `NOT_APPLICABLE`.
-- Operativ aktiv und im Windows-Aufgabenplaner jeweils `Ready` sind `InvestmentAssistant-FX-PIT-Observer` und `InvestmentAssistantDailyForecasts`. Der letzte geplante FX-Lauf vom 2026-09-22 21:45 war erfolgreich; der commit-attribuierte Reparaturlauf `fxpit-run-8bc429f20d7df5c68dd130d984205a38` unter `859b4f6abead3aecd0bd0d9dd6b9adb6610227d0` endete am 2026-09-23 ebenfalls `COMPLETED`, mit Store-Integrität `ok`, 0 Providerfehlern und 0 verbotenen Ausgaben. Der letzte Prognoselauf vom 2026-09-22 22:30 endete mit 324 Erfolgen, einem expliziten Fehler für `MATIC-USD` und ohne Rate-Limit-Fehler.
+- Zum Auditzeitpunkt waren `InvestmentAssistant-FX-PIT-Observer` und `InvestmentAssistantDailyForecasts` jeweils `Ready`. Der damals letzte geplante FX-Lauf vom 2026-09-22 21:45 war erfolgreich; der commit-attribuierte Reparaturlauf `fxpit-run-8bc429f20d7df5c68dd130d984205a38` unter `859b4f6abead3aecd0bd0d9dd6b9adb6610227d0` endete am 2026-09-23 ebenfalls `COMPLETED`, mit Store-Integrität `ok`, 0 Providerfehlern und 0 verbotenen Ausgaben. Der damalige Prognoselauf vom 2026-09-22 22:30 endete mit 324 Erfolgen, einem expliziten Fehler für `MATIC-USD` und ohne Rate-Limit-Fehler. Neuere Betriebsbelege stehen oben und in der Scheduler-Tabelle.
 - Repariert wurde ausschließlich Collector-Semantik: Ein verpasster COT-Freitag wird bei zu alter tatsächlicher Quelle nachgeholt; alte COT-Reports werden nicht mehr als aktuelle `AVAILABLE_PIT`-Coverage ausgegeben; `NO_RELIABLE_DATA` und `NOT_SCHEDULED` verschieben `last_success` nicht mehr fälschlich nach vorn.
 - Der kontrollierte offizielle CFTC-Nachzug am 2026-09-23 speicherte 747 Reports append-only (196 TFF, 551 Disaggregated), 0 Fehler und 0 Produktionswirkung. Der COT-Store steht danach bei 63.439 Reports, 2.580 Availability-Belegen, Quick-Check `ok`; die Quelle ist operativ wieder aktuell. Die tatsächliche First-Seen-Evidenz umfasst aber erst 31,342 Tage und drei Collection-Tage und reicht daher nicht für einen unabhängigen historischen COT-Test.
 - Fundamentals bestehen nur als Capability-/Parsercode: SEC-Snapshot-Cache, konfigurierte SEC-Kontaktkennung und historisches Issuer-Mapping fehlen. Expectations/Macro/Policy-Rates besitzen 0 PIT-Beobachtungen beziehungsweise 0 erwartete/tatsächliche Paare. Company Events umfassen nur 24 veraltete Forward-Snapshots ohne `published_at`. Crypto besitzt 33.675 eingefrorene OHLCV-Bars, aber keine neue PIT-Dominance-, Breadth-, Liquidity- oder On-Chain-Schicht. Gold/Silber bleibt wegen fehlender Futures-Kontrakt-, Roll-, Session-, Open- und Kostenprovenienz blockiert.
@@ -144,14 +152,14 @@ Bei einem ausdrücklich freigegebenen relevanten Legacy-Diagnoseupdate wird dies
 
 ### Scheduler und laufender Betrieb
 
-Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde nach dem terminalen Lauf deaktiviert; dieser fachliche Review hat keinen Scheduler verändert.
+Der folgende Stand wurde am 2026-09-26 read-only im Windows-Aufgabenplaner geprüft (Uhrzeiten Europe/Berlin); die neueren Collector-Ergebnisse wurden zusätzlich in den bestehenden Stores mit `mode=ro` gelesen. Der v7-r2-Task bleibt nach dem terminalen Lauf deaktiviert; dieser Dokumentationsauftrag hat keinen Scheduler verändert.
 
 | Windows-Aufgabe | Zustand | Letzter belegter Lauf | Ergebnis | Bedeutung |
 |---|---|---|---:|---|
 | `InvestmentAssistant-MultiAssetDiscoveryV1-Development-v7-Recovery-r2` | deaktiviert | 2026-09-14 | 0 | v7-r2 terminal; kein erneuter Scanstart |
 | `InvestmentAssistant-MultiAssetDiscoveryV1-Development-v6-Chain` | deaktiviert | 2026-09-13 21:24 | 2 | v6 bleibt `PAUSED_REQUIRES_REVIEW`; keine Wiederaufnahme |
-| `InvestmentAssistant-FX-PIT-Observer` | aktiviert / bereit | 2026-09-22 21:45 | 0 | getrennter append-only Datenobserver; COT-Catch-up repariert und Quelle am 2026-09-23 nachgezogen |
-| `InvestmentAssistantDailyForecasts` | aktiviert / bereit | 2026-09-22 22:30 | 0 | allgemeine Abendkette; 324 erfolgreich, 1 expliziter Assetfehler, 0 Rate-Limits |
+| `InvestmentAssistant-FX-PIT-Observer` | aktiviert / bereit | 2026-09-25 21:45 | 0 | getrennter append-only Datenobserver; Store-Run `COMPLETED`, aktueller COT-Quellenreport vom 2026-09-22 |
+| `InvestmentAssistantDailyForecasts` | aktiviert / bereit | 2026-09-25 22:30 | 0 | allgemeine Abendkette; Run 43 `completed_with_errors`, 339 erfolgreich, 1 expliziter Assetfehler, 0 Rate-Limits |
 | `InvestmentAssistant-MultiAssetDiscoveryV1-Development` | deaktiviert | 2026-09-03 14:40 | 267014 | alter Development-v5-Scheduler |
 | `InvestmentAssistantSwingResearchCampaign` | deaktiviert | 2026-08-28 13:10 | 0 | alte historische Kampagne |
 | `InvestmentAssistantSwingScan-asia` | deaktiviert | 2026-08-28 10:30 | 0 | Legacy-Swing |
@@ -197,4 +205,4 @@ Der folgende Stand ist der zuletzt belegte Betriebszustand. Der v7-r2-Task wurde
 
 ### Aktueller nächster Schritt
 
-Das endliche Programm R0–R9 bleibt mit `NO_ROBUST_EDGE_FOUND_IN_APPROVED_RESEARCH_PROGRAM` abgeschlossen. Die danach freigegebene begrenzte Informationslayer-Runde endet vor Development mit `RESEARCH_BLOCKED_BY_INSUFFICIENT_PIT_DATA`. Nächster zulässiger Schritt ist ausschließlich prospektive, signalunabhängige Datensammlung über die bereits genehmigten Collector und ein späterer neuer Coverage-Review; es existiert kein freigegebener automatischer Strategietest. Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker, Orders und Produktionsstrategie blieben ungeöffnet beziehungsweise unverändert.
+Auf Nutzer-Startsignal für die neue Roadmap warten: `SWINGTRADER_MASTER_ROADMAP_REBUILT_AWAITING_START`. Bereits genehmigte signalunabhängige Collector laufen unverändert weiter. Nach einem späteren Start zunächst Phase 0 read-only absichern, dann die freigegebenen PIT-Datenaufgaben aus Phase 1 bearbeiten; neue Quellen benötigen einen konkreten Quellen-/Sammlungsauftrag. Kein automatischer Strategietest und kein Phasenübersprung. R0–R9 und die blockierte Informationslayer-Runde bleiben abgeschlossen; Validation, Holdout, External, Forward, Paper, Shadow-Ausführung, Broker und Orders werden dadurch nicht geöffnet.

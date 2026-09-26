@@ -1,6 +1,6 @@
 # SwingTrader – kanonische Produktarchitektur
 
-Stand des Zielbilds: 2026-09-06
+Stand des Zielbilds: 2026-09-26
 
 Dieses Dokument ist das verbindliche langfristige Zielbild für den SwingTrader des Investment-Assistenten. Es beschreibt keine neue aktive Handelslogik und erteilt keine Produktions-, Broker- oder Echtgeldfreigabe. Der belegte Ist-Stand steht ausschließlich in `PROJECT_STATUS.md`; Prioritäten und Freigaben stehen ausschließlich in `ROADMAP.md`. Die Reifehinweise unten ordnen vorhandene Bausteine architektonisch ein und sind keine laufenden Status- oder Startaussagen.
 
@@ -10,7 +10,7 @@ Dieses Dokument ist das verbindliche langfristige Zielbild für den SwingTrader 
 
 Next-Open-Entry, fixer Stop, fixer 2R-Exit, 5/10/20/25-Sitzungs-Labels und feste maximale Forschungshorizonte sind kontrollierte wissenschaftliche Baselines oder Counterfactuals. Sie machen einzelne Merkmale vergleichbar. Sie sind nicht automatisch das spätere Produktverhalten.
 
-Der SwingTrader ist langfristig **kein klassischer Daily-Trading-Bot**. Das Ziel ist ein transparenter, regelbasierter Multi-Factor Swing-/Investment-Assistent. Ein Trade kann Tage, Wochen oder länger laufen, solange These, Invalidation und verbleibendes Chance-Risiko-Verhältnis intakt bleiben. Zeit allein ist kein primärer Exit-Grund.
+Der SwingTrader ist langfristig **kein klassischer Daily-Trading-Bot**. Das Ziel ist ein autonomes, transparentes, regelbasiertes Multi-Factor Swing-/Position-Trading-System. Ein Trade kann Tage, Wochen oder Monate laufen, solange These, Invalidation und verbleibendes Chance-Risiko-Verhältnis intakt bleiben. Zeit allein löst keinen Exit aus. Langfristige Investment-Verkaufsentscheidungen bleiben ein getrenntes Modul.
 
 ## Langfristiges Produktziel
 
@@ -26,6 +26,8 @@ Das vollständig validierte spätere System soll:
 8. jede Entscheidung mit Datenstand, Gründen, Unsicherheit und Version nachvollziehbar speichern.
 
 `No Trade`, `Warten`, `Watchlist` und `Daten nicht ausreichend` sind vollwertige Ergebnisse. Das System muss keine Position erzwingen.
+
+Der kanonische Ziel-Zustandsautomat lautet `UNIVERSE → WATCH → ENTRY_READY → BUY_SIGNAL → POSITION_OPEN → HOLD → PROTECT → SELL_SIGNAL → CLOSED`, ergänzt um `NO_TRADE`, `WAIT`, `DATA_INSUFFICIENT`. HOLD/PROTECT können wiederholt geprüft werden; diese Darstellung erzwingt keinen Exit. Zunächst nur Signale und Größenvorschläge: Nutzer führen reale Orders selbst aus. Autonome Broker-Execution ist erst nach der gesamten Evidenzkette und einem separaten manuellen Echtgeld-Gate ausdrücklich freizugeben.
 
 ## Statusbegriffe
 
@@ -50,13 +52,15 @@ Architektur-Reifehinweis: Research-Identity trennt Asset, Listing und nur über 
 
 Aufgaben:
 
-- großes handelbares Universum stufenweise scannen,
+- alle geeigneten Assets des großen handelbaren Universums analysieren, ohne prognostischen Candidate-Vorfilter,
 - Multi-Factor-Chancen erkennen und priorisieren,
 - unabhängige Informationsfamilien statt bloßer Rohfeaturezahl bewerten,
 - Redundanz, Korrelation, Datenqualität und Marktregime berücksichtigen,
 - bewusst keine Idee anzeigen, wenn kein Kandidat ausreichend gut ist.
 
 Architektur-Reifehinweis: Das technische Swing-Universum, regionale Scans, Grobfilter und die vollständige Prüfung vorhandener Long-v1-Setups sind als Bausteine vorhanden. Ein validiertes Multi-Factor-Opportunity-Ranking aus Fundamental-, Markt-, Makro-, Event- und Technikschichten existiert noch nicht.
+
+Die geplante Opportunity Engine liefert `WATCH`, `NO_TRADE` oder `DATA_INSUFFICIENT`, noch kein `BUY_SIGNAL`. Technische Grobfilter bestehender Legacy-Scans werden durch dieses Zielbild nicht geändert oder zum künftigen Opportunity-Vertrag erklärt.
 
 ### C. Thesis Engine
 
@@ -82,7 +86,7 @@ Aufgaben:
 - Invalidation,
 - Vorgehen, wenn der erwartete Rücksetzer nicht kommt.
 
-Ein attraktives Asset darf auf der Watchlist bleiben, bis Preis und Bedingungen passen. Ein blindes Next-Open-Kaufen ist kein Produktstandard.
+Ein attraktives Asset darf auf der Watchlist bleiben, bis Preis und Bedingungen passen. Ein blindes Next-Open-Kaufen ist kein Produktstandard. Der geplante Entry Planner liefert `ENTRY_READY`, `WAIT` oder `ENTRY_INVALID` mit maximal akzeptablem Preis und Gültigkeitsbedingungen; die unabhängige Risikofreigabe bleibt zusätzlich erforderlich.
 
 Architektur-Reifehinweis: Der Swing Trade Finder besitzt für vorhandene Setups einen versionierten Orderplan mit Einstieg, Aktivierung/Limit, Maximalpreis, Stop, Zielen, Gültigkeit und Nichteinstiegsbedingungen. Next-Bar-/Next-Open-Annahmen bleiben in historischen Tests kontrollierte Ausführungsbaselines. Ein vollständiger Multi-Factor- und Thesen-gesteuerter Entry-/Tranchenplaner ist noch nicht umgesetzt.
 
@@ -105,7 +109,7 @@ Aufgaben:
 - ursprüngliche These und Invalidation fortlaufend prüfen,
 - Preisstruktur, Markt, Sektor, Events und Unternehmensentwicklung neu bewerten,
 - Datenalter, fehlende Quellen und Unsicherheit melden,
-- Handlungszustände wie `HOLD`, `AUFMERKSAMKEIT`, `RISIKO REDUZIEREN` oder `EXIT PRÜFEN` nachvollziehbar ableiten.
+- Handlungszustände `HOLD`, `ATTENTION`, `PROTECT` oder `EXIT_REVIEW` nachvollziehbar ableiten.
 
 Architektur-Reifehinweis: Technische Nutzertrade-Begleitung, Stop-/Zielprüfung und einige Struktur-/Volumenhinweise existieren. Eine vollständige fortlaufende Thesis-, Fundamental-, Sektor-, Makro- und Event-Neubewertung ist noch nicht umgesetzt oder validiert.
 
@@ -119,6 +123,8 @@ Aufgaben:
 - technische Verschlechterung, Strukturbruch, Thesis Deterioration, negative Events und spätere zulässige Kapitalallokation berücksichtigen.
 
 Das Ziel ist nicht, jedes lokale Hoch exakt zu treffen. Ziel ist, einen robusten Anteil eines Trends mitzunehmen und bei schlechter gewordenem verbleibendem Chance-Risiko-Verhältnis kontrolliert zu reagieren.
+
+`HOLD`, `PROTECT`, `PARTIAL_EXIT` und `FULL_EXIT` benötigen getrennt belegte Regeln. Neue bestätigte höhere Böden dürfen die Long-Protective-Zone nur nach oben ratcheten, niemals nach unten erweitern, um eine schlechte Position weiterzuhalten.
 
 Architektur-Reifehinweis: Die bestehende Swing-Logik besitzt feste Stops, Ziele, Teilgewinn-/Restpositionsregeln und getrennte Paper-Auswertung. `investment_exit_policy.py` hält langfristige Investment-Verkaufsgründe ausdrücklich von Swing-Regeln getrennt. Eine validierte dynamische Swing-Exit-Engine ist noch nicht umgesetzt. Teilgewinn-, Trailing- und Protect-Profit-Varianten bleiben Research-Themen.
 
@@ -183,6 +189,8 @@ Die primäre Frage lautet:
 
 Aus dieser fachlichen Invalidation entsteht eine Zone beziehungsweise ein Stop-Kandidat. Erst danach berechnet die unabhängige Risk Engine aus Entry, Invalidation und maximalem Portfolio-Risiko die zulässige Positionsgröße.
 
+Eine breite Safe Zone verlangt eine kleinere Position und ist nicht automatisch ein schlechter Trade. Jede neue Safe-Zone-Produktregel benötigt eigene Validierung; bestehende Risikogrenzen bleiben bis dahin unverändert.
+
 Ein Stop ist keine Garantie für den Schutz des vollständig investierten Betrags. Gaps, Slippage, Liquidität und Ausführungsfehler können den realen Verlust vergrößern.
 
 ## Dynamisches Halten und Verkaufen
@@ -201,7 +209,9 @@ Eine feste Haltedauer allein darf im späteren Produkt keine automatische Schlie
 
 Der verbindliche Forschungsweg bleibt:
 
-`Frozen Historical Data → Development → Fixed Challenger → Validation → Holdout → External Unseen Universe → True Forward → Autonomous Paper → Shadow Live → separates Echtgeld-Gate`
+`Frozen Historical Data → Baustein-Development → genau ein Integrated Fixed Challenger → vollständiges Development / Walk-Forward → Validation → Holdout → External Unseen Universe → True Forward Signals → Autonomous Paper → Shadow Live → separates manuelles Echtgeld-Gate`
+
+Vor globalem OOS muss die vollständige Strategie mit Kapital, offenen/überlappenden Positionen, Cash, Sizing, Clustern/Korrelation, offenem Risiko, Kosten/Slippage/Gaps, relevanten Haltekosten, realisierter/unrealisierter P&L, Kapitalbindung und Drawdown simuliert werden. Jede weitere Stufe benötigt einen ausdrücklichen Vertrag; PASS allein ist keine Startfreigabe. Nach dem Echtgeld-Gate folgen separat freizugebender begrenzter Live-Pilot und kontrollierte Kapitalstufen, kein automatisches Scaling.
 
 Ein erfolgreiches Entry-Feature ist nur ein Baustein. Folgende Produktmodule benötigen jeweils eigene Evidenz:
 

@@ -2,6 +2,13 @@
 
 Dieses Dokument nennt abgeschlossene Änderungen. Es ist keine Roadmap und enthält keine Startfreigabe.
 
+## 2026-09-26 – SwingTrader-Master-Roadmap neu aufgebaut (nur Dokumentation)
+
+- [ROADMAP.md](ROADMAP.md) ersetzt historische Run-/Urlaubssteuerung durch den Zukunftsplan Phase 0–18: PIT-Daten → Opportunity/These → Entry → unabhängiges Risiko → Monitor/dynamischer Exit → integrierte Strategie → getrennte Evidenzstufen → manuelles Echtgeld-Gate → begrenzter Live-Bot/Skalierung. Endliche Attempt-Limits, Coverage-/Stop-Gates, Signal-vor-Order und mehrwöchige/mehrmonatige Positionen ohne Fixed-Time-Exit sind explizit.
+- Alte Roadmap und Urlaubs-Fortsetzungsdatei wurden vor Bearbeitung bytegleich [archiviert](docs/archive/ROADMAP_ARCHIVE_2026-09-26.md); alte Freigaben bleiben historische Referenz, keine aktive Queue. README-Prioritäten und Produktarchitektur sind an den kanonischen Plan angeglichen.
+- PROJECT_STATUS trennt die neue Planung vom unveränderten negativen/blockierten Research-Endstand und nennt die am 2026-09-26 read-only belegten beiden aktiven Collector samt letzter Läufe. Der konkrete Legacy-Forward-Tradeblock bleibt erhalten; keine neue Indikatorreserve implementiert oder getestet.
+- Ausschließlich Dokumentation und deren Regressionstests: keine Runtime-, Frozen-, Research-, Strategie-, Collector-, Scheduler-, Broker- oder Orderänderung. Status `SWINGTRADER_MASTER_ROADMAP_REBUILT_AWAITING_START`; auf spätere Nutzerfreigabe warten.
+
 ## 2026-09-23 – Endliches Research-Programm R0–R9 abgeschlossen
 
 - R6 `mad2-development-v2-20260922-v1` wurde nach grünem CI sowie Pilot-/Replay-/Integrity-PASS vollständig mit 60.432/60.432 Receipts und 2.356.553 Fällen abgeschlossen. Der [Final Audit](R6_MULTI_ASSET_DISCOVERY_V2_FINAL_AUDIT_2026-09-22.md) ist `PASS`; der [Descriptive Development Report](R6_MULTI_ASSET_DISCOVERY_V2_DESCRIPTIVE_DEVELOPMENT_REPORT_2026-09-22.md) wertet alle 31 vorab benannten Einzelfeatures aus. Der [Completion Summary](R6_MULTI_ASSET_DISCOVERY_V2_COMPLETION_SUMMARY_2026-09-22.md) dokumentiert 0 robuste Kandidaten und ein ungeöffnetes R7.

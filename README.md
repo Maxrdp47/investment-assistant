@@ -14,9 +14,9 @@ Kanonische Projektdokumente:
 - [`ROADMAP.md`](ROADMAP.md): zukünftige Arbeit, Prioritäten und ausdrückliche Freigaben
 - [`RESEARCH_POLICY.md`](RESEARCH_POLICY.md): dauerhafte Forschungs- und Validierungsregeln
 - [`CHANGELOG.md`](CHANGELOG.md): abgeschlossene Änderungen
-- [`VACATION_WORKQUEUE_RESUME.md`](VACATION_WORKQUEUE_RESUME.md): kompakter Fortsetzungsstand der vorbereiteten Urlaubs-Queue
+- [`VACATION_WORKQUEUE_RESUME.md`](VACATION_WORKQUEUE_RESUME.md): Archivverweis; keine aktive Urlaubs-Queue oder Resume-Freigabe
 
-Die Urlaubs-Queue ist dokumentiert, aber noch nicht gestartet. Vor einem ausdrücklichen neuen Startsignal werden daraus keine Funktionen, Scans, Reprocessing-Läufe, Collector oder Forschungsstufen gestartet.
+Die frühere Urlaubs-Queue ist ausschließlich archiviert. Die neue SwingTrader-Master-Roadmap ist geplant, aber noch nicht gestartet; sie ersetzt alte Start-/Resume-Anweisungen und erteilt keine neue Collector-, Forschungs- oder Handelsfreigabe.
 
 ## Funktionen
 
@@ -422,16 +422,7 @@ Für das Lernsystem gilt:
 
 ## Dynamische Entwicklungsprioritäten
 
-Wenn später `Arbeite weiter` geschrieben wird, soll nicht starr die erste Aufgabe aus der ROADMAP bearbeitet werden. Stattdessen wird bewertet, welche offene Aufgabe den größten Nutzen für Analysequalität, Stabilität und Lernfähigkeit hat.
-
-Priorität haben:
-
-- PRIO A: Grundfähigkeit der Analyse, z. B. Datenqualität, Fehlerbehandlung, Bewertungslogik, Marktphasen, Wahrscheinlichkeiten, Fundamentaldaten, Krypto, Makro, News und Risikoanalyse
-- PRIO B: Messung der Analysequalität, z. B. Opportunity Scanner, Trading-Modus, Trade Journal, Performance Tracking, Forward-Testing, Decision-Tracking, Prognose-Tracking, Confidence-System, Trefferquote, Kalibrierung und Lernmodul
-- PRIO C: Architektur und Wartbarkeit, z. B. Refactoring, Modularisierung, Performance, Dokumentation und Testbarkeit
-- PRIO D: Komfortfunktionen, z. B. Favoriten, Watchlists, Exporte oder reine UI-Verschönerungen
-
-Komfortfunktionen dürfen nicht vor Analysequalität bearbeitet werden. Wenn Prioritäten geändert werden, muss die Begründung in `ROADMAP.md` dokumentiert werden.
+Verbindlich sind ausschließlich Phasen, Prioritäten und Freigabegrenzen der [SwingTrader-Roadmap](ROADMAP.md). Nach einem späteren Startsignal zuerst Current Truth und Betriebsintegrität prüfen, dann die höchste sichere Aufgabe der freigegebenen Phase bearbeiten. PIT-Daten kommen vor neuer Strategiesuche; Komfortarbeit darf diese Reihenfolge nicht verdrängen. Allgemeines `Arbeite weiter` öffnet keine neue Forschungsstufe oder Orderfunktion und reaktiviert keine historische Queue.
 
 ## Die drei Scores
 

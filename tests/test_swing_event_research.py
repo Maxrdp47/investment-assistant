@@ -526,8 +526,15 @@ def test_roadmap_status_and_runtime_config_keep_event_layer_separate_from_broad_
         (PROJECT_ROOT / "config" / "swing_background_settings.json").read_text(encoding="utf-8")
     )
 
-    assert "G2.7 – getrennter Point-in-Time Event-/News-/Makro-/Geopolitik-Edge-Layer" in roadmap
-    assert "Der technische Broad-Vollpass wartet ausdrücklich **nicht**" in roadmap
+    legacy_roadmap = (
+        PROJECT_ROOT / "docs/archive/ROADMAP_LEGACY_THROUGH_2026-09-26.md"
+    ).read_text(encoding="utf-8")
+    assert "G2.7 – getrennter Point-in-Time Event-/News-/Makro-/Geopolitik-Edge-Layer" in legacy_roadmap
+    assert "Der technische Broad-Vollpass wartet ausdrücklich **nicht**" in legacy_roadmap
+    assert "1D – Events / Catalysts" in roadmap
+    assert "1F – Politik / Geopolitik" in roadmap
+    assert "keine neue Ausführungsfreigabe" in roadmap
+    assert "SWINGTRADER_MASTER_ROADMAP_REBUILT_AWAITING_START" in roadmap
     assert "Point-in-Time Event-/News-/Makro-/Geopolitik-Research" in status
     assert EVENT_CODE_FINGERPRINT in status
     assert "24 generische, damals bekannte Unternehmenstermine" in status
